@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Ticket;
 
-class Category extends Model
+class Comment extends Model
 {
     protected $guarded = [];
-    public function tickets()
+
+    public function ticket()
     {
-        return $this->hasMany(Ticket::class);
+        return $this->belongsTo(Ticket::class);
     }
 }

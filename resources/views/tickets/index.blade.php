@@ -8,6 +8,10 @@
     </p>
 
     <p>
+        <b>Category:</b> {{ $ticket->category->name }}
+    </p>
+
+    <p>
         Status: {{ $ticket->status }}
     </p>
 
