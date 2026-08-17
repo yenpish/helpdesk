@@ -19,6 +19,39 @@
     {{ $ticket->priority }}
 </p>
 
+<h2>Update Status</h2>
+
+<form method="POST" action="/tickets/{{ $ticket->id }}">
+
+    @csrf
+    @method('PATCH')
+
+    <select name="status">
+
+        <option value="Pending">
+            Pending
+        </option>
+
+        <option value="In Progress">
+            In Progress
+        </option>
+
+        <option value="Resolved">
+            Resolved
+        </option>
+
+        <option value="Closed">
+            Closed
+        </option>
+
+    </select>
+
+    <button>
+        Update Status
+    </button>
+
+</form>
+
 
 <h2>Comments</h2>
 
