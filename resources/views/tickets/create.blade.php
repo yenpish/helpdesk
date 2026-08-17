@@ -12,6 +12,20 @@
 
     <br>
 
+    <label>Category:</label>
+
+    <select name="category_id">
+
+        @foreach($categories as $category)
+
+            <option value="{{ $category->id }}">
+                {{ $category->name }}
+            </option>
+
+        @endforeach
+
+    </select>
+
     <label>Status:</label>
     <input type="text" name="status">
 

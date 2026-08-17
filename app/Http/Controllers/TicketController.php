@@ -25,7 +25,10 @@ class TicketController extends Controller
      */
     public function create()
     {
-        return view('tickets.create');
+        $categories = Category::all();
+        return view('tickets.create',[
+            'categories'=>$categories
+        ]);
     }
 
     /**
@@ -38,6 +41,7 @@ class TicketController extends Controller
             'description' => $request->description,
             'status' => $request->status,
             'priority' => $request->priority,
+            'category_id' => $request->category_id,
         ]);
         return redirect('/tickets');
     }
