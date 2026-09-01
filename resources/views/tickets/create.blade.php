@@ -1,3 +1,10 @@
+@if ($errors->any())
+    <ul>
+        @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+@endif
 <h1>Create Ticket</h1>
 
 <form method="POST" action="/tickets">
