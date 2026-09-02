@@ -7,6 +7,8 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceEventController;
 use App\Http\Controllers\PublicAttendanceController;
 
+Route::get('/', function () {return view('home');})->name('home');
+
 Route::resource('tickets', TicketController::class)->middleware('auth');
 
 Route::patch('tickets/{ticket}/assignment', [TicketController::class, 'assign'])

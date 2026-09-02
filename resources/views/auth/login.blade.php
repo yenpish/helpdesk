@@ -90,7 +90,7 @@
         Sign in to access your account
     </p>
 
-    <form method="POST" action="/login">
+    <form method="POST" action="{{ route('login') }}">
 
         @csrf
 
