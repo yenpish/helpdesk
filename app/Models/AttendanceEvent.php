@@ -13,6 +13,7 @@ class AttendanceEvent extends Model
         'location_id',
         'starts_at',
         'ends_at',
+        'pin',
     ];
 
     protected $casts = [

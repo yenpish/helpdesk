@@ -4,7 +4,6 @@ use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\AttendanceController;
-use function Pest\Laravel\post;
 
 Route::resource('tickets', TicketController::class)->middleware('auth');
 
@@ -28,3 +27,26 @@ Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn'])
 Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])
     ->middleware('auth')
     ->name('attendance.clock-out');
+
+//the route for attendance events, to create etc..
+
+use App\Http\Controllers\AttendanceEventController;
+
+Route::get('/attendance-events/create', [AttendanceEventController::class, 'create'])
+    ->name('attendance-events.create');
+
+Route::post('/attendance-events', [AttendanceEventController::class, 'store'])
+    ->name('attendance-events.store');
+
+//the route for attendace pin prompt
+
+use App\Http\Controllers\PublicAttendanceController;
+
+Route::get('/attendance', [PublicAttendanceController::class, 'enterPin'])
+    ->name('attendance.pin');
+
+Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])
+    ->name('attendance.verify');
+
+Route::get('/attendance/{event}', [PublicAttendanceController::class, 'showForm'])
+    ->name('attendance.form');

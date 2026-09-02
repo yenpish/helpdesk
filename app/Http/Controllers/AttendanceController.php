@@ -48,10 +48,8 @@ class AttendanceController extends Controller
         $withinSite = $distance <= $location->allowed_radius;
 
         /*
-         * If this is the office location and the user is outside it,
-         * do NOT create an attendance record yet.
-         *
-         * Location #1 is currently the office.
+         * If this is the office location and the user is outside it, dont create an attendance record yet.
+           Location #1 is currently the office.
          */
         if ($location->id === 1 && !$withinSite) {
             return response()->json([
@@ -66,9 +64,8 @@ class AttendanceController extends Controller
         }
 
         /*
-         * For the selected office/site:
-         * only record attendance when the user is actually
-         * within the configured radius.
+          For the selected office/site:
+          only record attendance when the user is actually within the configured radius.
          */
         if (!$withinSite) {
             return response()->json([
