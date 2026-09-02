@@ -1,3 +1,10 @@
+@if ($errors->any())
+    <ul>
+        @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+@endif
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,7 +21,7 @@
 
 <h2>Attendance Details</h2>
 
-<form method="POST" action="#">
+<form method="POST" action="{{ route('attendance.store', $event) }}">
     @csrf
 
     <div>

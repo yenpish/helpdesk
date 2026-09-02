@@ -8,6 +8,22 @@ use Illuminate\Http\Request;
 
 class AttendanceEventController extends Controller
 {
+    public function index()
+    {
+        $events = AttendanceEvent::with('location')
+            ->withCount('attendances')
+            ->latest()
+            ->get();
+
+        return view('attendance-events.index', compact('events'));
+    }
+    public function show(AttendanceEvent $event)
+    {
+        $event->load('attendances');
+
+        return view('attendance-events.show', compact('event'));
+    }
+
     public function create()
     {
         $locations = Location::all();
