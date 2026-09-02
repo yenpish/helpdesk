@@ -32,18 +32,27 @@ class PublicAttendanceController extends Controller
                 'pin' => 'This attendance session is not currently active.',
             ]);
         }
+        session(['attendance_event_id' => $event->id]);
 
         return redirect()->route('attendance.form', $event);
     }
 
     public function showForm(AttendanceEvent $event)
     {
+        if (session('attendance_event_id') !== $event->id) {
+            return redirect()->route('attendance.pin');
+        }
+
         return view('attendance.form', compact('event'));
     }
 
     //take the submitted form and store it after validating
     public function store(Request $request, AttendanceEvent $event)
     {
+        if (session('attendance_event_id') !== $event->id) {
+            return redirect()->route('attendance.pin');
+        }
+
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],

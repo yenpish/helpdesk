@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
-use App\Models\AttendanceEvent;
 use App\Models\Location;
 use Illuminate\Http\Request;
 
