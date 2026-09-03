@@ -77,6 +77,23 @@
         button:hover {
             background: #333;
         }
+        .attendance-button {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 12px;
+            padding: 11px;
+            border-radius: 3px;
+            background: #2563eb;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-size: 15px;
+        }
+
+        .attendance-button:hover {
+            background: #1d4ed8;
+        }
     </style>
 </head>
 
@@ -123,6 +140,10 @@
         </button>
 
     </form>
+
+    <a href="{{ route('event-attendance.pin') }}" class="attendance-button">
+        Event Attendance
+    </a>
 
 </div>
 
