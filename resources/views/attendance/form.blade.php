@@ -1,60 +1,99 @@
-@if ($errors->any())
-    <ul>
-        @foreach ($errors->all() as $error)
-            <li>{{ $error }}</li>
-        @endforeach
-    </ul>
-@endif
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Form</title>
-</head>
-<body>
-<h1>{{ $event->name }}</h1>
+@extends('layouts.app')
 
-<p>Location: {{ $event->location->name }}</p>
-<p>Starts: {{ $event->starts_at->format('d/m/Y H:i') }}</p>
-<p>Ends: {{ $event->ends_at->format('d/m/Y H:i') }}</p>
+@section('title', $event->name . ' - Attendance')
 
-<h2>Attendance Details</h2>
+@section('content')
 
-<form method="POST" action="{{ route('attendance.store', $event) }}">
-    @csrf
+    <h1>{{ $event->name }}</h1>
 
-    <div>
-        <label for="full_name">Full Name</label>
-        <input type="text" id="full_name" name="full_name" required>
+    <div class="subtitle">
+        <div>Location: {{ $event->location->name }}</div>
+        <div>Starts: {{ $event->starts_at->format('d/m/Y H:i') }}</div>
+        <div>Ends: {{ $event->ends_at->format('d/m/Y H:i') }}</div>
     </div>
 
-    <div>
-        <label for="position">Position</label>
-        <input type="text" id="position" name="position">
-    </div>
+    @if ($errors->any())
+        <div class="error">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
 
-    <div>
-        <label for="unit">Unit / Organization</label>
-        <input type="text" id="unit" name="unit">
-    </div>
+    <h2>Attendance Details</h2>
 
-    <div>
-        <label for="phone">Phone</label>
-        <input type="text" id="phone" name="phone">
-    </div>
+    <form method="POST" action="{{ route('attendance.store', $event) }}">
 
-    <div>
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email">
-    </div>
+        @csrf
 
-    <div>
-        <label for="signature">Signature</label>
-        <textarea id="signature" name="signature"></textarea>
-    </div>
+        <div class="field">
+            <label for="full_name">Full Name</label>
+            <input
+                type="text"
+                id="full_name"
+                name="full_name"
+                value="{{ old('full_name') }}"
+                required
+            >
+        </div>
 
-    <button type="submit">Submit Attendance</button>
-</form>
-</body>
-</html>
+        <div class="field">
+            <label for="position">Position</label>
+            <input
+                type="text"
+                id="position"
+                name="position"
+                value="{{ old('position') }}"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="unit">Unit / Organization</label>
+            <input
+                type="text"
+                id="unit"
+                name="unit"
+                value="{{ old('unit') }}"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="phone">Phone</label>
+            <input
+                type="text"
+                id="phone"
+                name="phone"
+                value="{{ old('phone') }}"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="email">Email</label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                value="{{ old('email') }}"
+                required
+            >
+        </div>
+
+        <div class="field">
+            <label for="signature">Signature</label>
+            <textarea id="signature" name="signature">{{ old('signature') }}</textarea>
+        </div>
+
+        <button type="submit">
+            Submit Attendance
+        </button>
+
+    </form>
+
+    <a class="back-link" href="{{ route('attendance.pin') }}">
+        Back to PIN
+    </a>
+
+@endsection

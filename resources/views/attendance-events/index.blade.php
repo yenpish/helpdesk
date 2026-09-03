@@ -1,30 +1,113 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Sessions</title>
-</head>
-<body>
-<h1>Attendance Sessions</h1>
+@extends('layouts.app')
 
-<a href="{{ route('attendance-events.create') }}">Create New Session</a>
+@section('title', 'Organizer Dashboard')
 
-@foreach ($events as $event)
-    <div>
-        <h2>{{ $event->name }}</h2>
+@section('container_class', 'wide-box')
 
-        <p>Location: {{ $event->location->name }}</p>
-        <p>Starts: {{ $event->starts_at?->format('d/m/Y H:i') ?? 'Not set' }}</p>
-        <p>Ends: {{ $event->ends_at?->format('d/m/Y H:i') ?? 'Not set' }}</p>
-        <p>Attendees: {{ $event->attendances_count }}</p>
+@section('content')
 
-        <a href="{{ route('attendance-events.show', $event) }}">
-            View Attendance
-        </a>
+    <h1>Organizer Dashboard</h1>
+
+    <p>
+        <a class="page-link" href="{{ route('home') }}">Back to Home</a>
+        <a class="page-link" href="{{ route('attendance-events.create') }}">Create New Session</a>
+    </p>
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-label">Total Sessions</div>
+            <div class="stat-value">{{ $totalEvents }}</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-label">Total Attendees</div>
+            <div class="stat-value">{{ $totalAttendees }}</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-label">Active Sessions</div>
+            <div class="stat-value">{{ $activeEvents }}</div>
+        </div>
+
     </div>
 
-    <hr>
-@endforeach
-</body>
-</html>
+    <h2>Attendance Sessions</h2>
+
+    <div class="table-container">
+
+        <table>
+
+            <thead>
+            <tr>
+                <th>Event</th>
+                <th>Location</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Attendees</th>
+                <th></th>
+            </tr>
+            </thead>
+
+            <tbody>
+
+            @forelse ($events as $event)
+
+                @php
+                    $status = 'upcoming';
+
+                    if ($event->starts_at && $event->ends_at) {
+                        if (now()->between($event->starts_at, $event->ends_at)) {
+                            $status = 'active';
+                        } elseif (now()->gt($event->ends_at)) {
+                            $status = 'ended';
+                        }
+                    }
+                @endphp
+
+                <tr>
+                    <td>
+                        <span class="status-dot status-{{ $status }}"></span>
+                        <strong>{{ $event->name }}</strong>
+                    </td>
+
+                    <td>
+                        {{ $event->location->name }}
+                    </td>
+
+                    <td>
+                        {{ $event->starts_at?->format('d/m/Y H:i') ?? 'Not set' }}
+                    </td>
+
+                    <td>
+                        {{ $event->ends_at?->format('d/m/Y H:i') ?? 'Not set' }}
+                    </td>
+
+                    <td>
+                        {{ $event->attendances_count }}
+                    </td>
+
+                    <td>
+                        <a href="{{ route('attendance-events.show', $event) }}">
+                            View Attendance
+                        </a>
+                    </td>
+                </tr>
+
+            @empty
+
+                <tr>
+                    <td colspan="6">
+                        No attendance sessions found.
+                    </td>
+                </tr>
+
+            @endforelse
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+@endsection

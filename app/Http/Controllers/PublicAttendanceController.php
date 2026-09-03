@@ -61,11 +61,11 @@ class PublicAttendanceController extends Controller
 
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
-            'unit' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'position' => ['required', 'string', 'max:255'],
+            'unit' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:50'],
             'email' => [
-                'nullable',
+                'required',
                 'email',
                 'max:255',
                 Rule::unique('attendances', 'email')

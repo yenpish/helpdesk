@@ -1,28 +1,39 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Helpdesk</title>
-</head>
-<body>
+@extends('layouts.app')
 
-<h1>Helpdesk</h1>
+@section('title', 'Helpdesk')
 
-<a href="{{ route('attendance.pin') }}">Attendance</a>
+@section('content')
 
-@auth
-    @if (auth()->user()->role === 'organizer')
-        <a href="{{ route('attendance-events.index') }}">Attendance Sessions</a>
-    @endif
+    <h1>Helpdesk</h1>
 
-    <form method="POST" action="{{ route('logout') }}">
-        @csrf
-        <button type="submit">Logout</button>
-    </form>
-@else
-    <a href="{{ route('login') }}">Login</a>
-@endauth
+    <a class="page-link" href="{{ route('attendance.pin') }}">
+        Attendance
+    </a>
 
-</body>
-</html>
+    @auth
+
+        @if (auth()->user()->role === 'organizer')
+
+            <a class="page-link" href="{{ route('attendance-events.index') }}">
+                Attendance Sessions
+            </a>
+
+        @endif
+
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+
+            <button type="submit">
+                Logout
+            </button>
+        </form>
+
+    @else
+
+        <a class="page-link" href="{{ route('login') }}">
+            Login
+        </a>
+
+    @endauth
+
+@endsection

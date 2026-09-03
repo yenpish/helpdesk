@@ -15,7 +15,22 @@ class AttendanceEventController extends Controller
             ->latest()
             ->get();
 
-        return view('attendance-events.index', compact('events'));
+        $totalEvents = $events->count();
+
+        $totalAttendees = $events->sum('attendances_count');
+
+        $activeEvents = $events->filter(function ($event) {
+            return $event->starts_at
+                && $event->ends_at
+                && now()->between($event->starts_at, $event->ends_at);
+        })->count();
+
+        return view('attendance-events.index', compact(
+            'events',
+            'totalEvents',
+            'totalAttendees',
+            'activeEvents'
+        ));
     }
     public function show(AttendanceEvent $event)
     {
