@@ -6,10 +6,18 @@
 
     <h1>{{ $event->name }}</h1>
 
-    <div class="subtitle">
-        <div>Location: {{ $event->location->name }}</div>
-        <div>Starts: {{ $event->starts_at->format('d/m/Y H:i') }}</div>
-        <div>Ends: {{ $event->ends_at->format('d/m/Y H:i') }}</div>
+    <div class="event-meta">
+        <p>
+            <strong>Location</strong><br>
+            {{ $event->location->name }}
+        </p>
+
+        <p>
+            <strong>Date & Time</strong><br>
+            {{ $event->starts_at->format('d/m/Y H:i') }}
+            —
+            {{ $event->ends_at->format('d/m/Y H:i') }}
+        </p>
     </div>
 
     @if ($errors->any())
@@ -44,7 +52,6 @@
                 id="position"
                 name="position"
                 value="{{ old('position') }}"
-                required
             >
         </div>
 
@@ -55,7 +62,6 @@
                 id="unit"
                 name="unit"
                 value="{{ old('unit') }}"
-                required
             >
         </div>
 
@@ -66,7 +72,6 @@
                 id="phone"
                 name="phone"
                 value="{{ old('phone') }}"
-                required
             >
         </div>
 
@@ -77,7 +82,6 @@
                 id="email"
                 name="email"
                 value="{{ old('email') }}"
-                required
             >
         </div>
 

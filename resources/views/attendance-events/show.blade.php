@@ -25,13 +25,26 @@
         }
     @endphp
 
-    <div class="event-meta">
-        <p><strong>Location:</strong> {{ $event->location->name }}</p>
-        <p><strong>PIN:</strong> {{ $event->pin ?? 'Not set' }}</p>
-        <p class="status-line">
-            <span class="status-dot status-{{ $status }}"></span>
-            <strong>{{ ucfirst($status) }}</strong>
-        </p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+
+        <div class="event-meta" style="margin: 0;">
+            <p><strong>Location:</strong> {{ $event->location->name }}</p>
+            <p><strong>PIN:</strong> {{ $event->pin ?? 'Not set' }}</p>
+            <p class="status-line">
+                <span class="status-dot status-{{ $status }}"></span>
+                <strong>{{ ucfirst($status) }}</strong>
+            </p>
+        </div>
+
+        <div style="text-align: center;">
+            <img
+                src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ urlencode(route('attendance.pin')) }}"
+                alt="Attendance QR Code"
+                width="120"
+                height="120"
+            >
+        </div>
+
     </div>
 
     <div class="stats">
