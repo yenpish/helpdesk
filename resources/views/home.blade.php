@@ -12,7 +12,9 @@
 <a href="{{ route('attendance.pin') }}">Attendance</a>
 
 @auth
-    <a href="{{ route('attendance-events.index') }}">Attendance Sessions</a>
+    @if (auth()->user()->role === 'organizer')
+        <a href="{{ route('attendance-events.index') }}">Attendance Sessions</a>
+    @endif
 
     <form method="POST" action="{{ route('logout') }}">
         @csrf

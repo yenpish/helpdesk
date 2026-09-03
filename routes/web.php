@@ -33,7 +33,7 @@ Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])
 
 //the route for attendance events, to create, display, etc
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/attendance-events/create', [AttendanceEventController::class, 'create'])
         ->name('attendance-events.create');
 
