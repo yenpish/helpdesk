@@ -53,6 +53,12 @@ class PublicAttendanceController extends Controller
             return redirect()->route('attendance.pin');
         }
 
+        if (now()->lt($event->starts_at) || now()->gt($event->ends_at)) {
+            return back()->withErrors([
+                'attendance' => 'This attendance session is not currently active.',
+            ]);
+        }
+
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
