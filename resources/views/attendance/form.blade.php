@@ -68,10 +68,11 @@
         <div class="field">
             <label for="phone">Phone</label>
             <input
-                type="text"
-                id="phone"
+                type="tel"
                 name="phone"
+                id="phone"
                 value="{{ old('phone') }}"
+                required
             >
         </div>
 
@@ -85,9 +86,18 @@
             >
         </div>
 
-        <div class="field">
-            <label for="signature">Signature</label>
-            <textarea id="signature" name="signature">{{ old('signature') }}</textarea>
+        <div>
+            <label for="signature-pad">Signature</label>
+
+            <canvas id="signature-pad" width="600" height="200"
+                    style="width: 100%; max-width: 600px; border: 1px solid #ccc; border-radius: 6px; background: white;">
+            </canvas>
+
+            <input type="hidden" name="signature" id="signature">
+
+            <button type="button" id="clear-signature">
+                Clear Signature
+            </button>
         </div>
 
         <button type="submit">
@@ -99,5 +109,54 @@
     <a class="back-link" href="{{ route('attendance.pin') }}">
         Back to PIN
     </a>
+
+    <script>
+        const canvas = document.getElementById('signature-pad');
+        const ctx = canvas.getContext('2d');
+        const signature = document.getElementById('signature');
+        const clearButton = document.getElementById('clear-signature');
+
+        let drawing = false;
+
+        function getPosition(event) {
+            const rect = canvas.getBoundingClientRect();
+
+            return {
+                x: (event.clientX - rect.left) * (canvas.width / rect.width),
+                y: (event.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (event) => {
+            drawing = true;
+            const position = getPosition(event);
+
+            ctx.beginPath();
+            ctx.moveTo(position.x, position.y);
+        });
+
+        canvas.addEventListener('pointermove', (event) => {
+            if (!drawing) return;
+
+            const position = getPosition(event);
+
+            ctx.lineTo(position.x, position.y);
+            ctx.stroke();
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            drawing = false;
+            signature.value = canvas.toDataURL('image/png');
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            drawing = false;
+        });
+
+        clearButton.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            signature.value = '';
+        });
+    </script>
 
 @endsection

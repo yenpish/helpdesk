@@ -63,7 +63,13 @@ class PublicAttendanceController extends Controller
             'full_name' => ['required', 'string', 'max:255'],
             'position' => ['required', 'string', 'max:255'],
             'unit' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:50'],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('attendances', 'phone')
+                    ->where('attendance_event_id', $event->id),
+            ],
             'email' => [
                 'required',
                 'email',

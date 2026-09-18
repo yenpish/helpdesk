@@ -129,8 +129,19 @@
 
                                 <p>
                                     <strong>Signature:</strong>
-                                    {{ $attendance->signature ?: 'Not provided' }}
-                                </p>
+
+                                @if ($attendance->signature)
+                                    <div style="margin-top: 5px;">
+                                        <img
+                                            src="{{ $attendance->signature }}"
+                                            alt="Signature"
+                                            style="display: block; max-width: 300px; max-height: 120px; background: white; border: 1px solid #ccc; border-radius: 4px;"
+                                        >
+                                    </div>
+                                @else
+                                    Not provided
+                                    @endif
+                                    </p>
                             </div>
 
                         </details>

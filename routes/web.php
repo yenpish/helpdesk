@@ -47,7 +47,7 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         ->name('attendance-events.index');
 });
 
-//the route for attendace pin prompt & form, etc
+//the route for attendance pin prompt & form, etc
 
 Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])
     ->name('attendance.verify');
