@@ -32,6 +32,13 @@ class AttendanceEventController extends Controller
             'activeEvents'
         ));
     }
+
+    public function edit(AttendanceEvent $event)
+    {
+        $locations = Location::all();
+
+        return view('attendance-events.edit', compact('event', 'locations'));
+    }
     public function show(AttendanceEvent $event)
     {
         $event->load('attendances');
@@ -73,5 +80,33 @@ class AttendanceEventController extends Controller
 
         return redirect()->route('attendance-events.create')
             ->with('success', "Attendance session created. PIN: {$pin}");
+    }
+
+    public function update(Request $request, AttendanceEvent $event)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'location_id' => ['required', 'exists:locations,id'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'start_time' => ['required'],
+            'end_time' => ['required'],
+        ]);
+
+        $event->update([
+            'name' => $validated['name'],
+            'location_id' => $validated['location_id'],
+            'starts_at' => $validated['start_date'] . ' ' . $validated['start_time'],
+            'ends_at' => $validated['end_date'] . ' ' . $validated['end_time'],
+        ]);
+
+        return redirect()->route('attendance-events.show', $event);
+    }
+
+    public function destroy(AttendanceEvent $event)
+    {
+        $event->delete();
+
+        return redirect()->route('attendance-events.index');
     }
 }

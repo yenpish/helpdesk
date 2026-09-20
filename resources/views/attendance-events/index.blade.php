@@ -91,6 +91,20 @@
                         <a href="{{ route('attendance-events.show', $event) }}">
                             View Attendance
                         </a>
+
+                        <a href="{{ route('attendance-events.edit', $event) }}">
+                            Edit
+                        </a>
+
+                        <form method="POST" action="{{ route('attendance-events.destroy', $event) }}"
+                              onsubmit="return confirm('Are you sure you want to delete this attendance session?');">
+                            @csrf
+                            @method('DELETE')
+
+                            <button type="submit">
+                                Delete
+                            </button>
+                        </form>
                     </td>
                 </tr>
 

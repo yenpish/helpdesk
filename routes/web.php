@@ -40,8 +40,17 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::post('/attendance-events', [AttendanceEventController::class, 'store'])
         ->name('attendance-events.store');
 
+    Route::get('/attendance-events/{event}/edit', [AttendanceEventController::class, 'edit'])
+        ->name('attendance-events.edit');
+
+    Route::patch('/attendance-events/{event}', [AttendanceEventController::class, 'update'])
+        ->name('attendance-events.update');
+
     Route::get('/attendance-events/{event}', [AttendanceEventController::class, 'show'])
         ->name('attendance-events.show');
+
+    Route::delete('/attendance-events/{event}', [AttendanceEventController::class, 'destroy'])
+        ->name('attendance-events.destroy');
 
     Route::get('/attendance-events', [AttendanceEventController::class, 'index'])
         ->name('attendance-events.index');
