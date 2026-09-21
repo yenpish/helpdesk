@@ -7,6 +7,149 @@
     <title>@yield('title', 'Helpdesk')</title>
 
     <style>
+        .profile-menu {
+            position: relative;
+        }
+
+        .profile-menu summary {
+            padding: 10px 12px;
+            color: #ddd;
+            font-size: 14px;
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .profile-menu summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .profile-menu summary::after {
+            content: " ▼";
+            font-size: 10px;
+        }
+
+        .profile-menu summary:hover,
+        .profile-menu[open] summary {
+            background: #3a3a3a;
+            color: white;
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            z-index: 10;
+            width: 160px;
+            padding: 6px;
+            background: white;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+        }
+
+        .profile-dropdown form {
+            margin: 0;
+        }
+
+        .profile-action {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 0;
+            background: white;
+            color: #000;
+            text-align: left;
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .profile-action:hover {
+            background: #f0f1f2;
+            color: #222;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f5f7;
+            margin: 0;
+            min-height: 100vh;
+            color: #222;
+        }
+
+        .navbar {
+            width: 100%;
+            min-height: 64px;
+            padding: 0 32px;
+            box-sizing: border-box;
+            background: #222;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-links > a,
+        .navbar-logout {
+            width: auto;
+            margin: 0;
+            padding: 10px 12px;
+            border: 0;
+            background: transparent;
+            color: #ddd;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .navbar-links > a:hover,
+        .navbar-links > a.active,
+        .navbar-logout:hover {
+            background: #3a3a3a;
+            color: white;
+        }
+
+        .navbar-links form {
+            margin: 0;
+        }
+
+        .app-box {
+            width: calc(100% - 32px);
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 32px;
+            box-sizing: border-box;
+        }
+
+        .login-box {
+            max-width: 400px;
+        }
+
+        @media (max-width: 700px) {
+            .navbar {
+                padding: 16px;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .navbar-links {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+        }
         .status-dot {
             display: inline-block;
             width: 9px;
@@ -27,26 +170,6 @@
 
         .status-upcoming {
             background-color: #999;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f4f5f7;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #222;
-        }
-
-        .app-box {
-            width: 100%;
-            max-width: 600px;
-            background: white;
-            border: 1px solid #ddd;
-            padding: 32px;
-            box-sizing: border-box;
         }
 
         h1 {
@@ -285,6 +408,57 @@
 </head>
 
 <body>
+    <nav class="navbar">
+    <a class="navbar-brand" href="{{ route('home') }}">
+        Helpdesk
+    </a>
+
+    <div class="navbar-links">
+        <a class="{{ request()->routeIs('home') ? 'active' : '' }}"
+           href="{{ route('home') }}">
+            Home
+        </a>
+
+        <a class="{{ request()->routeIs('attendance.*') ? 'active' : '' }}"
+           href="{{ route('attendance.pin') }}">
+            Attendance
+        </a>
+
+        @auth
+            @if (auth()->user()->role === 'organizer')
+                <a class="{{ request()->routeIs('attendance-events.*') ? 'active' : '' }}"
+                   href="{{ route('attendance-events.index') }}">
+                    Attendance Sessions
+                </a>
+            @endif
+
+            <details class="profile-menu">
+                <summary>
+                    {{ ucfirst(auth()->user()->role ?? 'User') }}
+                </summary>
+
+                <div class="profile-dropdown">
+                    <a class="profile-action" href="{{ route('profile') }}">
+                        Profile
+                    </a>
+
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+
+                        <button class="profile-action" type="submit">
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </details>
+        @else
+            <a class="{{ request()->routeIs('login') ? 'active' : '' }}"
+               href="{{ route('login') }}">
+                Login
+            </a>
+        @endauth
+    </div>
+</nav>
 
 <div class="app-box @yield('container_class')">
     @yield('content')
