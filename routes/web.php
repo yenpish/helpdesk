@@ -1,13 +1,15 @@
 <?php
 
-use App\Http\Controllers\CommentController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\TicketController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AttendanceEventController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\PublicAttendanceController;
+use App\Http\Controllers\TicketController;
+use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {return view('home');})->name('home');
+Route::get('/', function () {
+    return view('home');
+})->name('home');
 
 Route::resource('tickets', TicketController::class)->middleware('auth');
 
@@ -31,8 +33,6 @@ Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut'])
     ->middleware('auth')
     ->name('attendance.clock-out');
 
-//the route for attendance events, to create, display, etc
-
 Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/attendance-events/create', [AttendanceEventController::class, 'create'])
         ->name('attendance-events.create');
@@ -47,8 +47,6 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         ->name('attendance-events.index');
 });
 
-//the route for attendance pin prompt & form, etc
-
 Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])
     ->name('attendance.verify');
 
@@ -57,3 +55,7 @@ Route::get('/attendance/{event}', [PublicAttendanceController::class, 'showForm'
 
 Route::post('/attendance/{event}', [PublicAttendanceController::class, 'store'])
     ->name('attendance.store');
+
+Route::view('/profile', 'profile')
+    ->middleware('auth')
+    ->name('profile');
