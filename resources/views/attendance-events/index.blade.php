@@ -34,6 +34,19 @@
 
     <h2>Attendance Sessions</h2>
 
+    <form method="GET" action="{{ route('attendance-events.index') }}">
+        <input
+            type="text"
+            name="search"
+            value="{{ request('search') }}"
+            placeholder="Search sessions..."
+        >
+
+        <button type="submit">
+            Search
+        </button>
+    </form>
+
     <div class="table-container">
 
         <table>

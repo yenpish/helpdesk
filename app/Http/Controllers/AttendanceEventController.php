@@ -8,10 +8,15 @@ use Illuminate\Http\Request;
 
 class AttendanceEventController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = $request->input('search');
+
         $events = AttendanceEvent::with('location')
             ->withCount('attendances')
+            ->when($search, function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%');
+            })
             ->latest()
             ->get();
 
