@@ -30,7 +30,7 @@
 
     <h2>Attendance Details</h2>
 
-    <form method="POST" action="{{ route('attendance.store', $event) }}">
+    <form id="attendance-form" method="POST" action="{{ route('attendance.store', $event) }}">
 
         @csrf
 
@@ -115,6 +115,7 @@
         const ctx = canvas.getContext('2d');
         const signature = document.getElementById('signature');
         const clearButton = document.getElementById('clear-signature');
+        const form = document.getElementById('attendance-form');
 
         let drawing = false;
 
@@ -156,6 +157,10 @@
         clearButton.addEventListener('click', () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             signature.value = '';
+        });
+
+        form.addEventListener('submit', () => {
+            signature.value = canvas.toDataURL('image/png');
         });
     </script>
 
