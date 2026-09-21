@@ -103,6 +103,41 @@ class AttendanceEventController extends Controller
         return redirect()->route('attendance-events.show', $event);
     }
 
+    public function export(AttendanceEvent $event)
+    {
+        $event->load('attendances');
+
+        $filename = 'attendance-' . $event->id . '.csv';
+
+        return response()->streamDownload(function () use ($event) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Name',
+                'Position',
+                'Unit',
+                'Phone',
+                'Email',
+                'Clock In',
+                'Clock Out',
+            ]);
+
+            foreach ($event->attendances as $attendance) {
+                fputcsv($handle, [
+                    $attendance->full_name,
+                    $attendance->position,
+                    $attendance->unit,
+                    $attendance->phone,
+                    $attendance->email,
+                    $attendance->clock_in_at?->format('d/m/Y H:i'),
+                    $attendance->clock_out_at?->format('d/m/Y H:i'),
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename);
+    }
+
     public function destroy(AttendanceEvent $event)
     {
         $event->delete();

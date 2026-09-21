@@ -11,6 +11,7 @@
     <p>
         <a class="page-link" href="{{ route('home') }}">Back to Home</a>
         <a class="page-link" href="{{ route('attendance-events.index') }}">Back to Sessions</a>
+        <a class="page-link" href="{{ route('attendance-events.export', $event) }}">Export CSV</a>
     </p>
 
     @php

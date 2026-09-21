@@ -54,6 +54,9 @@ Route::middleware(['auth', 'organizer'])->group(function () {
 
     Route::get('/attendance-events', [AttendanceEventController::class, 'index'])
         ->name('attendance-events.index');
+
+    Route::get('/attendance-events/{event}/export', [AttendanceEventController::class, 'export'])
+        ->name('attendance-events.export');
 });
 
 //the route for attendance pin prompt & form, etc
