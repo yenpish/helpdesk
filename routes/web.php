@@ -6,6 +6,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\PublicAttendanceController;
 use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return view('home');
@@ -57,6 +58,12 @@ Route::middleware(['auth', 'organizer'])->group(function () {
 
     Route::get('/attendance-events/{event}/export', [AttendanceEventController::class, 'export'])
         ->name('attendance-events.export');
+
+    Route::get('/users/create', [UserController::class, 'create'])
+        ->name('users.create');
+
+    Route::post('/users', [UserController::class, 'store'])
+        ->name('users.store');
 });
 
 Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])
