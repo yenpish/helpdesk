@@ -64,6 +64,12 @@ Route::middleware(['auth', 'organizer'])->group(function () {
 
     Route::post('/users', [UserController::class, 'store'])
         ->name('users.store');
+
+    Route::get('/users', [UserController::class, 'index'])
+        ->name('users.index');
+
+    Route::get('/users/{user}', [UserController::class, 'show'])
+        ->name('users.show');
 });
 
 Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])

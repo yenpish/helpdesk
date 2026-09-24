@@ -9,6 +9,29 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
+    public function index(Request $request)
+    {
+        $search = $request->input('search');
+        $users = User::when($search, function ($query) use ($search) {
+            $query->where('name', 'like', '%' . $search . '%');
+        })->get();
+        $totalCount = User::all()->count();
+        $resultCount = count($users);
+        $organizerCount = User::where('role', 'organizer')->count();
+
+        return view('users.index', compact(
+            'users',
+            'organizerCount',
+            'totalCount',
+            'resultCount',
+            'search'
+        ));
+    }
+
+    public function show(User $user){
+        return view ('users.show', compact('user'));
+    }
+
     public function create()
     {
         return view('users.create');
