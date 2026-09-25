@@ -856,6 +856,12 @@
                         Profile
                     </a>
 
+                    @if (auth()->user()->role === 'organizer')
+                        <a class="profile-action" href="{{ route('accounts.index') }}">
+                            Account Management
+                        </a>
+                    @endif
+
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
 
