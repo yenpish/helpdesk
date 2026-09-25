@@ -11,13 +11,25 @@ class AttendanceEventController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
+        $sort = $request->input('sort', 'start_desc');
+
+        $sortOptions = [
+            'start_desc' => ['starts_at', 'desc'],
+            'start_asc' => ['starts_at', 'asc'],
+            'end_desc' => ['ends_at', 'desc'],
+            'end_asc' => ['ends_at', 'asc'],
+            'name_asc' => ['name', 'asc'],
+            'name_desc' => ['name', 'desc'],
+        ];
+
+        [$sortColumn, $sortDirection] = $sortOptions[$sort] ?? $sortOptions['start_desc'];
 
         $events = AttendanceEvent::with('location')
             ->withCount('attendances')
             ->when($search, function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%');
             })
-            ->latest()
+            ->orderBy($sortColumn, $sortDirection)
             ->get();
 
         $totalEvents = $events->count();
@@ -34,7 +46,8 @@ class AttendanceEventController extends Controller
             'events',
             'totalEvents',
             'totalAttendees',
-            'activeEvents'
+            'activeEvents',
+            'sort'
         ));
     }
 
@@ -141,6 +154,55 @@ class AttendanceEventController extends Controller
 
             fclose($handle);
         }, $filename);
+    }
+
+    public function exportSelected(Request $request)
+    {
+        $validated = $request->validate([
+            'event_ids' => ['required', 'array', 'min:1'],
+            'event_ids.*' => ['integer', 'exists:attendance_events,id'],
+        ]);
+
+        $events = AttendanceEvent::with('attendances')
+            ->whereIn('id', $validated['event_ids'])
+            ->orderBy('starts_at', 'desc')
+            ->get();
+
+        return response()->streamDownload(function () use ($events) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Event',
+                'Event Start',
+                'Event End',
+                'Name',
+                'Position',
+                'Unit',
+                'Phone',
+                'Email',
+                'Clock In',
+                'Clock Out',
+            ]);
+
+            foreach ($events as $event) {
+                foreach ($event->attendances as $attendance) {
+                    fputcsv($handle, [
+                        $event->name,
+                        $event->starts_at?->format('d/m/Y H:i'),
+                        $event->ends_at?->format('d/m/Y H:i'),
+                        $attendance->full_name,
+                        $attendance->position,
+                        $attendance->unit,
+                        $attendance->phone,
+                        $attendance->email,
+                        $attendance->clock_in_at?->format('d/m/Y H:i'),
+                        $attendance->clock_out_at?->format('d/m/Y H:i'),
+                    ]);
+                }
+            }
+
+            fclose($handle);
+        }, 'attendance-selected.csv');
     }
 
     public function destroy(AttendanceEvent $event)

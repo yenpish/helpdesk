@@ -1,39 +1,95 @@
 @extends('layouts.app')
 
-@section('title', 'Helpdesk')
+@section('title', 'Dashboard')
+
+@section('container_class', 'dashboard-box')
 
 @section('content')
 
-    <h1>Helpdesk</h1>
+    <div class="dashboard-header">
+        <div>
+            <h1>Attendance Dashboard</h1>
+            <p class="subtitle">
+                Overview of attendance activity and the rest of the system.
+            </p>
+        </div>
+    </div>
 
-    <a class="page-link" href="{{ route('attendance.pin') }}">
-        Attendance
-    </a>
+    <section>
+        <h2>Attendance Overview</h2>
 
-    @auth
+        <div class="dashboard-stats">
 
-        @if (auth()->user()->role === 'organizer')
+            <div class="dashboard-stat">
+                <div class="dashboard-stat-label">Active Sessions</div>
+                <div class="dashboard-stat-value">{{ $activeSessions }}</div>
+            </div>
 
-            <a class="page-link" href="{{ route('attendance-events.index') }}">
-                Attendance Sessions
-            </a>
+            <div class="dashboard-stat">
+                <div class="dashboard-stat-label">Today's Sessions</div>
+                <div class="dashboard-stat-value">{{ $todaySessions }}</div>
+            </div>
 
-        @endif
+            <div class="dashboard-stat">
+                <div class="dashboard-stat-label">Today's Attendance</div>
+                <div class="dashboard-stat-value">{{ $todayAttendance }}</div>
+            </div>
 
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
+        </div>
+    </section>
 
-            <button type="submit">
-                Logout
-            </button>
-        </form>
+    <section>
+        <h2>Recent Attendance Sessions</h2>
+        <div class="dashboard-list">
 
-    @else
+            @forelse ($recentSessions as $session)
+                <div class="dashboard-list-item">
+                    <div>
+                        <strong>{{ $session->name }}</strong>
+                        <span>
+                    {{ $session->starts_at->format('d M Y, h:i A') }}
+                    -
+                    {{ $session->ends_at->format('h:i A') }}
+                </span>
+                    </div>
 
-        <a class="page-link" href="{{ route('login') }}">
-            Login
-        </a>
+                    @auth
+                        @if (auth()->user()->role === 'organizer')
+                            <a href="{{ route('attendance-events.show', $session) }}">
+                                View
+                            </a>
+                        @endif
+                    @endauth
+                </div>
+            @empty
+                <div class="dashboard-list-item">
+                    <span>No attendance sessions found.</span>
+                </div>
+            @endforelse
 
-    @endauth
+        </div>
+    </section>
+
+    <section>
+        <h2>Other System Activity</h2>
+
+        <div class="dashboard-stats">
+
+            <div class="dashboard-stat">
+                <div class="dashboard-stat-label">Open Tickets</div>
+                <div class="dashboard-stat-value">{{ $openTickets }}</div>
+            </div>
+
+            @auth
+                @if (auth()->user()->role === 'organizer')
+                    <div class="dashboard-stat">
+                        <div class="dashboard-stat-label">Total Users</div>
+                        <div class="dashboard-stat-value">{{ $totalUsers }}</div>
+                    </div>
+                @endif
+            @endauth
+
+        </div>
+    </section>
 
 @endsection

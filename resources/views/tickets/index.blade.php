@@ -5,6 +5,16 @@
     <button type="submit">Logout</button>
 </form>
 
+<form method="GET" action="{{route('tickets.index')}}">
+    <input
+        type="text"
+        name="search"
+        value="{{$search}}"
+        placeholder="Search tickets...."
+    >
+
+</form>
+
 @foreach($tickets as $ticket)
     <h2>{{ $ticket->title }}</h2>
 

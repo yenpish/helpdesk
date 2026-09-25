@@ -7,10 +7,10 @@ use App\Http\Controllers\PublicAttendanceController;
 use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\HomeController;
 
-Route::get('/', function () {
-    return view('home');
-})->name('home');
+Route::get('/', [HomeController::class, 'index'])
+    ->name('home');
 
 Route::resource('tickets', TicketController::class)->middleware('auth');
 
@@ -40,6 +40,9 @@ Route::middleware(['auth', 'organizer'])->group(function () {
 
     Route::post('/attendance-events', [AttendanceEventController::class, 'store'])
         ->name('attendance-events.store');
+
+    Route::post('/attendance-events/export', [AttendanceEventController::class, 'exportSelected'])
+        ->name('attendance-events.export-selected');
 
     Route::get('/attendance-events/{event}/edit', [AttendanceEventController::class, 'edit'])
         ->name('attendance-events.edit');

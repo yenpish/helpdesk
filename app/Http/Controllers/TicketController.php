@@ -17,12 +17,17 @@ class TicketController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $tickets = Ticket::with(['user','category'])->get();
+        $search = $request->input('search');
+        $tickets = Ticket::with(['user','category'])
+            ->when($search, function($query) use ($search) {
+                $query->where('title','like','%' . $search . '%');
+            })->get();
 
         return view('tickets.index', [
-            'tickets'=>$tickets
+            'tickets'=>$tickets,
+            'search'=>$search
         ]);
     }
 
