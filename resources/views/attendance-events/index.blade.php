@@ -213,15 +213,21 @@
 @endsection
 
 <script>
-    document.getElementById('select-all-sessions').addEventListener('click', function () {
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectAllButton = document.getElementById('select-all-sessions');
         const checkboxes = document.querySelectorAll('.session-checkbox');
 
-        const shouldSelectAll = [...checkboxes].some(checkbox => !checkbox.checked);
+        selectAllButton.addEventListener('click', function () {
+            const shouldSelectAll = Array.from(checkboxes)
+                .some(checkbox => !checkbox.checked);
 
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = shouldSelectAll;
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = shouldSelectAll;
+            });
+
+            this.textContent = shouldSelectAll
+                ? 'Clear Selection'
+                : 'Select All';
         });
-
-        this.textContent = shouldSelectAll ? 'Clear Selection' : 'Select All';
     });
 </script>
