@@ -20,6 +20,13 @@
 
         @endif
 
+        @if (auth()->user()->role === 'organizer')
+            <a href="{{ route('accounts.index') }}" class="page-link">
+                Account Management
+            </a>
+        @endif
+
+
         <form method="POST" action="{{ route('logout') }}">
             @csrf
 
