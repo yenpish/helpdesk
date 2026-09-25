@@ -39,11 +39,39 @@
             top: calc(100% + 8px);
             right: 0;
             z-index: 10;
-            width: 160px;
+            width: 240px;
             padding: 6px;
             background: white;
             border: 1px solid #ddd;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+            cursor: default;
+        }
+
+        .profile-details {
+            padding: 10px 12px 12px;
+            border-bottom: 1px solid #ddd;
+            cursor: default;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-name,
+        .profile-email,
+        .profile-role {
+            display: block;
+            cursor: default;
+        }
+
+        .profile-name {
+            margin-bottom: 4px;
+            color: #222;
+            font-size: 15px;
+        }
+
+        .profile-email,
+        .profile-role {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         .profile-dropdown form {
@@ -812,6 +840,18 @@
                 </summary>
 
                 <div class="profile-dropdown">
+                    <div class="profile-details">
+                        <strong class="profile-name">
+                            {{ auth()->user()->name }}
+                        </strong>
+                        <span class="profile-email">
+                            {{ auth()->user()->email }}
+                        </span>
+                        <span class="profile-role">
+                            Role: {{ ucfirst(auth()->user()->role ?? 'User') }}
+                        </span>
+                    </div>
+
                     <a class="profile-action" href="{{ route('profile') }}">
                         Profile
                     </a>

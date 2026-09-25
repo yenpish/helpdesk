@@ -8,6 +8,7 @@ use App\Http\Controllers\TicketController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\AccountController;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
@@ -87,3 +88,20 @@ Route::post('/attendance/{event}', [PublicAttendanceController::class, 'store'])
 Route::view('/profile', 'profile')
     ->middleware('auth')
     ->name('profile');
+
+Route::middleware(['auth', 'organizer'])
+    ->prefix('accounts')
+    ->name('accounts.')
+    ->group(function () {
+        Route::get('/', [AccountController::class, 'index'])
+            ->name('index');
+
+        Route::post('/', [AccountController::class, 'store'])
+            ->name('store');
+
+        Route::get('/{user}/edit', [AccountController::class, 'edit'])
+            ->name('edit');
+
+        Route::put('/{user}', [AccountController::class, 'update'])
+            ->name('update');
+    });
