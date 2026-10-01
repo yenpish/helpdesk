@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\EventSession;
+use App\Models\Registration;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class EventSessionController extends Controller
 {
     public function index(Event $event): View
     {
+        $this->authorizeEvent($event);
         $event->load('sessions');
 
         return view('event-sessions.index', compact('event'));
@@ -21,11 +23,13 @@ class EventSessionController extends Controller
 
     public function create(Event $event): View
     {
+        $this->authorizeEvent($event);
         return view('event-sessions.create', compact('event'));
     }
 
     public function store(Request $request, Event $event): RedirectResponse
     {
+        $this->authorizeEvent($event);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -75,6 +79,7 @@ class EventSessionController extends Controller
 
     public function show(Event $event, EventSession $eventSession): View
     {
+        $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
 
         $eventSession->load([
@@ -84,23 +89,41 @@ class EventSessionController extends Controller
             'attendances',
         ]);
 
-        return view('event-sessions.show', compact('event', 'eventSession'));
+        $registrations = Registration::where('event_id', $event->id)
+            ->latest('registered_at')
+            ->get();
+
+        $attendanceEmails = $eventSession->attendances
+            ->filter(fn ($attendance) => filled($attendance->email))
+            ->mapWithKeys(function ($attendance) {
+                return [strtolower(trim($attendance->email)) => $attendance];
+            });
+
+        return view('event-sessions.show', compact(
+            'event',
+            'eventSession',
+            'registrations',
+            'attendanceEmails'
+        ));
     }
 
     public function edit(Event $event, EventSession $eventSession): View
     {
+        $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
 
         return view('event-sessions.edit', compact('event', 'eventSession'));
     }
 
     public function update(
+
         Request $request,
         Event $event,
         EventSession $eventSession
     ): RedirectResponse {
         abort_unless($eventSession->event_id === $event->id, 404);
 
+        $this->authorizeEvent($event);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -151,6 +174,7 @@ class EventSessionController extends Controller
 
     public function destroy(Event $event, EventSession $eventSession): RedirectResponse
     {
+        $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
 
         $oldValues = $eventSession->toArray();
@@ -169,5 +193,15 @@ class EventSessionController extends Controller
         return redirect()
             ->route('events.show', $event)
             ->with('success', 'Session deleted successfully.');
+    }
+
+    private function authorizeEvent(Event $event): void
+    {
+        if (
+            auth()->user()->role !== 'admin' &&
+            $event->organizer_id !== auth()->id()
+        ) {
+            abort(403);
+        }
     }
 }

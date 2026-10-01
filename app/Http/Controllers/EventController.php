@@ -9,14 +9,23 @@ use App\Models\Location;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class EventController extends Controller
 {
     public function index(): View
     {
-        $events = Event::with(['eventType', 'location', 'organizer'])
+        $query = Event::with([
+            'eventType',
+            'location',
+            'organizer',
+        ])->withCount('registrations');
+
+        if (auth()->user()->role !== 'admin') {
+            $query->where('organizer_id', auth()->id());
+        }
+
+        $events = $query
             ->latest()
             ->paginate(10);
 
@@ -132,6 +141,8 @@ class EventController extends Controller
 
     public function show(Event $event): View
     {
+        $this->authorizeEvent($event);
+
         $event->load([
             'eventType',
             'location',
@@ -147,6 +158,8 @@ class EventController extends Controller
 
     public function edit(Event $event): View
     {
+        $this->authorizeEvent($event);
+
         $eventTypes = EventType::orderBy('name')->get();
         $locations = Location::orderBy('name')->get();
 
@@ -157,8 +170,12 @@ class EventController extends Controller
         ));
     }
 
-    public function update(Request $request, Event $event): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        Event $event
+    ): RedirectResponse {
+        $this->authorizeEvent($event);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -188,7 +205,7 @@ class EventController extends Controller
 
         /*
          * Organizer is NOT changed through the normal Event edit form.
-         * The original creator/responsible organizer remains attached.
+         * The original responsible organizer remains attached.
          */
         $validated['updated_by'] = auth()->id();
 
@@ -209,6 +226,8 @@ class EventController extends Controller
 
     public function destroy(Event $event): RedirectResponse
     {
+        $this->authorizeEvent($event);
+
         $oldValues = $event->toArray();
 
         $this->createAuditLog(
@@ -240,7 +259,9 @@ class EventController extends Controller
             $pin = '';
 
             for ($i = 0; $i < 4; $i++) {
-                $pin .= $characters[random_int(0, strlen($characters) - 1)];
+                $pin .= $characters[
+                random_int(0, strlen($characters) - 1)
+                ];
             }
         } while (Event::where('pin', $pin)->exists());
 
@@ -263,5 +284,15 @@ class EventController extends Controller
             'old_values' => $oldValues,
             'new_values' => $newValues,
         ]);
+    }
+
+    private function authorizeEvent(Event $event): void
+    {
+        if (
+            auth()->user()->role !== 'admin' &&
+            $event->organizer_id !== auth()->id()
+        ) {
+            abort(403);
+        }
     }
 }

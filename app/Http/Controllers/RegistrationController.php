@@ -7,6 +7,7 @@ use App\Models\Registration;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use App\Models\AuditLog;
 
 class RegistrationController extends Controller
 {
@@ -105,6 +106,13 @@ class RegistrationController extends Controller
      */
     public function eventRegistrations(Event $event): View
     {
+        if (
+            auth()->user()->role !== 'admin' &&
+            $event->organizer_id !== auth()->id()
+        ) {
+            abort(403);
+        }
+
         $registrations = $event->registrations()
             ->with('user')
             ->latest('registered_at')
@@ -124,14 +132,38 @@ class RegistrationController extends Controller
         Event $event,
         Registration $registration
     ): RedirectResponse {
+
+        if (
+            auth()->user()->role !== 'admin' &&
+            $event->organizer_id !== auth()->id()
+        ) {
+            abort(403);
+        }
+
         abort_unless($registration->event_id === $event->id, 404);
 
         $validated = $request->validate([
             'status' => ['required', 'in:pending,approved,rejected,cancelled'],
         ]);
 
+        $oldValues = $registration->only([
+            'status',
+        ]);
+
         $registration->update([
             'status' => $validated['status'],
+        ]);
+
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'updated',
+            'auditable_type' => Registration::class,
+            'auditable_id' => $registration->id,
+            'description' => 'Registration status updated.',
+            'old_values' => $oldValues,
+            'new_values' => [
+                'status' => $registration->status,
+            ],
         ]);
 
         return back()->with(

@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AttendanceEvent;
+use App\Models\EventSession;
 use App\Models\User;
-use App\Models\Ticket;
 
 class HomeController extends Controller
 {
@@ -14,27 +13,25 @@ class HomeController extends Controller
             return view('guest-home');
         }
 
-        $activeSessions = AttendanceEvent::where('starts_at', '<=', now())
-            ->where('ends_at', '>=', now())
+        $activeSessions = EventSession::where('attendance_opens_at', '<=', now())
+            ->where('attendance_closes_at', '>=', now())
             ->count();
 
-        $todaySessions = AttendanceEvent::whereDate('starts_at', today())
+        $todaySessions = EventSession::whereDate('starts_at', today())
             ->count();
 
-        $todayAttendance = AttendanceEvent::whereDate('starts_at', today())
+        $todayAttendance = EventSession::whereDate('starts_at', today())
             ->withCount('attendances')
             ->get()
             ->sum('attendances_count');
 
         $totalUsers = User::count();
 
-        $openTickets = Ticket::whereIn('status', [
-            'Pending',
-            'In Progress',
-        ])->count();
+        $openTickets = 0;
 
-        $recentSessions = AttendanceEvent::latest('starts_at')
-            ->take(2)
+        $recentSessions = EventSession::with('event')
+            ->latest('starts_at')
+            ->take(5)
             ->get();
 
         return view('home', compact(
