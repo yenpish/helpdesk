@@ -24,4 +24,9 @@ class Location extends Model
     {
         return $this->hasMany(AttendanceEvent::class);
     }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class);
+    }
 }

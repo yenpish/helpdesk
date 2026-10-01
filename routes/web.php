@@ -9,9 +9,31 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\EventSessionController;
+use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\AuditLogController;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
+
+Route::resource('events', EventController::class)->middleware(['auth', 'organizer']);
+
+Route::resource('event-types', EventTypeController::class)
+    ->middleware(['auth', 'admin']);
+
+Route::resource('locations', LocationController::class)
+    ->middleware(['auth', 'admin']);
+
+Route::resource('events.event-sessions', EventSessionController::class)
+    ->middleware(['auth', 'organizer']);
+
+Route::get('/audit-logs', [AuditLogController::class, 'index'])
+    ->middleware(['auth', 'admin'])
+    ->name('audit-logs.index');
+
 
 Route::resource('tickets', TicketController::class)->middleware('auth');
 
@@ -22,6 +44,30 @@ Route::post('tickets/{ticket}/comments', [CommentController::class, 'store']);
 
 Route::get('/whoami', function () {
     return auth()->user();
+});
+
+Route::get('/events-public', [RegistrationController::class, 'publicIndex'])
+    ->name('registrations.public-index');
+
+Route::get('/events-public/{event}/register', [RegistrationController::class, 'create'])
+    ->name('registrations.create');
+
+Route::post('/events-public/{event}/register', [RegistrationController::class, 'store'])
+    ->name('registrations.store');
+
+Route::get('/registration/{registration}/success', [RegistrationController::class, 'success'])
+    ->name('registrations.success');
+
+Route::middleware(['auth', 'organizer'])->group(function () {
+    Route::get(
+        '/events/{event}/registrations',
+        [RegistrationController::class, 'eventRegistrations']
+    )->name('events.registrations.index');
+
+    Route::patch(
+        '/events/{event}/registrations/{registration}/status',
+        [RegistrationController::class, 'updateStatus']
+    )->name('events.registrations.status');
 });
 
 Route::get('/attendance', [PublicAttendanceController::class, 'enterPin'])
@@ -89,12 +135,15 @@ Route::view('/profile', 'profile')
     ->middleware('auth')
     ->name('profile');
 
-Route::middleware(['auth', 'organizer'])
+Route::middleware(['auth', 'admin'])
     ->prefix('accounts')
     ->name('accounts.')
     ->group(function () {
         Route::get('/', [AccountController::class, 'index'])
             ->name('index');
+
+        Route::get('/create', [AccountController::class, 'create'])
+            ->name('create');
 
         Route::post('/', [AccountController::class, 'store'])
             ->name('store');
@@ -104,4 +153,7 @@ Route::middleware(['auth', 'organizer'])
 
         Route::put('/{user}', [AccountController::class, 'update'])
             ->name('update');
+
+        Route::delete('/{user}', [AccountController::class, 'destroy'])
+            ->name('destroy');
     });

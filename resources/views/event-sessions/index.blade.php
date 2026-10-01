@@ -1,0 +1,89 @@
+@extends('layouts.app')
+
+@section('content')
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>{{ $event->name }} — Sessions</h1>
+                <p class="text-muted mb-0">Manage sessions for this event.</p>
+            </div>
+
+            <div>
+                <a href="{{ route('events.event-sessions.create', $event) }}" class="btn btn-primary">
+                    Create Session
+                </a>
+
+                <a href="{{ route('events.show', $event) }}" class="btn btn-secondary">
+                    Back to Event
+                </a>
+            </div>
+        </div>
+
+        @if(session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if($event->sessions->count())
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Starts</th>
+                    <th>Ends</th>
+                    <th>Attendance Opens</th>
+                    <th>Attendance Closes</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                @foreach($event->sessions as $session)
+                    <tr>
+                        <td>{{ $session->name }}</td>
+
+                        <td>
+                            {{ $session->starts_at?->format('d M Y, h:i A') ?? '—' }}
+                        </td>
+
+                        <td>
+                            {{ $session->ends_at?->format('d M Y, h:i A') ?? '—' }}
+                        </td>
+
+                        <td>
+                            {{ $session->attendance_opens_at?->format('d M Y, h:i A') ?? '—' }}
+                        </td>
+
+                        <td>
+                            {{ $session->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}
+                        </td>
+
+                        <td>
+                            <a href="{{ route('events.event-sessions.show', [$event, $session]) }}">
+                                View
+                            </a>
+
+                            <a href="{{ route('events.event-sessions.edit', [$event, $session]) }}">
+                                Edit
+                            </a>
+
+                            <form action="{{ route('events.event-sessions.destroy', [$event, $session]) }}"
+                                  method="POST"
+                                  style="display:inline"
+                                  onsubmit="return confirm('Delete this session?');">
+                                @csrf
+                                @method('DELETE')
+
+                                <button type="submit">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        @else
+            <p>No sessions have been created for this event.</p>
+        @endif
+    </div>
+@endsection

@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Attendance')
+@section('title', 'Event Attendance')
 
 @section('content')
 
-    <h1>Attendance</h1>
+    <h1>Event Attendance</h1>
 
     <p class="subtitle">
-        Enter the attendance PIN to continue
+        Enter the 4-character event access code.
     </p>
 
     @if ($errors->any())
@@ -19,19 +19,21 @@
     @endif
 
     <form method="POST" action="{{ route('attendance.verify') }}">
-
         @csrf
 
         <div class="field">
-            <label for="pin">Attendance PIN</label>
+            <label for="pin">
+                Event Access Code
+            </label>
 
             <input
                 type="text"
                 id="pin"
                 name="pin"
                 maxlength="4"
-                inputmode="numeric"
-                placeholder="Enter 4-digit PIN"
+                autocomplete="off"
+                autocapitalize="characters"
+                placeholder="e.g. K7X4"
                 required
             >
         </div>
@@ -39,7 +41,6 @@
         <button type="submit">
             Continue
         </button>
-
     </form>
 
     <a class="back-link" href="{{ route('home') }}">
