@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Event extends Model
 {
@@ -60,5 +61,17 @@ class Event extends Model
     public function registrations(): HasMany
     {
         return $this->hasMany(Registration::class);
+    }
+
+    public function attendances(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Attendance::class,
+            EventSession::class,
+            'event_id',
+            'session_id',
+            'id',
+            'id'
+        );
     }
 }

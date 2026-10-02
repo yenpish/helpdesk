@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
@@ -63,11 +64,10 @@
                        required>
             </div>
 
-            <button type="submit" class="btn btn-primary">
-                Save Changes
-            </button>
-
-            <a href="{{ route('locations.show', $location) }}">Cancel</a>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a class="btn btn-secondary" href="{{ route('locations.show', $location) }}">Cancel</a>
+            </div>
         </form>
     </div>
 @endsection

@@ -68,6 +68,14 @@ Route::post('/attendance/{event}', [PublicAttendanceController::class, 'store'])
 
 Route::middleware(['auth', 'organizer'])->group(function () {
 
+    Route::get('/events/{event}/attendance/export', [EventController::class, 'exportAttendance'])
+        ->name('events.attendance.export');
+
+    Route::get(
+        '/events/{event}/event-sessions/{event_session}/attendance/export',
+        [EventSessionController::class, 'exportAttendance']
+    )->name('events.event-sessions.attendance.export');
+
     Route::resource('events', EventController::class);
 
     Route::resource('events.event-sessions', EventSessionController::class);

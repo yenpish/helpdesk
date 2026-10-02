@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Event management')
 
 @section('content')
     <div class="container">
@@ -15,13 +16,6 @@
                     class="btn btn-primary"
                 >
                     Edit Event
-                </a>
-
-                <a
-                    href="{{ route('events.event-sessions.index', $event) }}"
-                    class="btn btn-secondary"
-                >
-                    Manage Sessions
                 </a>
 
                 <a
@@ -56,6 +50,12 @@
                     <dd class="col-sm-9">
                         {{ $event->description ?: '—' }}
                     </dd>
+
+                    <dt class="col-sm-3">Event Starts</dt>
+                    <dd class="col-sm-9">{{ $event->starts_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+
+                    <dt class="col-sm-3">Event Ends</dt>
+                    <dd class="col-sm-9">{{ $event->ends_at?->format('d M Y, h:i A') ?? '—' }}</dd>
 
                     <dt class="col-sm-3">Event Type</dt>
                     <dd class="col-sm-9">
@@ -144,6 +144,7 @@
                                 <th>Starts</th>
                                 <th>Ends</th>
                                 <th>Attendance Window</th>
+                                <th>Attendees</th>
                                 <th>Actions</th>
                             </tr>
                             </thead>
@@ -175,6 +176,7 @@
                                         -
                                         {{ $session->attendance_closes_at?->format('h:i A') ?? '—' }}
                                     </td>
+                                    <td>{{ $session->attendances_count }}</td>
 
                                     <td>
                                         <a
@@ -217,19 +219,20 @@
 
                 @endif
 
+                <div class="d-flex justify-content-end mt-3">
+                    @if($event->attendances_count || $event->registrations->isNotEmpty())
+                        <a href="{{ route('events.attendance.export', $event) }}" class="btn btn-secondary btn-sm">Export Attendance</a>
+                    @else
+                        <button type="button" class="btn btn-secondary btn-sm" disabled title="Registrations and attendance records will appear in the export">Export Attendance</button>
+                    @endif
+                </div>
+
             </div>
 
         </div>
 
         <div class="card">
-
-            <div class="card-header">
-                Registrations
-            </div>
-
-            <div class="card">
-
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center">
                     <span>Registrations</span>
 
                     <a
@@ -240,12 +243,12 @@
                     </a>
                 </div>
 
-                <div class="card-body">
+            <div class="card-body">
 
                     @if($event->registrations->count())
 
                         <p class="mb-0">
-                            {{ $event->registrations->count() }} registration(s)
+                            {{ $event->registrations->count() }} {{ \Illuminate\Support\Str::plural('registration', $event->registrations->count()) }}
                         </p>
 
                     @else
@@ -256,10 +259,7 @@
 
                     @endif
 
-                </div>
-
             </div>
-
         </div>
 
     </div>

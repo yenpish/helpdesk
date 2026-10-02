@@ -1,9 +1,10 @@
 @extends('layouts.app')
+@section('section', 'Attendance')
 
 @section('title', $event->name . ' - Attendance')
 
 @section('content')
-
+    <div class="content-panel attendance-panel">
     <h1>{{ $event->name }}</h1>
 
     @if ($event->location)
@@ -29,6 +30,7 @@
             id="attendance-form"
             method="POST"
             action="{{ route('attendance.store', $event) }}"
+            class="account-form"
         >
             @csrf
 
@@ -78,11 +80,6 @@
 
                 <div class="event-meta">
                     <p>
-                        <strong>Selected Session</strong><br>
-                        {{ $defaultSession->name }}
-                    </p>
-
-                    <p>
                         <strong>Time</strong><br>
                         {{ $defaultSession->starts_at?->format('d/m/Y H:i') }}
                         —
@@ -127,7 +124,7 @@
 
                 <div class="field">
                     <label for="phone">
-                        Phone
+                        Phone *
                     </label>
 
                     <input
@@ -135,6 +132,9 @@
                         id="phone"
                         name="phone"
                         value="{{ old('phone') }}"
+                        autocomplete="tel"
+                        inputmode="tel"
+                        required
                     >
                 </div>
 
@@ -173,7 +173,7 @@
                         id="signature-pad"
                         width="600"
                         height="200"
-                        style="width: 100%; max-width: 600px; border: 1px solid #ccc; border-radius: 6px; background: white;"
+                        style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 6px; background: white;"
                     ></canvas>
 
                     <input
@@ -182,17 +182,15 @@
                         id="signature"
                     >
 
-                    <button
-                        type="button"
-                        id="clear-signature"
-                    >
-                        Clear Signature
-                    </button>
+                    <div class="attendance-form-actions">
+                        <button type="button" id="clear-signature" class="btn btn-secondary btn-sm">
+                            Clear Signature
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            Submit Attendance
+                        </button>
+                    </div>
                 </div>
-
-                <button type="submit">
-                    Submit Attendance
-                </button>
 
             @endif
 
@@ -206,8 +204,8 @@
 
     @endif
 
-    <a class="back-link" href="{{ route('attendance.pin') }}">
-        Back to Event Access
+    <a class="back-link btn btn-secondary btn-sm" href="{{ route('attendance.pin') }}">
+        Back to Attendance
     </a>
 
     <script>
@@ -278,5 +276,5 @@
             });
         }
     </script>
-
+    </div>
 @endsection

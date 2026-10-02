@@ -1,21 +1,23 @@
 @extends('layouts.app')
+@section('section', 'Event management')
 
 @section('content')
     <div class="container">
-        <h1>Registrations</h1>
-
-        <p>
-            <strong>Event:</strong> {{ $event->name }}
-        </p>
+        <div class="page-header">
+            <div class="page-heading">
+                <h1>Registrations</h1>
+                <p>Review registrations for <strong>{{ $event->name }}</strong>.</p>
+            </div>
+            <a class="btn btn-secondary" href="{{ route('events.show', $event) }}">Back to event</a>
+        </div>
 
         @if(session('success'))
-            <div>
-                {{ session('success') }}
-            </div>
+            <div class="alert alert-success" role="status">{{ session('success') }}</div>
         @endif
 
         @if($registrations->count())
-            <table>
+            <div class="table-responsive">
+            <table class="registrations-table">
                 <thead>
                 <tr>
                     <th>Name</th>
@@ -25,7 +27,7 @@
                     <th>Position</th>
                     <th>Status</th>
                     <th>Registered</th>
-                    <th>Action</th>
+                    <th>Update status</th>
                 </tr>
                 </thead>
 
@@ -57,10 +59,8 @@
                                 @csrf
                                 @method('PATCH')
 
-                                <select
-                                    name="status"
-                                    onchange="this.form.submit()"
-                                >
+                                <div class="status-control">
+                                <select name="status" aria-label="Registration status for {{ $registration->guest_name }}">
                                     <option
                                         value="pending"
                                         @selected($registration->status === 'pending')
@@ -89,20 +89,20 @@
                                         Cancelled
                                     </option>
                                 </select>
+                                <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+                                </div>
                             </form>
                         </td>
                     </tr>
                 @endforeach
                 </tbody>
             </table>
+            </div>
 
-            {{ $registrations->links() }}
+        <div class="pagination-wrap">{{ $registrations->links() }}</div>
         @else
             <p>No registrations have been submitted for this event yet.</p>
         @endif
 
-        <a href="{{ route('events.show', $event) }}">
-            Back to Event
-        </a>
     </div>
 @endsection

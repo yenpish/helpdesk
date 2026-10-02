@@ -29,7 +29,7 @@ class AccountController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', Rule::in(['admin', 'organizer', 'user'])],
+            'role' => ['required', Rule::in(['admin', 'organizer'])],
             'password' => ['required', 'string', 'min:8', 'max:72'],
         ]);
 
@@ -44,7 +44,7 @@ class AccountController extends Controller
             'auditable_id' => $user->id,
             'description' => 'User account created.',
             'old_values' => null,
-            'new_values' => json_encode($user->fresh()->getAttributes()),
+            'new_values' => $this->accountAuditValues($user->fresh()),
         ]);
 
         return redirect()
@@ -79,7 +79,8 @@ class AccountController extends Controller
                 ->withInput($request->except('password'));
         }
 
-        $oldValues = $user->getAttributes();
+        $oldValues = $this->accountAuditValues($user);
+        $passwordChanged = !empty($data['password']);
 
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
@@ -99,9 +100,11 @@ class AccountController extends Controller
             'action' => 'updated',
             'auditable_type' => User::class,
             'auditable_id' => $user->id,
-            'description' => 'User account updated.',
-            'old_values' => json_encode($oldValues),
-            'new_values' => json_encode($user->fresh()->getAttributes()),
+            'description' => $passwordChanged
+                ? 'User account and password updated.'
+                : 'User account updated.',
+            'old_values' => $oldValues,
+            'new_values' => $this->accountAuditValues($user->fresh()),
         ]);
 
         return redirect()
@@ -123,7 +126,7 @@ class AccountController extends Controller
             ]);
         }
 
-        $oldValues = $user->getAttributes();
+        $oldValues = $this->accountAuditValues($user);
 
         AuditLog::create([
             'user_id' => auth()->id(),
@@ -131,7 +134,7 @@ class AccountController extends Controller
             'auditable_type' => User::class,
             'auditable_id' => $user->id,
             'description' => 'User account deleted.',
-            'old_values' => json_encode($oldValues),
+            'old_values' => $oldValues,
             'new_values' => null,
         ]);
 
@@ -140,5 +143,14 @@ class AccountController extends Controller
         return redirect()
             ->route('accounts.index')
             ->with('success', 'Account deleted successfully.');
+    }
+
+    private function accountAuditValues(User $user): array
+    {
+        return [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+        ];
     }
 }

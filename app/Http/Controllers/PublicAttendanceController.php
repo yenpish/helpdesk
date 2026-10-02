@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
+use App\Support\MalaysianPhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -36,7 +37,7 @@ class PublicAttendanceController extends Controller
 
         if (!$event) {
             return back()->withErrors([
-                'pin' => 'Invalid event access code.',
+                'pin' => 'Invalid Attendance PIN.',
             ]);
         }
 
@@ -113,9 +114,10 @@ class PublicAttendanceController extends Controller
             ],
 
             'phone' => [
-                'nullable',
+                'required',
                 'string',
                 'max:50',
+                'regex:/^\\+?[0-9().\\s-]+$/',
             ],
 
             'position' => [
@@ -135,6 +137,16 @@ class PublicAttendanceController extends Controller
                 'string',
             ],
         ]);
+
+        $phoneDigits = MalaysianPhoneNumber::canonicalize($validated['phone']);
+
+        if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'phone' => 'Enter a phone number containing 7 to 15 digits.',
+                ]);
+        }
 
         $session = EventSession::where('event_id', $event->id)
             ->findOrFail($validated['session_id']);
@@ -170,12 +182,35 @@ class PublicAttendanceController extends Controller
             ->whereRaw('LOWER(email) = ?', [$email])
             ->exists();
 
+        // A phone identifies one attendee across this Event. The same
+        // attendee may still check in to another Session using the same email.
+        $phoneAlreadyUsed = $event->sessions()
+            ->with('attendances:id,session_id,phone,email')
+            ->get()
+            ->flatMap(fn (EventSession $eventSession) => $eventSession->attendances)
+            ->contains(function (Attendance $attendance) use ($phoneDigits, $email, $session) {
+                if (MalaysianPhoneNumber::canonicalize($attendance->phone ?? '') !== $phoneDigits) {
+                    return false;
+                }
+
+                return strtolower(trim($attendance->email ?? '')) !== $email
+                    || $attendance->session_id === $session->id;
+            });
+
+        $duplicateErrors = [];
+
         if ($alreadyAttended) {
+            $duplicateErrors['email'] = 'Attendance has already been recorded for this session using this email address.';
+        }
+
+        if ($phoneAlreadyUsed) {
+            $duplicateErrors['phone'] = 'This phone number is already used for attendance at this event.';
+        }
+
+        if ($duplicateErrors !== []) {
             return back()
                 ->withInput()
-                ->withErrors([
-                    'email' => 'Attendance has already been recorded for this session using this email address.',
-                ]);
+                ->withErrors($duplicateErrors);
         }
 
         /*
@@ -217,7 +252,7 @@ class PublicAttendanceController extends Controller
             'full_name' => trim($validated['full_name']),
             'position' => $validated['position'] ?? null,
             'unit' => $validated['unit'] ?? null,
-            'phone' => $validated['phone'] ?? null,
+            'phone' => $phoneDigits,
             'email' => $email,
             'signature' => $validated['signature'] ?? null,
 

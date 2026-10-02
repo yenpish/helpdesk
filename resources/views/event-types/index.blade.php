@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
@@ -43,23 +44,23 @@
                             {{ $eventType->events()->count() }}
                         </td>
 
-                        <td>
-                            <a href="{{ route('event-types.show', $eventType) }}">
+                        <td class="table-actions">
+                            <a class="btn btn-secondary btn-sm" href="{{ route('event-types.show', $eventType) }}">
                                 View
                             </a>
 
-                            <a href="{{ route('event-types.edit', $eventType) }}">
+                            <a class="btn btn-secondary btn-sm" href="{{ route('event-types.edit', $eventType) }}">
                                 Edit
                             </a>
 
-                            <form action="{{ route('event-types.destroy', $eventType) }}"
+                            <form class="inline-form" action="{{ route('event-types.destroy', $eventType) }}"
                                   method="POST"
                                   style="display:inline"
                                   onsubmit="return confirm('Delete this event type?');">
                                 @csrf
                                 @method('DELETE')
 
-                                <button type="submit">
+                                <button class="btn btn-danger btn-sm" type="submit">
                                     Delete
                                 </button>
                             </form>
@@ -72,9 +73,9 @@
             <div class="mt-3">
                 <div class="d-flex justify-content-between">
                     @if($eventTypes->onFirstPage())
-                        <span class="text-muted">Previous</span>
+                        <span class="pagination-disabled">Previous</span>
                     @else
-                        <a href="{{ $eventTypes->previousPageUrl() }}">Previous</a>
+                        <a class="pagination-link" href="{{ $eventTypes->previousPageUrl() }}">Previous</a>
                     @endif
 
                     <span>
@@ -83,9 +84,9 @@
                 </span>
 
                     @if($eventTypes->hasMorePages())
-                        <a href="{{ $eventTypes->nextPageUrl() }}">Next</a>
+                        <a class="pagination-link" href="{{ $eventTypes->nextPageUrl() }}">Next</a>
                     @else
-                        <span class="text-muted">Next</span>
+                        <span class="pagination-disabled">Next</span>
                     @endif
                 </div>
             </div>

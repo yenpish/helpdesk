@@ -1,13 +1,14 @@
 @extends('layouts.app')
+@section('section', 'Attendance')
 
 @section('title', 'Event Attendance')
 
 @section('content')
-
-    <h1>Event Attendance</h1>
+    <div class="content-panel attendance-pin-panel">
+    <h1>Attendance PIN</h1>
 
     <p class="subtitle">
-        Enter the 4-character event access code.
+        Enter the 4-character Attendance PIN.
     </p>
 
     @if ($errors->any())
@@ -23,7 +24,7 @@
 
         <div class="field">
             <label for="pin">
-                Event Access Code
+                Attendance PIN
             </label>
 
             <input
@@ -43,8 +44,8 @@
         </button>
     </form>
 
-    <a class="back-link" href="{{ route('home') }}">
+    <a class="back-link btn btn-secondary btn-sm" href="{{ route('home') }}">
         Back to Home
     </a>
-
+    </div>
 @endsection

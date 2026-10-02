@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
@@ -41,18 +42,18 @@
                         <td>{{ $location->allowed_radius }} m</td>
                         <td>{{ $location->events()->count() }}</td>
 
-                        <td>
-                            <a href="{{ route('locations.show', $location) }}">View</a>
-                            <a href="{{ route('locations.edit', $location) }}">Edit</a>
+                        <td class="table-actions">
+                            <a class="btn btn-secondary btn-sm" href="{{ route('locations.show', $location) }}">View</a>
+                            <a class="btn btn-secondary btn-sm" href="{{ route('locations.edit', $location) }}">Edit</a>
 
-                            <form action="{{ route('locations.destroy', $location) }}"
+                            <form class="inline-form" action="{{ route('locations.destroy', $location) }}"
                                   method="POST"
                                   style="display:inline"
                                   onsubmit="return confirm('Delete this location?');">
                                 @csrf
                                 @method('DELETE')
 
-                                <button type="submit">Delete</button>
+                                <button class="btn btn-danger btn-sm" type="submit">Delete</button>
                             </form>
                         </td>
                     </tr>
@@ -62,9 +63,9 @@
 
             <div class="d-flex justify-content-between mt-3">
                 @if($locations->onFirstPage())
-                    <span class="text-muted">Previous</span>
+                    <span class="pagination-disabled">Previous</span>
                 @else
-                    <a href="{{ $locations->previousPageUrl() }}">Previous</a>
+                    <a class="pagination-link" href="{{ $locations->previousPageUrl() }}">Previous</a>
                 @endif
 
                 <span>
@@ -73,9 +74,9 @@
             </span>
 
                 @if($locations->hasMorePages())
-                    <a href="{{ $locations->nextPageUrl() }}">Next</a>
+                    <a class="pagination-link" href="{{ $locations->nextPageUrl() }}">Next</a>
                 @else
-                    <span class="text-muted">Next</span>
+                    <span class="pagination-disabled">Next</span>
                 @endif
             </div>
         @else

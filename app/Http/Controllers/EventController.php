@@ -9,27 +9,149 @@ use App\Models\Location;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 
 class EventController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $sortOptions = [
+            'created_desc' => ['created_at', 'desc'],
+            'start_asc' => ['starts_at', 'asc'],
+            'start_desc' => ['starts_at', 'desc'],
+            'name_asc' => ['name', 'asc'],
+            'name_desc' => ['name', 'desc'],
+        ];
+        $searchValue = $request->query('search', '');
+        $search = is_string($searchValue) ? trim(substr($searchValue, 0, 100)) : '';
+        $sortValue = $request->query('sort', 'created_desc');
+        $sort = is_string($sortValue) ? $sortValue : 'created_desc';
+        if (!array_key_exists($sort, $sortOptions)) {
+            $sort = 'created_desc';
+        }
+
         $query = Event::with([
             'eventType',
             'location',
             'organizer',
-        ])->withCount('registrations');
+        ])->withCount(['registrations', 'attendances as attendees_count']);
 
         if (auth()->user()->role !== 'admin') {
             $query->where('organizer_id', auth()->id());
         }
 
-        $events = $query
-            ->latest()
-            ->paginate(10);
+        if ($search !== '') {
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('description', 'like', '%' . $search . '%')
+                    ->orWhereHas('eventType', fn ($related) => $related->where('name', 'like', '%' . $search . '%'))
+                    ->orWhereHas('location', fn ($related) => $related->where('name', 'like', '%' . $search . '%'))
+                    ->orWhereHas('organizer', fn ($related) => $related->where('name', 'like', '%' . $search . '%'));
+            });
+        }
 
-        return view('events.index', compact('events'));
+        [$sortColumn, $sortDirection] = $sortOptions[$sort];
+        $events = $query
+            ->orderBy($sortColumn, $sortDirection)
+            ->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('events.index', compact('events', 'search', 'sort'));
+    }
+
+    public function exportAttendance(Event $event): StreamedResponse
+    {
+        $this->authorizeEvent($event);
+
+        $filename = 'event-' . $event->id . '-attendance.csv';
+
+        return response()->streamDownload(function () use ($event) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, [
+                'Event', 'Session', 'Session Starts', 'Name', 'Email', 'Phone',
+                'Position', 'Organisation / Unit', 'Registration Status',
+                'Attendance Status', 'Registered At', 'Attended At',
+            ]);
+
+            $sessions = $event->sessions()->orderBy('starts_at')->get();
+            $registrations = $event->registrations()->with('user')->orderBy('registered_at')->get();
+            $attendances = $event->attendances()
+                ->with('session')
+                ->orderBy('attendances.created_at')
+                ->get();
+            $attendanceGroups = $attendances->groupBy(fn ($attendance) =>
+                $attendance->session_id . '|' . strtolower(trim($attendance->email ?? ''))
+            );
+            $matchedAttendanceIds = [];
+
+            $writeRow = function (array $row) use ($output) {
+                fputcsv($output, array_map(function ($value) {
+                    $value = (string) ($value ?? '');
+
+                    return preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value;
+                }, $row));
+            };
+
+            foreach ($registrations as $registration) {
+                $email = strtolower(trim($registration->guest_email ?? $registration->user?->email ?? ''));
+                $registrationName = $registration->guest_name ?? $registration->user?->name;
+                $sessionsToReport = $sessions->isNotEmpty() ? $sessions : collect([null]);
+
+                foreach ($sessionsToReport as $session) {
+                    $matches = $session && $email !== ''
+                        ? $attendanceGroups->get($session->id . '|' . $email, collect())
+                        : collect();
+                    $attendanceRecords = $matches->isNotEmpty() ? $matches : collect([null]);
+
+                    foreach ($attendanceRecords as $attendance) {
+                        if ($attendance) {
+                            $matchedAttendanceIds[$attendance->id] = true;
+                        }
+
+                        $writeRow([
+                            $event->name,
+                            $session?->name,
+                            $session?->starts_at?->format('Y-m-d H:i:s'),
+                            $registrationName,
+                            $email,
+                            $attendance?->phone ?? $registration->guest_phone,
+                            $attendance?->position ?? $registration->position,
+                            $registration->organisation ?? $attendance?->unit,
+                            ucfirst($registration->status),
+                            $attendance ? 'Attended' : 'Not attended',
+                            $registration->registered_at?->format('Y-m-d H:i:s'),
+                            $attendance?->created_at?->format('Y-m-d H:i:s'),
+                        ]);
+                    }
+                }
+            }
+
+            foreach ($attendances as $attendance) {
+                if (isset($matchedAttendanceIds[$attendance->id])) {
+                    continue;
+                }
+
+                $writeRow([
+                    $event->name,
+                    $attendance->session?->name,
+                    $attendance->session?->starts_at?->format('Y-m-d H:i:s'),
+                    $attendance->full_name,
+                    $attendance->email,
+                    $attendance->phone,
+                    $attendance->position,
+                    $attendance->unit,
+                    'Not registered',
+                    'Attended',
+                    null,
+                    $attendance->created_at?->format('Y-m-d H:i:s'),
+                ]);
+            }
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function create(): View
@@ -88,8 +210,11 @@ class EventController extends Controller
 
         $sessionNumber = 1;
         $currentDate = $eventStart->copy()->startOfDay();
+        $lastSessionDate = $eventEnd->copy()->startOfDay();
 
-        while ($currentDate->lte($eventEnd->copy()->startOfDay())) {
+        while ($currentDate->lte($lastSessionDate)) {
+            $dayStart = $currentDate->copy()->startOfDay();
+            $dayEnd = $currentDate->copy()->endOfDay();
             $sessionStart = $currentDate->copy()->setTime(
                 $eventStart->hour,
                 $eventStart->minute,
@@ -102,12 +227,35 @@ class EventController extends Controller
                 $eventEnd->second
             );
 
-            /*
-             * For additional days, use the Event's default time range.
-             * Individual Sessions can be edited afterwards.
-             */
+            // When the daily end time is not after the daily start time,
+            // use a one-hour default that stays within the event window.
             if ($sessionEnd->lte($sessionStart)) {
-                $sessionEnd = $sessionStart->copy()->addHour();
+                if ($currentDate->isSameDay($lastSessionDate)) {
+                    $sessionEnd = $eventEnd->copy();
+                    $sessionStart = $eventEnd->copy()->subHour();
+
+                    if ($sessionStart->lt($dayStart)) {
+                        $sessionStart = $dayStart;
+                    }
+                } else {
+                    $sessionEnd = $sessionStart->copy()->addHour();
+
+                    if ($sessionEnd->gt($dayEnd)) {
+                        $sessionEnd = $dayEnd;
+                    }
+
+                    if ($sessionEnd->gt($eventEnd)) {
+                        $sessionEnd = $eventEnd->copy();
+                    }
+                }
+            } else {
+                if ($sessionEnd->gt($dayEnd)) {
+                    $sessionEnd = $dayEnd;
+                }
+
+                if ($sessionEnd->gt($eventEnd)) {
+                    $sessionEnd = $eventEnd->copy();
+                }
             }
 
             $event->sessions()->create([
@@ -152,6 +300,8 @@ class EventController extends Controller
             'sessions',
             'registrations',
         ]);
+        $event->loadCount('attendances');
+        $event->sessions->loadCount('attendances');
 
         return view('events.show', compact('event'));
     }

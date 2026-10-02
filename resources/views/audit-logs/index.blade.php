@@ -1,91 +1,62 @@
 @extends('layouts.app')
 
 @section('title', 'Audit Log')
+@section('section', 'Administration')
 
 @section('content')
-    <div class="app-box" style="max-width: 1200px;">
-
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px;">
-            <div>
-                <h1 style="margin:0 0 6px;">Audit Log</h1>
-                <p style="margin:0; color:#666;">
-                    Historical record of changes made across the system.
-                </p>
+    <div class="container">
+        <header class="page-header">
+            <div class="page-heading">
+                <h1>Audit log</h1>
+                <p>Historical record of changes made across the system.</p>
             </div>
-
-            <a href="{{ url()->previous() }}"
-               style="padding:10px 14px; background:#eee; color:#222; text-decoration:none; border-radius:4px;">
-                Back
-            </a>
-        </div>
+            <a class="btn btn-secondary" href="{{ route('home') }}">Dashboard</a>
+        </header>
 
         @if(session('success'))
-            <div style="padding:12px 14px; margin-bottom:20px; background:#e8f5e9; border:1px solid #c8e6c9; color:#2e7d32;">
-                {{ session('success') }}
-            </div>
+            <div class="alert alert-success" role="status">{{ session('success') }}</div>
         @endif
 
         @if($auditLogs->count())
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; background:white;">
+            <div class="table-responsive">
+                <table class="table audit-table">
                     <thead>
-                    <tr style="background:#f1f1f1; text-align:left;">
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Date / Time</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Actor</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Action</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Module</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Record</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Description</th>
-                        <th style="padding:12px; border-bottom:1px solid #ddd;">Details</th>
+                    <tr>
+                        <th>Date / time</th>
+                        <th>Actor</th>
+                        <th>Action</th>
+                        <th>Module</th>
+                        <th>Record</th>
+                        <th>Description</th>
+                        <th>Changes</th>
                     </tr>
                     </thead>
-
                     <tbody>
                     @foreach($auditLogs as $log)
                         <tr>
-                            <td style="padding:12px; border-bottom:1px solid #eee; white-space:nowrap;">
-                                {{ $log->created_at?->format('d M Y, h:i A') }}
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                {{ $log->user?->name ?? 'System / Unknown' }}
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                <strong>{{ strtoupper($log->action) }}</strong>
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                {{ class_basename($log->auditable_type) }}
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                #{{ $log->auditable_id }}
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                {{ $log->description ?? '—' }}
-                            </td>
-
-                            <td style="padding:12px; border-bottom:1px solid #eee;">
-                                @if($log->old_values || $log->new_values)
-                                    <details>
-                                        <summary style="cursor:pointer;">
-                                            View changes
-                                        </summary>
-
-                                        <div style="margin-top:10px; min-width:300px;">
-                                            @if($log->old_values)
-                                                <strong>Before</strong>
-
-                                                <pre style="white-space:pre-wrap; font-size:12px; background:#f7f7f7; padding:10px; margin-top:6px;">{{ json_encode($log->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                            @endif
-
-                                            @if($log->new_values)
-                                                <strong>After</strong>
-
-                                                <pre style="white-space:pre-wrap; font-size:12px; background:#f7f7f7; padding:10px; margin-top:6px;">{{ json_encode($log->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                            @endif
+                            <td class="nowrap">{{ $log->created_at?->format('d M Y, h:i A') }}</td>
+                            <td>{{ $log->user?->name ?? 'System / Unknown' }}</td>
+                            <td><span class="audit-action">{{ strtoupper($log->action) }}</span></td>
+                            <td>{{ \Illuminate\Support\Str::headline(class_basename($log->auditable_type)) }}</td>
+                            <td>#{{ $log->auditable_id }}</td>
+                            <td>{{ $log->description ?? '—' }}</td>
+                            <td>
+                                @if(count($log->display_changes))
+                                    <details class="audit-details">
+                                        <summary>View changes</summary>
+                                        <div class="audit-values table-responsive">
+                                            <table class="audit-changes-table">
+                                                <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+                                                <tbody>
+                                                @foreach($log->display_changes as $change)
+                                                    <tr>
+                                                        <th scope="row">{{ $change['field'] }}</th>
+                                                        <td>{{ $change['before'] }}</td>
+                                                        <td>{{ $change['after'] }}</td>
+                                                    </tr>
+                                                @endforeach
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </details>
                                 @else
@@ -97,15 +68,9 @@
                     </tbody>
                 </table>
             </div>
-
-            <div style="margin-top:20px;">
-                {{ $auditLogs->links() }}
-            </div>
+            <div class="pagination-wrap">{{ $auditLogs->links() }}</div>
         @else
-            <div style="padding:30px; text-align:center; background:#f8f8f8; border:1px solid #ddd;">
-                No audit records have been recorded yet.
-            </div>
+            <div class="empty-state">No audit records have been recorded yet.</div>
         @endif
-
     </div>
 @endsection

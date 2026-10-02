@@ -13,24 +13,33 @@ class HomeController extends Controller
             return view('guest-home');
         }
 
-        $activeSessions = EventSession::where('attendance_opens_at', '<=', now())
+        if (auth()->user()->role === 'user') {
+            return view('guest-home');
+        }
+
+        $sessions = EventSession::query()->whereHas('event', function ($query) {
+            if (auth()->user()->role === 'organizer') {
+                $query->where('organizer_id', auth()->id());
+            }
+        });
+
+        $activeSessions = (clone $sessions)->where('attendance_opens_at', '<=', now())
             ->where('attendance_closes_at', '>=', now())
             ->count();
 
-        $todaySessions = EventSession::whereDate('starts_at', today())
+        $todaySessions = (clone $sessions)->whereDate('starts_at', today())
             ->count();
 
-        $todayAttendance = EventSession::whereDate('starts_at', today())
+        $todayAttendance = (clone $sessions)->whereDate('starts_at', today())
             ->withCount('attendances')
             ->get()
             ->sum('attendances_count');
 
-        $totalUsers = User::count();
+        $totalUsers = auth()->user()->role === 'admin' ? User::count() : 0;
 
-        $openTickets = 0;
-
-        $recentSessions = EventSession::with('event')
-            ->latest('starts_at')
+        $recentSessions = (clone $sessions)->with('event')
+            ->where('ends_at', '>=', now())
+            ->orderBy('starts_at')
             ->take(5)
             ->get();
 
@@ -39,7 +48,6 @@ class HomeController extends Controller
             'todaySessions',
             'todayAttendance',
             'totalUsers',
-            'openTickets',
             'recentSessions'
         ));
     }

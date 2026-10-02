@@ -1,7 +1,9 @@
 @extends('layouts.app')
+@section('section', 'Registration')
 
 @section('content')
     <div class="container">
+        <div class="content-panel registration-success-panel">
         <h1>Registration Submitted</h1>
 
         <p>
@@ -29,8 +31,7 @@
             Your registration is currently pending review.
         </p>
 
-        <a href="{{ route('registrations.public-index') }}">
-            Back to Events
-        </a>
+        <a class="btn btn-secondary" href="{{ route('registrations.public-index') }}">Back to Events</a>
+        </div>
     </div>
 @endsection

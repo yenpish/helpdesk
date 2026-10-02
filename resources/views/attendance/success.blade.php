@@ -1,10 +1,11 @@
 @extends('layouts.app')
+@section('section', 'Attendance')
 
 @section('title', 'Attendance Submitted')
 
 @section('content')
 
-    <div class="success-page">
+    <div class="content-panel success-page success-panel">
 
         <div class="success-icon">✓</div>
 
@@ -39,11 +40,11 @@
         @endif
 
         <div class="success-links">
-            <a href="{{ route('attendance.pin') }}">
+            <a class="btn btn-secondary btn-sm" href="{{ route('attendance.pin') }}">
                 Back to Attendance
             </a>
 
-            <a href="{{ route('home') }}">
+            <a class="btn btn-secondary btn-sm" href="{{ route('home') }}">
                 Back to Home
             </a>
         </div>

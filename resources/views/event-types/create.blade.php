@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
@@ -38,13 +39,10 @@
                           rows="4">{{ old('description') }}</textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary">
-                Create Event Type
-            </button>
-
-            <a href="{{ route('event-types.index') }}">
-                Cancel
-            </a>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Create Event Type</button>
+                <a class="btn btn-secondary" href="{{ route('event-types.index') }}">Cancel</a>
+            </div>
         </form>
     </div>
 @endsection

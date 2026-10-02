@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Event management')
 
 @section('content')
     <div class="container">
@@ -26,6 +27,7 @@
         @endif
 
         @if($event->sessions->count())
+            <div class="table-responsive">
             <table class="table">
                 <thead>
                 <tr>
@@ -59,29 +61,23 @@
                             {{ $session->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
 
-                        <td>
-                            <a href="{{ route('events.event-sessions.show', [$event, $session]) }}">
-                                View
-                            </a>
+                        <td class="table-actions">
+                            <a class="btn btn-secondary btn-sm" href="{{ route('events.event-sessions.show', [$event, $session]) }}">View</a>
+                            <a class="btn btn-secondary btn-sm" href="{{ route('events.event-sessions.edit', [$event, $session]) }}">Edit</a>
 
-                            <a href="{{ route('events.event-sessions.edit', [$event, $session]) }}">
-                                Edit
-                            </a>
-
-                            <form action="{{ route('events.event-sessions.destroy', [$event, $session]) }}"
-                                  method="POST"
-                                  style="display:inline"
-                                  onsubmit="return confirm('Delete this session?');">
+                            <form class="inline-form" action="{{ route('events.event-sessions.destroy', [$event, $session]) }}"
+                                  method="POST" onsubmit="return confirm('Delete this session?');">
                                 @csrf
                                 @method('DELETE')
 
-                                <button type="submit">Delete</button>
+                                <button class="btn btn-danger btn-sm" type="submit">Delete</button>
                             </form>
                         </td>
                     </tr>
                 @endforeach
                 </tbody>
             </table>
+            </div>
         @else
             <p>No sessions have been created for this event.</p>
         @endif

@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventSessionController extends Controller
 {
@@ -89,22 +90,101 @@ class EventSessionController extends Controller
             'attendances',
         ]);
 
-        $registrations = Registration::where('event_id', $event->id)
+        $registrations = Registration::with('user')
+            ->where('event_id', $event->id)
             ->latest('registered_at')
             ->get();
 
         $attendanceEmails = $eventSession->attendances
             ->filter(fn ($attendance) => filled($attendance->email))
-            ->mapWithKeys(function ($attendance) {
-                return [strtolower(trim($attendance->email)) => $attendance];
-            });
+            ->keyBy(fn ($attendance) => strtolower(trim($attendance->email)));
+        $registeredEmails = collect();
+        $registrationAttendanceRows = $registrations->map(function ($registration) use ($attendanceEmails, $eventSession, $registeredEmails) {
+            $email = strtolower(trim($registration->guest_email ?? $registration->user?->email ?? ''));
+            if ($email !== '') {
+                $registeredEmails->put($email, true);
+            }
+
+            $attendance = $email !== '' ? $attendanceEmails->get($email) : null;
+            return [
+                'name' => $registration->guest_name ?? $registration->user?->name,
+                'email' => $email,
+                'phone' => $attendance?->phone ?? $registration->guest_phone,
+                'organisation' => $registration->organisation ?? $attendance?->unit,
+                'registration_status' => ucfirst($registration->status),
+                'attendance_status' => $attendance ? 'Attended' : 'Not attended',
+                'attended_at' => $attendance?->created_at,
+            ];
+        });
+
+        $unregisteredAttendanceRows = $eventSession->attendances
+            ->filter(function ($attendance) use ($registeredEmails) {
+                $email = strtolower(trim($attendance->email ?? ''));
+
+                return $email === '' || !$registeredEmails->has($email);
+            })
+            ->map(fn ($attendance) => [
+                'name' => $attendance->full_name,
+                'email' => $attendance->email,
+                'phone' => $attendance->phone,
+                'organisation' => $attendance->unit,
+                'registration_status' => 'Not registered',
+                'attendance_status' => 'Attended',
+                'attended_at' => $attendance->created_at,
+            ]);
+
+        $registrationAttendanceRows = $registrationAttendanceRows
+            ->concat($unregisteredAttendanceRows);
 
         return view('event-sessions.show', compact(
             'event',
             'eventSession',
             'registrations',
-            'attendanceEmails'
+            'registrationAttendanceRows'
         ));
+    }
+
+    public function exportAttendance(Event $event, EventSession $eventSession): StreamedResponse
+    {
+        $this->authorizeEvent($event);
+        abort_unless($eventSession->event_id === $event->id, 404);
+
+        $filename = 'event-' . $event->id . '-session-' . $eventSession->id . '-attendance.csv';
+
+        return response()->streamDownload(function () use ($event, $eventSession) {
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, [
+                'Event', 'Session', 'Session Starts', 'Full Name', 'Email',
+                'Phone', 'Position', 'Organisation / Unit', 'Recorded At',
+            ]);
+
+            $eventSession->attendances()
+                ->orderBy('created_at')
+                ->chunk(500, function ($attendances) use ($output, $event, $eventSession) {
+                    foreach ($attendances as $attendance) {
+                        $row = [
+                            $event->name,
+                            $eventSession->name,
+                            $eventSession->starts_at?->format('Y-m-d H:i:s'),
+                            $attendance->full_name,
+                            $attendance->email,
+                            $attendance->phone,
+                            $attendance->position,
+                            $attendance->unit,
+                            $attendance->created_at?->format('Y-m-d H:i:s'),
+                        ];
+
+                        fputcsv($output, array_map(function ($value) {
+                            $value = (string) ($value ?? '');
+
+                            return preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value;
+                        }, $row));
+                    }
+                });
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function edit(Event $event, EventSession $eventSession): View

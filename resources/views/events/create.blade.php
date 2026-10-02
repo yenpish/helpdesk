@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Event management')
 
 @section('content')
     <div class="container">
@@ -139,23 +140,10 @@
                     </div>
 
                     <div class="alert alert-light border">
-                        <strong>Automatically configured</strong>
+                        <strong>After creation</strong>
 
                         <div class="text-muted mt-1">
-                            You will be assigned as the organizer of this event.
-                            The event will start as a draft until you publish it.
-                            A unique event access code will also be generated automatically.
-                        </div>
-                    </div>
-
-                    <div class="alert alert-light border">
-                        <strong>What happens next?</strong>
-
-                        <div class="text-muted mt-1">
-                            A Session 1 will be created automatically.
-                            If the event spans multiple days, one session will be
-                            created for each day. You can manage individual sessions
-                            afterwards.
+                            You will be assigned as the organizer. The event starts as a draft and receives a unique Attendance PIN. Sessions are generated automatically based on the event dates.
                         </div>
                     </div>
 

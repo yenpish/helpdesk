@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use App\Models\AuditLog;
+use App\Support\MalaysianPhoneNumber;
 
 class RegistrationController extends Controller
 {
@@ -58,10 +59,20 @@ class RegistrationController extends Controller
         $validated = $request->validate([
             'guest_name' => ['required', 'string', 'max:255'],
             'guest_email' => ['required', 'email', 'max:255'],
-            'guest_phone' => ['nullable', 'string', 'max:50'],
+            'guest_phone' => ['required', 'string', 'max:50', 'regex:/^\\+?[0-9().\\s-]+$/'],
             'organisation' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
         ]);
+
+        $phoneDigits = MalaysianPhoneNumber::canonicalize($validated['guest_phone']);
+
+        if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'guest_phone' => 'Enter a phone number containing 7 to 15 digits.',
+                ]);
+        }
 
         $email = strtolower(trim($validated['guest_email']));
 
@@ -77,12 +88,28 @@ class RegistrationController extends Controller
                 ]);
         }
 
+        $normalizedPhone = $phoneDigits;
+        $duplicatePhone = $event->registrations()
+            ->whereNotNull('guest_phone')
+            ->get(['guest_phone'])
+            ->contains(fn (Registration $existingRegistration) =>
+                MalaysianPhoneNumber::canonicalize($existingRegistration->guest_phone) === $normalizedPhone
+            );
+
+        if ($duplicatePhone) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'guest_phone' => 'This phone number is already used for a registration at this event.',
+                ]);
+        }
+
         $registration = Registration::create([
             'event_id' => $event->id,
             'user_id' => auth()->id(),
             'guest_name' => trim($validated['guest_name']),
             'guest_email' => $email,
-            'guest_phone' => $validated['guest_phone'] ?? null,
+            'guest_phone' => $normalizedPhone,
             'organisation' => $validated['organisation'] ?? null,
             'position' => $validated['position'] ?? null,
             'status' => 'pending',
@@ -171,4 +198,5 @@ class RegistrationController extends Controller
             'Registration status updated successfully.'
         );
     }
+
 }

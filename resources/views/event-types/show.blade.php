@@ -1,17 +1,18 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>{{ $eventType->name }}</h1>
 
-            <div>
-                <a href="{{ route('event-types.edit', $eventType) }}">
+            <div class="d-flex gap-2">
+                <a class="btn btn-primary" href="{{ route('event-types.edit', $eventType) }}">
                     Edit
                 </a>
 
-                <a href="{{ route('event-types.index') }}">
-                    Back
+                <a class="btn btn-secondary" href="{{ route('event-types.index') }}">
+                    Back to Event Types
                 </a>
             </div>
         </div>

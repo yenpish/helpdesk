@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('section', 'Event management')
 
 @section('content')
     <div class="container">

@@ -1,13 +1,14 @@
 @extends('layouts.app')
+@section('section', 'Configuration')
 
 @section('content')
     <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>{{ $location->name }}</h1>
 
-            <div>
-                <a href="{{ route('locations.edit', $location) }}">Edit</a>
-                <a href="{{ route('locations.index') }}">Back</a>
+            <div class="d-flex gap-2">
+                <a class="btn btn-primary" href="{{ route('locations.edit', $location) }}">Edit</a>
+                <a class="btn btn-secondary" href="{{ route('locations.index') }}">Back to Locations</a>
             </div>
         </div>
 
