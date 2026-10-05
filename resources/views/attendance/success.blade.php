@@ -30,7 +30,7 @@
         @if(isset($registration))
             <p>
                 @if($registration)
-                    Your attendance matched an existing registration
+                    Your attendance matched an existing pre-registration
                     for this event.
                 @else
                     No matching pre-registration was found.

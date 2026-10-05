@@ -39,70 +39,57 @@
             </div>
 
             <div class="card-body">
-                <dl class="row mb-0">
-
-                    <dt class="col-sm-3">Name</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->name }}
-                    </dd>
-
-                    <dt class="col-sm-3">Description</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->description ?: '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Event Starts</dt>
-                    <dd class="col-sm-9">{{ $event->starts_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-
-                    <dt class="col-sm-3">Event Ends</dt>
-                    <dd class="col-sm-9">{{ $event->ends_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-
-                    <dt class="col-sm-3">Event Type</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->eventType?->name ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Location</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->location?->name ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Organizer</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->organizer?->name ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Status</dt>
-                    <dd class="col-sm-9">
-                        {{ ucfirst($event->status) }}
-                    </dd>
-
-                    <dt class="col-sm-3">Attendance PIN</dt>
-                    <dd class="col-sm-9">
-                        <strong>{{ $event->pin ?? '—' }}</strong>
-                    </dd>
-
-                    <dt class="col-sm-3">Created By</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->createdBy?->name ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Updated By</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->updatedBy?->name ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Created At</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->created_at?->format('d M Y, h:i A') ?? '—' }}
-                    </dd>
-
-                    <dt class="col-sm-3">Updated At</dt>
-                    <dd class="col-sm-9">
-                        {{ $event->updated_at?->format('d M Y, h:i A') ?? '—' }}
-                    </dd>
-
+                <dl class="event-details-grid mb-0">
+                    <div class="event-details-pair">
+                        <dt>Name</dt><dd>{{ $event->name }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Description</dt><dd>{{ $event->description ?: '—' }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Event Type</dt><dd>{{ $event->eventType?->name ?? '—' }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Location</dt><dd>{{ $event->location?->name ?? '—' }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Organizer</dt><dd>{{ $event->organizer?->name ?? '—' }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Status</dt><dd>{{ ucfirst($event->status) }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Attendance PIN</dt><dd><strong>{{ $event->pin ?? '—' }}</strong></dd>
+                    </div>
                 </dl>
+
+                <div class="event-details-meta">
+                    <section class="event-details-meta-group" aria-labelledby="event-schedule-heading">
+                        <h3 id="event-schedule-heading">Schedule</h3>
+                        <dl class="mb-0">
+                            <div class="event-details-meta-row">
+                                <dt>Starts</dt><dd>{{ $event->starts_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                            <div class="event-details-meta-row">
+                                <dt>Ends</dt><dd>{{ $event->ends_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="event-details-meta-group" aria-labelledby="event-record-heading">
+                        <h3 id="event-record-heading">Record history</h3>
+                        <dl class="mb-0">
+                            <div class="event-details-meta-row">
+                                <dt>Created</dt>
+                                <dd>{{ $event->createdBy?->name ?? '—' }} <span>·</span> {{ $event->created_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                            <div class="event-details-meta-row">
+                                <dt>Updated</dt>
+                                <dd>{{ $event->updatedBy?->name ?? '—' }} <span>·</span> {{ $event->updated_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+                </div>
             </div>
         </div>
 
@@ -155,13 +142,7 @@
 
                                 <tr>
 
-                                    <td>
-                                        <a
-                                            href="{{ route('events.event-sessions.show', [$event, $session]) }}"
-                                        >
-                                            {{ $session->name }}
-                                        </a>
-                                    </td>
+                                    <td>{{ $session->name }}</td>
 
                                     <td>
                                         {{ $session->starts_at?->format('d M Y, h:i A') ?? '—' }}

@@ -22,32 +22,61 @@
         <div class="card mb-4">
             <div class="card-header">Session Information</div>
             <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-3">Event</dt>
-                    <dd class="col-sm-9"><a href="{{ route('events.show', $event) }}">{{ $event->name }}</a></dd>
-                    <dt class="col-sm-3">Name</dt>
-                    <dd class="col-sm-9">{{ $eventSession->name }}</dd>
-                    <dt class="col-sm-3">Description</dt>
-                    <dd class="col-sm-9">{{ $eventSession->description ?: '—' }}</dd>
-                    <dt class="col-sm-3">Session Starts</dt>
-                    <dd class="col-sm-9">{{ $eventSession->starts_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-                    <dt class="col-sm-3">Session Ends</dt>
-                    <dd class="col-sm-9">{{ $eventSession->ends_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-                    <dt class="col-sm-3">Attendance Opens</dt>
-                    <dd class="col-sm-9">{{ $eventSession->attendance_opens_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-                    <dt class="col-sm-3">Attendance Closes</dt>
-                    <dd class="col-sm-9">{{ $eventSession->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}</dd>
-                    <dt class="col-sm-3">Created By</dt>
-                    <dd class="col-sm-9">{{ $eventSession->createdBy?->name ?? '—' }}</dd>
-                    <dt class="col-sm-3">Updated By</dt>
-                    <dd class="col-sm-9">{{ $eventSession->updatedBy?->name ?? '—' }}</dd>
+                <dl class="event-details-grid session-details-grid mb-0">
+                    <div class="event-details-pair">
+                        <dt>Event</dt><dd>{{ $event->name }}</dd>
+                    </div>
+                    <div class="event-details-pair">
+                        <dt>Name</dt><dd>{{ $eventSession->name }}</dd>
+                    </div>
+                    <div class="event-details-pair session-details-description">
+                        <dt>Description</dt><dd>{{ $eventSession->description ?: '—' }}</dd>
+                    </div>
                 </dl>
+
+                <div class="event-details-meta session-details-meta">
+                    <section class="event-details-meta-group" aria-labelledby="session-schedule-heading">
+                        <h3 id="session-schedule-heading">Session schedule</h3>
+                        <dl class="mb-0">
+                            <div class="event-details-meta-row">
+                                <dt>Starts</dt><dd>{{ $eventSession->starts_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                            <div class="event-details-meta-row">
+                                <dt>Ends</dt><dd>{{ $eventSession->ends_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="event-details-meta-group" aria-labelledby="session-attendance-window-heading">
+                        <h3 id="session-attendance-window-heading">Attendance window</h3>
+                        <dl class="mb-0">
+                            <div class="event-details-meta-row">
+                                <dt>Opens</dt><dd>{{ $eventSession->attendance_opens_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                            <div class="event-details-meta-row">
+                                <dt>Closes</dt><dd>{{ $eventSession->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section class="event-details-meta-group" aria-labelledby="session-record-heading">
+                        <h3 id="session-record-heading">Record history</h3>
+                        <dl class="mb-0">
+                            <div class="event-details-meta-row">
+                                <dt>Created by</dt><dd>{{ $eventSession->createdBy?->name ?? '—' }}</dd>
+                            </div>
+                            <div class="event-details-meta-row">
+                                <dt>Updated by</dt><dd>{{ $eventSession->updatedBy?->name ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+                </div>
             </div>
         </div>
 
         <section class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <span>Registration &amp; Attendance</span>
+                <span>Pre-registration &amp; Attendance</span>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="{{ route('events.event-sessions.attendance.export', [$event, $eventSession]) }}" class="btn btn-secondary btn-sm">Export Session CSV</a>
                     <a href="{{ route('events.registrations.index', $event) }}" class="btn btn-secondary btn-sm">Manage Registrations</a>
@@ -74,7 +103,7 @@
                                     <th>
                                         <span class="d-block mb-1">Status</span>
                                         <span class="registration-attendance-status-headings" aria-hidden="true">
-                                            <span>Registration</span>
+                                            <span>Pre-registration</span>
                                             <span>Attendance</span>
                                         </span>
                                     </th>

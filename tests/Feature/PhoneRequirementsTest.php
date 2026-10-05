@@ -13,8 +13,8 @@ uses(RefreshDatabase::class);
 it('requires a valid phone number for event registration', function () {
     $event = Event::create([
         'name' => 'Phone required event',
-        'starts_at' => now(),
-        'ends_at' => now()->addHour(),
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addHour(),
         'status' => 'published',
         'pin' => 'ABCD',
     ]);
@@ -34,8 +34,8 @@ it('requires a valid phone number for event registration', function () {
 it('rejects a duplicate phone number within the same event after normalizing punctuation', function () {
     $event = Event::create([
         'name' => 'One event',
-        'starts_at' => now(),
-        'ends_at' => now()->addHour(),
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addHour(),
         'status' => 'published',
         'pin' => 'EFGH',
     ]);
@@ -64,8 +64,8 @@ it('rejects a duplicate phone number within the same event after normalizing pun
 it('keeps event registration email duplicate protection', function () {
     $event = Event::create([
         'name' => 'Email duplicate event',
-        'starts_at' => now(),
-        'ends_at' => now()->addHour(),
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addHour(),
         'status' => 'published',
         'pin' => 'ABEF',
     ]);
@@ -93,15 +93,15 @@ it('keeps event registration email duplicate protection', function () {
 it('allows the same phone number to register for different events', function () {
     $firstEvent = Event::create([
         'name' => 'First event',
-        'starts_at' => now(),
-        'ends_at' => now()->addHour(),
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addHour(),
         'status' => 'published',
         'pin' => 'JKLM',
     ]);
     $secondEvent = Event::create([
         'name' => 'Second event',
-        'starts_at' => now(),
-        'ends_at' => now()->addHour(),
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addHour(),
         'status' => 'published',
         'pin' => 'NPQR',
     ]);
@@ -208,7 +208,12 @@ it('keeps email duplicate protection and allows the same attendee at another ses
             'full_name' => 'Returning attendee',
             'email' => 'returning@example.test',
             'phone' => '0125902441',
-        ])->assertSessionHasErrors(['email', 'phone']);
+        ])
+        ->assertSessionHasErrors(['email', 'phone'])
+        ->assertSessionHasErrors([
+            'email' => 'Attendance has already been recorded for this session using this email address.',
+            'phone' => 'This phone number has already been used for this session.',
+        ]);
 
     $this->withSession(['attendance_event_id' => $event->id])
         ->post(route('attendance.store', $event), [
@@ -284,7 +289,7 @@ it('shows registrations and session attendance together in one session report', 
     $this->actingAs($organizer)
         ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
-        ->assertSee('Registration &amp; Attendance', false)
+        ->assertSee('Pre-registration &amp; Attendance', false)
         ->assertSee('Registered Person')
         ->assertSee('Registration')
         ->assertSee('Attendance')
@@ -295,13 +300,19 @@ it('shows registrations and session attendance together in one session report', 
         ->assertSee('Approved No Show')
         ->assertSee('Approved')
         ->assertSee('Walk In')
-        ->assertSee('Not registered')
+        ->assertSee('Not pre-registered')
         ->assertSee('Manage Registrations')
         ->assertSee('Export Session CSV')
         ->assertDontSee('Unregistered Attendance')
         ->assertDontSee('Session outcome');
 
-    $eventDetails = $this->get(route('events.show', $event))->assertOk();
+    $eventDetails = $this->get(route('events.show', $event))
+        ->assertOk()
+        ->assertSee('event-details-grid', false)
+        ->assertSee('Description')
+        ->assertSee('Schedule')
+        ->assertSee('Starts')
+        ->assertSee('Ends');
     expect(substr_count($eventDetails->getContent(), 'Manage Sessions'))->toBe(1);
 });
 
@@ -329,7 +340,7 @@ it('searches and sorts the event management list', function () {
         ->assertSee('value="name_asc" selected', false);
 });
 
-it('omits the selected session summary while retaining the time details on attendance entry', function () {
+it('shows the selected session beside its time on attendance entry', function () {
     $event = Event::create([
         'name' => 'Session form event',
         'starts_at' => now()->subHour(),
@@ -349,8 +360,53 @@ it('omits the selected session summary while retaining the time details on atten
     $this->withSession(['attendance_event_id' => $event->id])
         ->get(route('attendance.form', $event))
         ->assertOk()
-        ->assertDontSee('Selected Session')
+        ->assertSee('Selected session')
+        ->assertSee('Current session')
         ->assertSee('Time');
+});
+
+it('keeps the submitted session selected after attendance validation fails', function () {
+    $event = Event::create([
+        'name' => 'Multi-session form event',
+        'starts_at' => now()->subHour(),
+        'ends_at' => now()->addHours(3),
+        'status' => 'published',
+        'pin' => 'LMNO',
+    ]);
+
+    $firstSession = EventSession::create([
+        'event_id' => $event->id,
+        'name' => 'Session One',
+        'starts_at' => now()->subMinutes(30),
+        'ends_at' => now()->addMinutes(30),
+        'attendance_opens_at' => now()->subMinutes(30),
+        'attendance_closes_at' => now()->addMinutes(30),
+    ]);
+    $secondSession = EventSession::create([
+        'event_id' => $event->id,
+        'name' => 'Session Two',
+        'starts_at' => now()->addMinutes(31),
+        'ends_at' => now()->addHours(2),
+        'attendance_opens_at' => now()->subMinutes(30),
+        'attendance_closes_at' => now()->addHours(2),
+    ]);
+
+    $response = $this->withSession(['attendance_event_id' => $event->id])
+        ->from(route('attendance.form', $event))
+        ->followingRedirects()
+        ->post(route('attendance.store', $event), [
+            'session_id' => $secondSession->id,
+            'full_name' => 'Returning Person',
+            'email' => 'invalid-email',
+            'phone' => '0125902441',
+        ])
+        ->assertOk()
+        ->assertSee('Session Two')
+        ->assertSee('Selected session');
+
+    preg_match('/<option\b[^>]*\bselected\b[^>]*>/', $response->getContent(), $selectedOption);
+    expect($selectedOption[0] ?? '')->toContain('value="' . $secondSession->id . '"')
+        ->and($selectedOption[0] ?? '')->not->toContain('value="' . $firstSession->id . '"');
 });
 
 it('requires a valid phone number for session attendance', function () {
@@ -461,12 +517,12 @@ it('exports session attendance for an event without signatures or geolocation', 
         ->toContain('Another session')
         ->toContain('Other Session Attendee')
         ->toContain('other@example.test')
-        ->toContain('Registration Status')
+        ->toContain('Pre-registration status')
         ->toContain('Attendance Status')
         ->toContain('Registered No Show')
         ->toContain('Pending')
         ->toContain('Not attended')
-        ->toContain('Not registered')
+        ->toContain('Not pre-registered')
         ->not->toContain('private-signature-value')
         ->not->toContain('3.1234567')
         ->not->toContain('101.1234567');

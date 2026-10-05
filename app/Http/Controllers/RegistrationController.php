@@ -19,10 +19,8 @@ class RegistrationController extends Controller
     {
         $events = Event::with(['eventType', 'location'])
             ->where('status', 'published')
-            ->where(function ($query) {
-                $query->whereNull('ends_at')
-                    ->orWhere('ends_at', '>=', now());
-            })
+            ->whereNotNull('starts_at')
+            ->where('starts_at', '>', now())
             ->orderBy('starts_at')
             ->paginate(10);
 
@@ -34,11 +32,11 @@ class RegistrationController extends Controller
      */
     public function create(Event $event): View|RedirectResponse
     {
-        if ($event->status !== 'published') {
+        if (!$this->canAcceptAdvanceRegistration($event)) {
             return redirect()
                 ->route('registrations.public-index')
                 ->withErrors([
-                    'event' => 'This event is not currently open for registration.',
+                    'event' => 'Pre-registration is open only for published events that have not started.',
                 ]);
         }
 
@@ -50,10 +48,12 @@ class RegistrationController extends Controller
      */
     public function store(Request $request, Event $event): RedirectResponse
     {
-        if ($event->status !== 'published') {
-            return back()->withErrors([
-                'event' => 'This event is not currently open for registration.',
-            ]);
+        if (!$this->canAcceptAdvanceRegistration($event)) {
+            return redirect()
+                ->route('registrations.public-index')
+                ->withErrors([
+                    'event' => 'Pre-registration is open only for published events that have not started.',
+                ]);
         }
 
         $validated = $request->validate([
@@ -197,6 +197,13 @@ class RegistrationController extends Controller
             'success',
             'Registration status updated successfully.'
         );
+    }
+
+    private function canAcceptAdvanceRegistration(Event $event): bool
+    {
+        return $event->status === 'published'
+            && $event->starts_at !== null
+            && $event->starts_at->isFuture();
     }
 
 }

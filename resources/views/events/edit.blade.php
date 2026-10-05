@@ -22,9 +22,17 @@
 
         <div class="card">
             <div class="card-body">
-                <form method="POST" action="{{ route('events.update', $event) }}">
+                <form
+                    id="event-edit-form"
+                    method="POST"
+                    action="{{ route('events.update', $event) }}"
+                    data-original-start="{{ $event->starts_at?->format('Y-m-d\TH:i') }}"
+                    data-original-end="{{ $event->ends_at?->format('Y-m-d\TH:i') }}"
+                >
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="sync_sessions" id="sync-sessions" value="0">
+                    <input type="hidden" name="expected_sessions" value="{{ $event->sessions_count }}">
 
                     <div class="mb-3">
                         <label for="name" class="form-label">
@@ -164,9 +172,7 @@
                     <div class="alert alert-light border">
                         <strong>Session schedule</strong>
                         <div class="text-muted mt-1">
-                            Individual sessions are managed separately.
-                            Changing the overall event dates here does not automatically
-                            rewrite existing sessions.
+                            Changing event dates moves existing sessions with them. Added dates get sessions; removed dates can be removed only when their sessions have no attendance.
                         </div>
                     </div>
 
@@ -183,7 +189,68 @@
                         </a>
                     </div>
                 </form>
+                <dialog id="reschedule-confirmation" aria-labelledby="reschedule-title">
+                    <h2 id="reschedule-title">Reschedule sessions?</h2>
+                    <p>Changing the event dates will also move its existing sessions.<br>Attendance records will stay with their sessions.</p>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" id="cancel-reschedule">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirm-reschedule">Reschedule Event</button>
+                    </div>
+                </dialog>
             </div>
         </div>
     </div>
+
+    <style>
+        #reschedule-confirmation {
+            width: min(460px, calc(100% - 32px));
+            padding: 24px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text);
+            background: var(--surface);
+        }
+
+        #reschedule-confirmation::backdrop {
+            background: rgb(15 23 42 / 45%);
+        }
+
+        #reschedule-confirmation h2 {
+            margin: 0 0 12px;
+            font-size: 20px;
+        }
+
+        #reschedule-confirmation p {
+            margin-bottom: 20px;
+        }
+    </style>
+
+    <script>
+        const eventEditForm = document.getElementById('event-edit-form');
+
+        if (eventEditForm) {
+            eventEditForm.addEventListener('submit', (event) => {
+                const startsAt = document.getElementById('starts_at').value;
+                const endsAt = document.getElementById('ends_at').value;
+                const datesChanged = startsAt !== eventEditForm.dataset.originalStart
+                    || endsAt !== eventEditForm.dataset.originalEnd;
+
+                if (!datesChanged) return;
+                if (document.getElementById('sync-sessions').value === '1') return;
+
+                event.preventDefault();
+                document.getElementById('reschedule-confirmation').showModal();
+            });
+
+            document.getElementById('cancel-reschedule').addEventListener('click', () => {
+                document.getElementById('reschedule-confirmation').close();
+            });
+
+            document.getElementById('confirm-reschedule').addEventListener('click', () => {
+                document.getElementById('sync-sessions').value = '1';
+                document.getElementById('reschedule-confirmation').close();
+                eventEditForm.requestSubmit();
+            });
+        }
+    </script>
 @endsection

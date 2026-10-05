@@ -28,9 +28,11 @@
 
 Registration means a person expressed intent to attend and may be pending, approved, or rejected. Attendance is a check-in for a particular session. Keep both concepts, the Manage Registrations workflow, and session-level attendance. Do not replace registrations with attendee counts.
 
-## Legacy export finding
+## Legacy cleanup status
 
-The old `AttendanceEventController` has export methods and legacy `attendance-events` views, but the active `routes/web.php` uses Event → EventSession → Attendance and does not register those old routes. The current `composer.json` dependencies are retained; no dependency was identified as safely removable in this pass. Legacy models/controllers/views and seeders remain tied together, so defer their cleanup until the separate legacy-data decision. Do not wire the legacy export into current screens without adapting its query and permission rules.
+The inactive Helpdesk ticket/comment/category UI, obsolete user-management views, and the former clock-in attendance screen have been removed after confirming there are no active route references. Current attendance continues to use Event → EventSession → Attendance. The obsolete AttendanceEvent model/controller/views and runtime relationships have been removed; a forward migration safely maps any remaining legacy attendance references to sessions before dropping the old attendance column. Historical migrations and the legacy `attendance_events` table are retained to preserve database history and data.
+
+Fortify self-registration is disabled. Login, password reset, and `/accounts` remain part of the application. The starter Vite/Tailwind pipeline has been removed because the active Blade shell uses inline CSS and no active view loads the compiled assets. `concurrently` remains only for the Composer development command. Seeders now create current Event/Session/Registration demo records and must not be run against an existing user database without an explicit request.
 
 ## Verification and remaining limits
 

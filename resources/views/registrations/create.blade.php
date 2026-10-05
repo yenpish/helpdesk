@@ -5,8 +5,8 @@
     <div class="container">
         <header class="page-header">
             <div class="page-heading">
-                <h1>Register for {{ $event->name }}</h1>
-                <p>Provide your details to request a place at this event.</p>
+                <h1>Pre-register for {{ $event->name }}</h1>
+                <p>Send your details before the event starts. The organizer will review your request.</p>
             </div>
             <a href="{{ route('registrations.public-index') }}" class="btn btn-secondary">Back to events</a>
         </header>
@@ -79,9 +79,9 @@
                 @error('position')<div class="field-error">{{ $message }}</div>@enderror
             </div>
 
-            <p class="form-note">Your registration will be submitted as pending and reviewed by the event organizer.</p>
+            <p class="form-note">The organizer will review your pre-registration.</p>
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Submit registration</button>
+                <button type="submit" class="btn btn-primary">Submit pre-registration</button>
                 <a href="{{ route('registrations.public-index') }}" class="btn btn-secondary">Cancel</a>
             </div>
         </form>

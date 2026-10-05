@@ -77,11 +77,14 @@ class PublicAttendanceController extends Controller
          * Otherwise default to the first currently available session.
          */
         $defaultSession = $sessions->firstWhere('attendance_available', true);
+        $selectedSession = $sessions->firstWhere('id', (int) old('session_id'))
+            ?? $defaultSession;
 
         return view('attendance.form', compact(
             'event',
             'sessions',
-            'defaultSession'
+            'defaultSession',
+            'selectedSession'
         ));
     }
 
@@ -182,20 +185,24 @@ class PublicAttendanceController extends Controller
             ->whereRaw('LOWER(email) = ?', [$email])
             ->exists();
 
-        // A phone identifies one attendee across this Event. The same
-        // attendee may still check in to another Session using the same email.
-        $phoneAlreadyUsed = $event->sessions()
+        // A phone cannot identify different people in one Event. The same
+        // email/phone pair may check in once in each Session.
+        $eventAttendances = $event->sessions()
             ->with('attendances:id,session_id,phone,email')
             ->get()
-            ->flatMap(fn (EventSession $eventSession) => $eventSession->attendances)
-            ->contains(function (Attendance $attendance) use ($phoneDigits, $email, $session) {
-                if (MalaysianPhoneNumber::canonicalize($attendance->phone ?? '') !== $phoneDigits) {
-                    return false;
-                }
+            ->flatMap(fn (EventSession $eventSession) => $eventSession->attendances);
 
-                return strtolower(trim($attendance->email ?? '')) !== $email
-                    || $attendance->session_id === $session->id;
-            });
+        $matchingPhoneAttendances = $eventAttendances->filter(
+            fn (Attendance $attendance) => MalaysianPhoneNumber::canonicalize($attendance->phone ?? '') === $phoneDigits
+        );
+
+        $phoneUsedByDifferentEmail = $matchingPhoneAttendances->contains(
+            fn (Attendance $attendance) => strtolower(trim($attendance->email ?? '')) !== $email
+        );
+
+        $phoneAlreadyUsed = $phoneUsedByDifferentEmail || $matchingPhoneAttendances->contains(
+            fn (Attendance $attendance) => (int) $attendance->session_id === (int) $session->id
+        );
 
         $duplicateErrors = [];
 
@@ -204,7 +211,9 @@ class PublicAttendanceController extends Controller
         }
 
         if ($phoneAlreadyUsed) {
-            $duplicateErrors['phone'] = 'This phone number is already used for attendance at this event.';
+            $duplicateErrors['phone'] = $phoneUsedByDifferentEmail
+                ? 'This phone number is already linked to a different email for this event.'
+                : 'This phone number has already been used for this session.';
         }
 
         if ($duplicateErrors !== []) {
@@ -257,9 +266,6 @@ class PublicAttendanceController extends Controller
             'signature' => $validated['signature'] ?? null,
 
             'session_id' => $session->id,
-
-            // Keep legacy column empty for the new architecture.
-            'attendance_event_id' => null,
 
             'verification_method' => 'pin',
         ]);

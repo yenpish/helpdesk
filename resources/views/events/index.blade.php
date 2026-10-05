@@ -17,6 +17,16 @@
             <div class="alert alert-success" role="status">{{ session('success') }}</div>
         @endif
 
+        @if($errors->any())
+            <div class="alert alert-danger" role="alert">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <form method="GET" action="{{ route('events.index') }}" class="events-filter-form">
             <div class="events-search-field">
                 <label for="event-search" class="form-label">Search events</label>
@@ -68,7 +78,7 @@
                     @foreach($events as $event)
                         <tr>
                             <td class="event-name">
-                                <a href="{{ route('events.show', $event) }}">{{ $event->name }}</a>
+                                {{ $event->name }}
                                 @if($event->eventType)
                                     <div class="event-description">{{ $event->eventType->name }}</div>
                                 @endif
@@ -110,10 +120,12 @@
                     <h2>No matching events</h2>
                     <p>Try a different search term or clear the search.</p>
                     <a href="{{ route('events.index') }}" class="btn btn-secondary">Clear search</a>
+                @elseif(auth()->user()->role === 'organizer')
+                    <h2>No events assigned to you yet</h2>
+                    <p>Organizers see the events they own. Create an event to start managing its sessions and registrations.</p>
                 @else
                     <h2>No events yet</h2>
                     <p>Create an event to begin managing its sessions and registrations.</p>
-                    <a href="{{ route('events.create') }}" class="btn btn-primary">Create event</a>
                 @endif
             </div>
         @endif

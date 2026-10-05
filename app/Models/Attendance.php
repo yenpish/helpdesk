@@ -24,7 +24,6 @@ class Attendance extends Model
         'location_id',
         'distance_from_site',
         'within_site',
-        'attendance_event_id',
         'session_id',
     ];
 
@@ -46,11 +45,6 @@ class Attendance extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
-    }
-
-    public function attendanceEvent(): BelongsTo
-    {
-        return $this->belongsTo(AttendanceEvent::class);
     }
 
     public function session(): BelongsTo

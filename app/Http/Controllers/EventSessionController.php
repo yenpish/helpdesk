@@ -9,6 +9,7 @@ use App\Models\Registration;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -55,7 +56,7 @@ class EventSessionController extends Controller
 
             // Default attendance window for now.
             'attendance_opens_at' => $startsAt,
-            'attendance_closes_at' => $endsAt,
+            'attendance_closes_at' => $startsAt->copy()->setTime(23, 59),
 
             // Session PIN is no longer used as the public access mechanism.
             'pin' => null,
@@ -128,7 +129,7 @@ class EventSessionController extends Controller
                 'email' => $attendance->email,
                 'phone' => $attendance->phone,
                 'organisation' => $attendance->unit,
-                'registration_status' => 'Not registered',
+                'registration_status' => 'Not pre-registered',
                 'attendance_status' => 'Attended',
                 'attended_at' => $attendance->created_at,
             ]);
@@ -228,10 +229,10 @@ class EventSessionController extends Controller
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
 
-            // Keep attendance window aligned with the session
-            // until we implement the optional advanced window.
+            // Attendance stays open through the end of this calendar day,
+            // independently of the physical session end.
             'attendance_opens_at' => $startsAt,
-            'attendance_closes_at' => $endsAt,
+            'attendance_closes_at' => $startsAt->copy()->setTime(23, 59),
 
             'pin' => null,
             'updated_by' => auth()->id(),
@@ -257,18 +258,35 @@ class EventSessionController extends Controller
         $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
 
-        $oldValues = $eventSession->toArray();
+        $deleted = DB::transaction(function () use ($eventSession): bool {
+            $session = EventSession::whereKey($eventSession->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $hasAttendance = $session->attendances()->exists();
 
-        AuditLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'deleted',
-            'auditable_type' => EventSession::class,
-            'auditable_id' => $eventSession->id,
-            'description' => 'Event session deleted.',
-            'old_values' => $oldValues,
-        ]);
+            if ($hasAttendance) {
+                return false;
+            }
 
-        $eventSession->delete();
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'deleted',
+                'auditable_type' => EventSession::class,
+                'auditable_id' => $session->id,
+                'description' => 'Event session deleted.',
+                'old_values' => $session->toArray(),
+            ]);
+
+            $session->delete();
+
+            return true;
+        });
+
+        if (!$deleted) {
+            return back()->withErrors([
+                'session' => 'This session cannot be deleted because attendance records exist.',
+            ]);
+        }
 
         return redirect()
             ->route('events.show', $event)

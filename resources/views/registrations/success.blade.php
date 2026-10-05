@@ -4,10 +4,10 @@
 @section('content')
     <div class="container">
         <div class="content-panel registration-success-panel">
-        <h1>Registration Submitted</h1>
+        <h1>Pre-registration submitted</h1>
 
         <p>
-            Your registration for
+            Your pre-registration for
             <strong>{{ $registration->event->name }}</strong>
             has been submitted successfully.
         </p>
@@ -28,7 +28,7 @@
         </p>
 
         <p>
-            Your registration is currently pending review.
+            The event organizer will review your pre-registration.
         </p>
 
         <a class="btn btn-secondary" href="{{ route('registrations.public-index') }}">Back to Events</a>

@@ -48,10 +48,10 @@
 
                         <option
                             value="{{ $session->id }}"
-                            @selected(
-                                $defaultSession &&
-                                $defaultSession->id === $session->id
-                            )
+                            data-name="{{ $session->name }}"
+                            data-start="{{ $session->starts_at?->format('d/m/Y H:i') }}"
+                            data-end="{{ $session->ends_at?->format('d/m/Y H:i') }}"
+                            @selected($selectedSession && (int) $selectedSession->id === (int) $session->id)
                             @disabled(!$session->attendance_available)
                         >
                             {{ $session->name }}
@@ -78,12 +78,18 @@
                 </div>
             @else
 
-                <div class="event-meta">
-                    <p>
+                <div class="event-meta d-flex" style="gap:24px; flex-wrap:wrap; margin:12px 0;" aria-live="polite">
+                    <p class="mb-0">
+                        <strong>Selected session</strong><br>
+                        <span id="selected-session-name">{{ $selectedSession?->name }}</span>
+                    </p>
+                    <p class="mb-0">
                         <strong>Time</strong><br>
-                        {{ $defaultSession->starts_at?->format('d/m/Y H:i') }}
-                        —
-                        {{ $defaultSession->ends_at?->format('d/m/Y H:i') }}
+                        <span id="selected-session-time">
+                            {{ $selectedSession?->starts_at?->format('d/m/Y H:i') }}
+                            —
+                            {{ $selectedSession?->ends_at?->format('d/m/Y H:i') }}
+                        </span>
                     </p>
                 </div>
 
@@ -136,6 +142,11 @@
                         inputmode="tel"
                         required
                     >
+
+                    <small>
+                        Use the same phone number used during registration if you
+                        pre-enrolled for this event.
+                    </small>
                 </div>
 
                 <div class="field">
@@ -209,6 +220,23 @@
     </a>
 
     <script>
+        const sessionSelect = document.getElementById('session_id');
+        const sessionName = document.getElementById('selected-session-name');
+        const sessionTime = document.getElementById('selected-session-time');
+
+        if (sessionSelect && sessionName && sessionTime) {
+            const updateSessionSummary = () => {
+                const option = sessionSelect.selectedOptions[0];
+                if (!option) return;
+
+                sessionName.textContent = option.dataset.name || '';
+                sessionTime.textContent = `${option.dataset.start || '—'} — ${option.dataset.end || '—'}`;
+            };
+
+            sessionSelect.addEventListener('change', updateSessionSummary);
+            updateSessionSummary();
+        }
+
         const canvas = document.getElementById('signature-pad');
 
         if (canvas) {

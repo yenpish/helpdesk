@@ -20,11 +20,6 @@ class Location extends Model
         'allowed_radius' => 'decimal:2',
     ];
 
-    public function attendanceEvents(): HasMany
-    {
-        return $this->hasMany(AttendanceEvent::class);
-    }
-
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);

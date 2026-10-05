@@ -8,7 +8,7 @@
         <header class="page-header">
             <div class="page-heading">
                 <h1>Upcoming events</h1>
-        <p>Browse published events and register.</p>
+                <p>Browse published events that have not started and pre-register.</p>
             </div>
             <a class="btn btn-secondary" href="{{ route('attendance.pin') }}">Record attendance</a>
         </header>
@@ -29,13 +29,13 @@
                     </dl>
                 </div>
                 <div class="public-event-action">
-                    <a href="{{ route('registrations.create', $event) }}" class="btn btn-primary">Register</a>
+                    <a href="{{ route('registrations.create', $event) }}" class="btn btn-primary">Pre-register</a>
                 </div>
             </article>
         @empty
             <div class="empty-state">
                 <h2>No upcoming events</h2>
-                <p>There are no published events open for registration right now.</p>
+                <p>There are no published events open for pre-registration right now.</p>
             </div>
         @endforelse
 

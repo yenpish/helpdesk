@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Event;
+use App\Models\EventSession;
 use App\Models\EventType;
 use App\Models\Location;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 
@@ -72,7 +74,7 @@ class EventController extends Controller
             fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, [
                 'Event', 'Session', 'Session Starts', 'Name', 'Email', 'Phone',
-                'Position', 'Organisation / Unit', 'Registration Status',
+                'Position', 'Organisation / Unit', 'Pre-registration status',
                 'Attendance Status', 'Registered At', 'Attended At',
             ]);
 
@@ -143,7 +145,7 @@ class EventController extends Controller
                     $attendance->phone,
                     $attendance->position,
                     $attendance->unit,
-                    'Not registered',
+                    'Not pre-registered',
                     'Attended',
                     null,
                     $attendance->created_at?->format('Y-m-d H:i:s'),
@@ -208,70 +210,18 @@ class EventController extends Controller
         $eventStart = Carbon::parse($validated['starts_at']);
         $eventEnd = Carbon::parse($validated['ends_at']);
 
-        $sessionNumber = 1;
-        $currentDate = $eventStart->copy()->startOfDay();
-        $lastSessionDate = $eventEnd->copy()->startOfDay();
-
-        while ($currentDate->lte($lastSessionDate)) {
-            $dayStart = $currentDate->copy()->startOfDay();
-            $dayEnd = $currentDate->copy()->endOfDay();
-            $sessionStart = $currentDate->copy()->setTime(
-                $eventStart->hour,
-                $eventStart->minute,
-                $eventStart->second
-            );
-
-            $sessionEnd = $currentDate->copy()->setTime(
-                $eventEnd->hour,
-                $eventEnd->minute,
-                $eventEnd->second
-            );
-
-            // When the daily end time is not after the daily start time,
-            // use a one-hour default that stays within the event window.
-            if ($sessionEnd->lte($sessionStart)) {
-                if ($currentDate->isSameDay($lastSessionDate)) {
-                    $sessionEnd = $eventEnd->copy();
-                    $sessionStart = $eventEnd->copy()->subHour();
-
-                    if ($sessionStart->lt($dayStart)) {
-                        $sessionStart = $dayStart;
-                    }
-                } else {
-                    $sessionEnd = $sessionStart->copy()->addHour();
-
-                    if ($sessionEnd->gt($dayEnd)) {
-                        $sessionEnd = $dayEnd;
-                    }
-
-                    if ($sessionEnd->gt($eventEnd)) {
-                        $sessionEnd = $eventEnd->copy();
-                    }
-                }
-            } else {
-                if ($sessionEnd->gt($dayEnd)) {
-                    $sessionEnd = $dayEnd;
-                }
-
-                if ($sessionEnd->gt($eventEnd)) {
-                    $sessionEnd = $eventEnd->copy();
-                }
-            }
-
+        foreach ($this->sessionScheduleFor($eventStart, $eventEnd) as $index => $schedule) {
             $event->sessions()->create([
-                'name' => 'Session ' . $sessionNumber,
+                'name' => 'Session ' . ($index + 1),
                 'description' => null,
-                'starts_at' => $sessionStart,
-                'ends_at' => $sessionEnd,
-                'attendance_opens_at' => $sessionStart,
-                'attendance_closes_at' => $sessionEnd,
+                'starts_at' => $schedule['starts_at'],
+                'ends_at' => $schedule['ends_at'],
+                'attendance_opens_at' => $schedule['starts_at'],
+                'attendance_closes_at' => $schedule['attendance_closes_at'],
                 'pin' => null,
                 'created_by' => auth()->id(),
                 'updated_by' => auth()->id(),
             ]);
-
-            $sessionNumber++;
-            $currentDate->addDay();
         }
 
         $this->createAuditLog(
@@ -309,6 +259,7 @@ class EventController extends Controller
     public function edit(Event $event): View
     {
         $this->authorizeEvent($event);
+        $event->loadCount('sessions');
 
         $eventTypes = EventType::orderBy('name')->get();
         $locations = Location::orderBy('name')->get();
@@ -342,6 +293,24 @@ class EventController extends Controller
             ],
         ]);
 
+        $newStartsAt = Carbon::parse($validated['starts_at']);
+        $newEndsAt = Carbon::parse($validated['ends_at']);
+
+        $scheduleChanged = $event->starts_at?->format('Y-m-d H:i') !== $newStartsAt->format('Y-m-d H:i')
+            || $event->ends_at?->format('Y-m-d H:i') !== $newEndsAt->format('Y-m-d H:i');
+
+        if ($scheduleChanged && !$request->boolean('sync_sessions')) {
+            return back()->withInput()->withErrors([
+                'schedule' => 'Confirm the session schedule update before saving these event dates.',
+            ]);
+        }
+
+        if ($validated['status'] === 'completed' && $newEndsAt->isFuture()) {
+            return back()->withInput()->withErrors([
+                'status' => 'This event cannot be marked completed before its scheduled end time. Change the event end time first if the schedule has changed.',
+            ]);
+        }
+
         $oldValues = $event->only([
             'name',
             'description',
@@ -359,15 +328,156 @@ class EventController extends Controller
          */
         $validated['updated_by'] = auth()->id();
 
-        $event->update($validated);
-
-        $this->createAuditLog(
-            'updated',
+        $updated = DB::transaction(function () use (
             $event,
-            'Event updated.',
+            $request,
+            $validated,
             $oldValues,
-            $event->only(array_keys($oldValues))
-        );
+            $scheduleChanged,
+            $newStartsAt,
+            $newEndsAt
+        ): string {
+            $sessions = $event->sessions()
+                ->orderBy('starts_at')
+                ->orderBy('id')
+                ->withCount('attendances')
+                ->lockForUpdate()
+                ->get();
+            if (
+                $scheduleChanged &&
+                (int) $request->input('expected_sessions', -1) !== $sessions->count()
+            ) {
+                return 'sessions_changed';
+            }
+            $sessionsToRemove = collect();
+            $sessionsToUpdate = collect();
+            $offsetSeconds = $scheduleChanged
+                ? ($event->starts_at ? $newStartsAt->getTimestamp() - $event->starts_at->getTimestamp() : 0)
+                : 0;
+            $firstEventDate = $newStartsAt->toDateString();
+            $lastEventDate = $newEndsAt->toDateString();
+
+            if ($scheduleChanged) {
+                foreach ($sessions as $session) {
+                    $shiftedStart = $session->starts_at?->copy()->addSeconds($offsetSeconds);
+                    $outsideRange = $shiftedStart && (
+                        $shiftedStart->toDateString() < $firstEventDate ||
+                        $shiftedStart->toDateString() > $lastEventDate
+                    );
+
+                    if ($outsideRange && $session->attendances_count > 0) {
+                        return 'attendance_conflict';
+                    }
+
+                    if ($outsideRange) {
+                        $sessionsToRemove->push($session);
+                    } else {
+                        $sessionsToUpdate->push($session);
+                    }
+                }
+            } else {
+                $sessionsToUpdate = $sessions;
+            }
+
+            $event->update($validated);
+
+            if ($scheduleChanged) {
+                foreach ($sessionsToUpdate as $session) {
+                    $oldSessionValues = $session->toArray();
+                    $values = ['updated_by' => auth()->id()];
+
+                    foreach ([
+                        'starts_at',
+                        'ends_at',
+                        'attendance_opens_at',
+                    ] as $column) {
+                        $values[$column] = $session->{$column}?->copy()->addSeconds($offsetSeconds);
+                    }
+                    $values['attendance_closes_at'] = $session->starts_at
+                        ? $session->starts_at->copy()->addSeconds($offsetSeconds)->setTime(23, 59)
+                        : null;
+
+                    $session->update($values);
+
+                    AuditLog::create([
+                        'user_id' => auth()->id(),
+                        'action' => 'updated',
+                        'auditable_type' => EventSession::class,
+                        'auditable_id' => $session->id,
+                        'description' => 'Session rescheduled with the event.',
+                        'old_values' => $oldSessionValues,
+                        'new_values' => $session->toArray(),
+                    ]);
+                }
+
+                $existingSessionDates = $sessionsToUpdate
+                    ->map(fn (EventSession $session) => $session->starts_at?->toDateString())
+                    ->filter()
+                    ->unique()
+                    ->all();
+
+                foreach ($this->sessionScheduleFor($newStartsAt, $newEndsAt) as $index => $schedule) {
+                    if (in_array($schedule['starts_at']->toDateString(), $existingSessionDates, true)) {
+                        continue;
+                    }
+
+                    $newSession = $event->sessions()->create([
+                        'name' => 'Session ' . ($index + 1),
+                        'description' => null,
+                        'starts_at' => $schedule['starts_at'],
+                        'ends_at' => $schedule['ends_at'],
+                        'attendance_opens_at' => $schedule['starts_at'],
+                        'attendance_closes_at' => $schedule['attendance_closes_at'],
+                        'pin' => null,
+                        'created_by' => auth()->id(),
+                        'updated_by' => auth()->id(),
+                    ]);
+
+                    AuditLog::create([
+                        'user_id' => auth()->id(),
+                        'action' => 'created',
+                        'auditable_type' => EventSession::class,
+                        'auditable_id' => $newSession->id,
+                        'description' => 'Session created for an added event date.',
+                        'new_values' => $newSession->toArray(),
+                    ]);
+                }
+
+                foreach ($sessionsToRemove as $session) {
+                    AuditLog::create([
+                        'user_id' => auth()->id(),
+                        'action' => 'deleted',
+                        'auditable_type' => EventSession::class,
+                        'auditable_id' => $session->id,
+                        'description' => 'Empty session removed outside the updated event date range.',
+                        'old_values' => $session->toArray(),
+                    ]);
+                    $session->delete();
+                }
+            }
+
+            $this->createAuditLog(
+                'updated',
+                $event,
+                $scheduleChanged ? 'Event and session schedule updated.' : 'Event updated.',
+                $oldValues,
+                $event->only(array_keys($oldValues))
+            );
+
+            return 'updated';
+        });
+
+        if ($updated === 'sessions_changed') {
+            return back()->withInput()->withErrors([
+                'schedule' => 'The session list changed while this form was open. Reload the event and confirm the new session changes.',
+            ]);
+        }
+
+        if ($updated === 'attendance_conflict') {
+            return back()->withInput()->withErrors([
+                'schedule' => 'The date range cannot be shortened because a session outside the new range has attendance records.',
+            ]);
+        }
 
         return redirect()
             ->route('events.show', $event)
@@ -378,16 +488,40 @@ class EventController extends Controller
     {
         $this->authorizeEvent($event);
 
-        $oldValues = $event->toArray();
+        $deleted = DB::transaction(function () use ($event): bool {
+            $lockedEvent = Event::whereKey($event->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $sessions = $lockedEvent->sessions()
+                ->select('event_sessions.id')
+                ->withCount('attendances')
+                ->lockForUpdate()
+                ->get();
 
-        $this->createAuditLog(
-            'deleted',
-            $event,
-            'Event deleted.',
-            $oldValues
-        );
+            foreach ($sessions as $session) {
+                if ((int) $session->attendances_count > 0) {
+                    return false;
+                }
+            }
 
-        $event->delete();
+            $oldValues = $lockedEvent->toArray();
+            $this->createAuditLog(
+                'deleted',
+                $lockedEvent,
+                'Event deleted.',
+                $oldValues
+            );
+
+            $lockedEvent->delete();
+
+            return true;
+        });
+
+        if (!$deleted) {
+            return back()->withErrors([
+                'event' => 'This event cannot be deleted because attendance records exist in one or more sessions.',
+            ]);
+        }
 
         return redirect()
             ->route('events.index')
@@ -416,6 +550,69 @@ class EventController extends Controller
         } while (Event::where('pin', $pin)->exists());
 
         return $pin;
+    }
+
+    private function sessionScheduleFor(Carbon $eventStart, Carbon $eventEnd): array
+    {
+        $eventStart = $eventStart->copy();
+        $eventEnd = $eventEnd->copy();
+        $schedule = [];
+        $currentDate = $eventStart->copy()->startOfDay();
+        $lastSessionDate = $eventEnd->copy()->startOfDay();
+
+        while ($currentDate->lte($lastSessionDate)) {
+            $dayStart = $currentDate->copy()->startOfDay();
+            $dayEnd = $currentDate->copy()->endOfDay();
+            $sessionStart = $currentDate->copy()->setTime(
+                $eventStart->hour,
+                $eventStart->minute,
+                $eventStart->second
+            );
+            $sessionEnd = $currentDate->copy()->setTime(
+                $eventEnd->hour,
+                $eventEnd->minute,
+                $eventEnd->second
+            );
+
+            if ($sessionEnd->lte($sessionStart)) {
+                if ($currentDate->isSameDay($lastSessionDate)) {
+                    $sessionEnd = $eventEnd->copy();
+                    $sessionStart = $eventEnd->copy()->subHour();
+
+                    if ($sessionStart->lt($dayStart)) {
+                        $sessionStart = $dayStart;
+                    }
+                } else {
+                    $sessionEnd = $sessionStart->copy()->addHour();
+
+                    if ($sessionEnd->gt($dayEnd)) {
+                        $sessionEnd = $dayEnd;
+                    }
+
+                    if ($sessionEnd->gt($eventEnd)) {
+                        $sessionEnd = $eventEnd->copy();
+                    }
+                }
+            } else {
+                if ($sessionEnd->gt($dayEnd)) {
+                    $sessionEnd = $dayEnd;
+                }
+
+                if ($sessionEnd->gt($eventEnd)) {
+                    $sessionEnd = $eventEnd->copy();
+                }
+            }
+
+            $schedule[] = [
+                'starts_at' => $sessionStart,
+                'ends_at' => $sessionEnd,
+                'attendance_closes_at' => $currentDate->copy()->setTime(23, 59),
+            ];
+
+            $currentDate->addDay();
+        }
+
+        return $schedule;
     }
 
     private function createAuditLog(

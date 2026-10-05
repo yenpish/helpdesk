@@ -65,7 +65,15 @@
                     @endauth
                 </div>
             @empty
-                <div class="dashboard-list-item"><span>No sessions are available yet.</span></div>
+                <div class="dashboard-list-item">
+                    <span>
+                        @if(auth()->user()->role === 'organizer')
+                            No upcoming sessions are available for your events.
+                        @else
+                            No sessions are available yet.
+                        @endif
+                    </span>
+                </div>
             @endforelse
         </div>
     </section>

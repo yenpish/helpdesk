@@ -25,20 +25,6 @@ class User extends Authenticatable
         ];
     }
 
-    // Legacy Helpdesk relationships
-
-    public function tickets(): HasMany
-    {
-        return $this->hasMany(Ticket::class);
-    }
-
-    public function comments(): HasMany
-    {
-        return $this->hasMany(Comment::class);
-    }
-
-    // Attendance relationships
-
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);

@@ -5,8 +5,8 @@
     <div class="container">
         <div class="page-header">
             <div class="page-heading">
-                <h1>Registrations</h1>
-                <p>Review registrations for <strong>{{ $event->name }}</strong>.</p>
+                <h1>Pre-registrations</h1>
+                <p>Review pre-registration requests for <strong>{{ $event->name }}</strong>.</p>
             </div>
             <a class="btn btn-secondary" href="{{ route('events.show', $event) }}">Back to event</a>
         </div>
@@ -25,8 +25,8 @@
                     <th>Phone</th>
                     <th>Organisation</th>
                     <th>Position</th>
-                    <th>Status</th>
-                    <th>Registered</th>
+                    <th>Request status</th>
+                    <th>Submitted</th>
                     <th>Update status</th>
                 </tr>
                 </thead>
