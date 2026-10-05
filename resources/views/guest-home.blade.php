@@ -5,15 +5,15 @@
 @section('content')
 
     <div class="guest-home">
-        <h1>Welcome to Helpdesk</h1>
+        <h1>Welcome to Attendance Management</h1>
 
         <p>
-            Internal system portal for support, attendance and other company operations.
+            Attendance management portal for events, sessions, and attendance registration.
         </p>
 
         <div class="guest-actions">
-            <a class="guest-button" href="{{ route('login') }}">
-                Login
+            <a class="guest-button" href="{{ route('registrations.public-index') }}">
+                Browse Events
             </a>
 
             <a class="guest-button secondary" href="{{ route('attendance.pin') }}">

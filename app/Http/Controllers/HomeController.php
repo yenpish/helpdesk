@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AttendanceEvent;
+use App\Models\EventSession;
 use App\Models\User;
-use App\Models\Ticket;
 
 class HomeController extends Controller
 {
@@ -14,27 +13,34 @@ class HomeController extends Controller
             return view('guest-home');
         }
 
-        $activeSessions = AttendanceEvent::where('starts_at', '<=', now())
-            ->where('ends_at', '>=', now())
+        if (auth()->user()->role === 'user') {
+            return view('guest-home');
+        }
+
+        $sessions = EventSession::query()->whereHas('event', function ($query) {
+            if (auth()->user()->role === 'organizer') {
+                $query->where('organizer_id', auth()->id());
+            }
+        });
+
+        $activeSessions = (clone $sessions)->where('attendance_opens_at', '<=', now())
+            ->where('attendance_closes_at', '>=', now())
             ->count();
 
-        $todaySessions = AttendanceEvent::whereDate('starts_at', today())
+        $todaySessions = (clone $sessions)->whereDate('starts_at', today())
             ->count();
 
-        $todayAttendance = AttendanceEvent::whereDate('starts_at', today())
+        $todayAttendance = (clone $sessions)->whereDate('starts_at', today())
             ->withCount('attendances')
             ->get()
             ->sum('attendances_count');
 
-        $totalUsers = User::count();
+        $totalUsers = auth()->user()->role === 'admin' ? User::count() : 0;
 
-        $openTickets = Ticket::whereIn('status', [
-            'Pending',
-            'In Progress',
-        ])->count();
-
-        $recentSessions = AttendanceEvent::latest('starts_at')
-            ->take(2)
+        $recentSessions = (clone $sessions)->with('event')
+            ->where('ends_at', '>=', now())
+            ->orderBy('starts_at')
+            ->take(5)
             ->get();
 
         return view('home', compact(
@@ -42,7 +48,6 @@ class HomeController extends Controller
             'todaySessions',
             'todayAttendance',
             'totalUsers',
-            'openTickets',
             'recentSessions'
         ));
     }

@@ -1,11 +1,13 @@
 @extends('layouts.app')
+@section('section', 'Sign in')
 
-@section('title', 'Login - Helpdesk')
+@section('title', 'Sign in - Attendance Management')
 
 @section('container_class', 'login-box')
 
 @section('content')
-    <h1>Helpdesk</h1>
+    <div class="content-panel login-panel">
+    <h1>Attendance Management</h1>
 
     <p class="subtitle">
         Sign in to access your account
@@ -46,4 +48,5 @@
             Sign In
         </button>
     </form>
+    </div>
 @endsection

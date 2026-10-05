@@ -24,7 +24,7 @@ class Attendance extends Model
         'location_id',
         'distance_from_site',
         'within_site',
-        'attendance_event_id',
+        'session_id',
     ];
 
     protected $casts = [
@@ -47,8 +47,8 @@ class Attendance extends Model
         return $this->belongsTo(Location::class);
     }
 
-    public function attendanceEvent(): BelongsTo
+    public function session(): BelongsTo
     {
-        return $this->belongsTo(AttendanceEvent::class);
+        return $this->belongsTo(EventSession::class, 'session_id');
     }
 }

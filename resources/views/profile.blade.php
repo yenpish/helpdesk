@@ -1,8 +1,10 @@
 @extends('layouts.app')
+@section('section', 'Your account')
 
-@section('title', 'Profile - Helpdesk')
+@section('title', 'Profile - Attendance Management')
 
 @section('content')
+    <div class="content-panel profile-panel">
     <h1>Profile</h1>
 
     <p class="subtitle">
@@ -37,8 +39,9 @@
         <input
             id="profile-role"
             type="text"
-            value="{{ ucfirst(auth()->user()->role ?? 'User') }}"
+            value="{{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}"
             readonly
         >
+    </div>
     </div>
 @endsection

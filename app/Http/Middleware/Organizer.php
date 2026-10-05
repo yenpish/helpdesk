@@ -8,14 +8,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class Organizer
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  Closure(Request): (Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user()?->role !== 'organizer') {
+        if (!auth()->check() || !in_array(auth()->user()->role, ['admin', 'organizer'])) {
             abort(403);
         }
 

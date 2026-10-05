@@ -1,24 +1,18 @@
 @extends('layouts.app')
+@section('section', 'Attendance')
 
 @section('title', $event->name . ' - Attendance')
 
 @section('content')
-
+    <div class="content-panel attendance-panel">
     <h1>{{ $event->name }}</h1>
 
-    <div class="event-meta">
+    @if ($event->location)
         <p>
-            <strong>Location</strong><br>
+            <strong>Location:</strong>
             {{ $event->location->name }}
         </p>
-
-        <p>
-            <strong>Date & Time</strong><br>
-            {{ $event->starts_at->format('d/m/Y H:i') }}
-            —
-            {{ $event->ends_at->format('d/m/Y H:i') }}
-        </p>
-    </div>
+    @endif
 
     @if ($errors->any())
         <div class="error">
@@ -28,140 +22,287 @@
         </div>
     @endif
 
-    <h2>Attendance Details</h2>
+    <h2>Select Session</h2>
 
-    <form id="attendance-form" method="POST" action="{{ route('attendance.store', $event) }}">
+    @if ($sessions->count())
 
-        @csrf
+        <form
+            id="attendance-form"
+            method="POST"
+            action="{{ route('attendance.store', $event) }}"
+            class="account-form"
+        >
+            @csrf
 
-        <div class="field">
-            <label for="full_name">Full Name</label>
-            <input
-                type="text"
-                id="full_name"
-                name="full_name"
-                value="{{ old('full_name') }}"
-                required
-            >
-        </div>
+            <div class="field">
+                <label for="session_id">
+                    Session
+                </label>
 
-        <div class="field">
-            <label for="position">Position</label>
-            <input
-                type="text"
-                id="position"
-                name="position"
-                value="{{ old('position') }}"
-            >
-        </div>
+                <select
+                    id="session_id"
+                    name="session_id"
+                    required
+                >
+                    @foreach ($sessions as $session)
 
-        <div class="field">
-            <label for="unit">Unit / Organization</label>
-            <input
-                type="text"
-                id="unit"
-                name="unit"
-                value="{{ old('unit') }}"
-            >
-        </div>
+                        <option
+                            value="{{ $session->id }}"
+                            data-name="{{ $session->name }}"
+                            data-start="{{ $session->starts_at?->format('d/m/Y H:i') }}"
+                            data-end="{{ $session->ends_at?->format('d/m/Y H:i') }}"
+                            @selected($selectedSession && (int) $selectedSession->id === (int) $session->id)
+                            @disabled(!$session->attendance_available)
+                        >
+                            {{ $session->name }}
+                            —
+                            {{ $session->starts_at?->format('d M Y, h:i A') }}
 
-        <div class="field">
-            <label for="phone">Phone</label>
-            <input
-                type="tel"
-                name="phone"
-                id="phone"
-                value="{{ old('phone') }}"
-                required
-            >
-        </div>
+                            @if (!$session->attendance_available)
+                                (Not available)
+                            @elseif (
+                                $session->starts_at &&
+                                $session->starts_at->isSameDay(now())
+                            )
+                                (Today)
+                            @endif
+                        </option>
 
-        <div class="field">
-            <label for="email">Email</label>
-            <input
-                type="email"
-                id="email"
-                name="email"
-                value="{{ old('email') }}"
-            >
-        </div>
+                    @endforeach
+                </select>
+            </div>
 
-        <div>
-            <label for="signature-pad">Signature</label>
+            @if (!$defaultSession)
+                <div class="error">
+                    Attendance is not currently available for any session.
+                </div>
+            @else
 
-            <canvas id="signature-pad" width="600" height="200"
-                    style="width: 100%; max-width: 600px; border: 1px solid #ccc; border-radius: 6px; background: white;">
-            </canvas>
+                <div class="event-meta d-flex" style="gap:24px; flex-wrap:wrap; margin:12px 0;" aria-live="polite">
+                    <p class="mb-0">
+                        <strong>Selected session</strong><br>
+                        <span id="selected-session-name">{{ $selectedSession?->name }}</span>
+                    </p>
+                    <p class="mb-0">
+                        <strong>Time</strong><br>
+                        <span id="selected-session-time">
+                            {{ $selectedSession?->starts_at?->format('d/m/Y H:i') }}
+                            —
+                            {{ $selectedSession?->ends_at?->format('d/m/Y H:i') }}
+                        </span>
+                    </p>
+                </div>
 
-            <input type="hidden" name="signature" id="signature">
+                <h2>Attendance Details</h2>
 
-            <button type="button" id="clear-signature">
-                Clear Signature
-            </button>
-        </div>
+                <div class="field">
+                    <label for="full_name">
+                        Full Name *
+                    </label>
 
-        <button type="submit">
-            Submit Attendance
-        </button>
+                    <input
+                        type="text"
+                        id="full_name"
+                        name="full_name"
+                        value="{{ old('full_name') }}"
+                        required
+                    >
+                </div>
 
-    </form>
+                <div class="field">
+                    <label for="email">
+                        Email *
+                    </label>
 
-    <a class="back-link" href="{{ route('attendance.pin') }}">
-        Back to PIN
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="{{ old('email') }}"
+                        required
+                    >
+
+                    <small>
+                        Use the same email used during registration if you
+                        pre-enrolled for this event.
+                    </small>
+                </div>
+
+                <div class="field">
+                    <label for="phone">
+                        Phone *
+                    </label>
+
+                    <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value="{{ old('phone') }}"
+                        autocomplete="tel"
+                        inputmode="tel"
+                        required
+                    >
+
+                    <small>
+                        Use the same phone number used during registration if you
+                        pre-enrolled for this event.
+                    </small>
+                </div>
+
+                <div class="field">
+                    <label for="position">
+                        Position
+                    </label>
+
+                    <input
+                        type="text"
+                        id="position"
+                        name="position"
+                        value="{{ old('position') }}"
+                    >
+                </div>
+
+                <div class="field">
+                    <label for="unit">
+                        Organisation
+                    </label>
+
+                    <input
+                        type="text"
+                        id="unit"
+                        name="unit"
+                        value="{{ old('unit') }}"
+                    >
+                </div>
+
+                <div>
+                    <label for="signature-pad">
+                        Signature
+                    </label>
+
+                    <canvas
+                        id="signature-pad"
+                        width="600"
+                        height="200"
+                        style="width: 100%; height: 200px; border: 1px solid #ccc; border-radius: 6px; background: white;"
+                    ></canvas>
+
+                    <input
+                        type="hidden"
+                        name="signature"
+                        id="signature"
+                    >
+
+                    <div class="attendance-form-actions">
+                        <button type="button" id="clear-signature" class="btn btn-secondary btn-sm">
+                            Clear Signature
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            Submit Attendance
+                        </button>
+                    </div>
+                </div>
+
+            @endif
+
+        </form>
+
+    @else
+
+        <p>
+            This event has no sessions.
+        </p>
+
+    @endif
+
+    <a class="back-link btn btn-secondary btn-sm" href="{{ route('attendance.pin') }}">
+        Back to Attendance
     </a>
 
     <script>
-        const canvas = document.getElementById('signature-pad');
-        const ctx = canvas.getContext('2d');
-        const signature = document.getElementById('signature');
-        const clearButton = document.getElementById('clear-signature');
-        const form = document.getElementById('attendance-form');
+        const sessionSelect = document.getElementById('session_id');
+        const sessionName = document.getElementById('selected-session-name');
+        const sessionTime = document.getElementById('selected-session-time');
 
-        let drawing = false;
+        if (sessionSelect && sessionName && sessionTime) {
+            const updateSessionSummary = () => {
+                const option = sessionSelect.selectedOptions[0];
+                if (!option) return;
 
-        function getPosition(event) {
-            const rect = canvas.getBoundingClientRect();
-
-            return {
-                x: (event.clientX - rect.left) * (canvas.width / rect.width),
-                y: (event.clientY - rect.top) * (canvas.height / rect.height)
+                sessionName.textContent = option.dataset.name || '';
+                sessionTime.textContent = `${option.dataset.start || '—'} — ${option.dataset.end || '—'}`;
             };
+
+            sessionSelect.addEventListener('change', updateSessionSummary);
+            updateSessionSummary();
         }
 
-        canvas.addEventListener('pointerdown', (event) => {
-            drawing = true;
-            const position = getPosition(event);
+        const canvas = document.getElementById('signature-pad');
 
-            ctx.beginPath();
-            ctx.moveTo(position.x, position.y);
-        });
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const signature = document.getElementById('signature');
+            const clearButton = document.getElementById('clear-signature');
+            const form = document.getElementById('attendance-form');
 
-        canvas.addEventListener('pointermove', (event) => {
-            if (!drawing) return;
+            let drawing = false;
 
-            const position = getPosition(event);
+            function getPosition(event) {
+                const rect = canvas.getBoundingClientRect();
 
-            ctx.lineTo(position.x, position.y);
-            ctx.stroke();
-        });
+                return {
+                    x: (event.clientX - rect.left)
+                        * (canvas.width / rect.width),
 
-        canvas.addEventListener('pointerup', () => {
-            drawing = false;
-            signature.value = canvas.toDataURL('image/png');
-        });
+                    y: (event.clientY - rect.top)
+                        * (canvas.height / rect.height)
+                };
+            }
 
-        canvas.addEventListener('pointerleave', () => {
-            drawing = false;
-        });
+            canvas.addEventListener('pointerdown', (event) => {
+                drawing = true;
 
-        clearButton.addEventListener('click', () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            signature.value = '';
-        });
+                const position = getPosition(event);
 
-        form.addEventListener('submit', () => {
-            signature.value = canvas.toDataURL('image/png');
-        });
+                ctx.beginPath();
+                ctx.moveTo(position.x, position.y);
+            });
+
+            canvas.addEventListener('pointermove', (event) => {
+                if (!drawing) {
+                    return;
+                }
+
+                const position = getPosition(event);
+
+                ctx.lineTo(position.x, position.y);
+                ctx.stroke();
+            });
+
+            canvas.addEventListener('pointerup', () => {
+                drawing = false;
+                signature.value = canvas.toDataURL('image/png');
+            });
+
+            canvas.addEventListener('pointerleave', () => {
+                drawing = false;
+            });
+
+            clearButton.addEventListener('click', () => {
+                ctx.clearRect(
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height
+                );
+
+                signature.value = '';
+            });
+
+            form.addEventListener('submit', () => {
+                signature.value = canvas.toDataURL('image/png');
+            });
+        }
     </script>
-
+    </div>
 @endsection
