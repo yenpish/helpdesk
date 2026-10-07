@@ -42,7 +42,7 @@
                                 </span>
                             </td>
                             <td>{{ $user->created_at?->format('d M Y') }}</td>
-                            <td class="nowrap">
+                            <td class="actions-cell">
                                 <a href="{{ route('accounts.edit', $user) }}" class="btn btn-secondary btn-sm">Edit</a>
                                 @if($user->id !== auth()->id())
                                     <form method="POST" action="{{ route('accounts.destroy', $user) }}" class="inline-form" onsubmit="return confirm('Delete this account? This action cannot be undone.');">
@@ -57,7 +57,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="pagination-wrap">{{ $users->links() }}</div>
+            @include('components.pagination-row', ['paginator' => $users, 'ariaLabel' => 'Account pages'])
         @else
             <div class="empty-state">
                 <h2>No user accounts</h2>

@@ -3,8 +3,7 @@
 
 @section('content')
     <div class="container">
-        <h1>Edit Location</h1>
-        <p class="text-muted">Update the location.</p>
+        <header class="page-header"><div class="page-heading"><h1>Edit Location</h1><p>Update the location.</p></div></header>
 
         @if($errors->any())
             <div class="alert alert-danger">

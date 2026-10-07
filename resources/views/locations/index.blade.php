@@ -3,8 +3,8 @@
 
 @section('content')
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
+        <header class="page-header">
+            <div class="page-heading">
                 <h1>Locations</h1>
                 <p class="text-muted mb-0">Manage locations used by events.</p>
             </div>
@@ -12,7 +12,7 @@
             <a href="{{ route('locations.create') }}" class="btn btn-primary">
                 Create Location
             </a>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">
@@ -61,24 +61,7 @@
                 </tbody>
             </table>
 
-            <div class="d-flex justify-content-between mt-3">
-                @if($locations->onFirstPage())
-                    <span class="pagination-disabled">Previous</span>
-                @else
-                    <a class="pagination-link" href="{{ $locations->previousPageUrl() }}">Previous</a>
-                @endif
-
-                <span>
-                Page {{ $locations->currentPage() }}
-                of {{ $locations->lastPage() }}
-            </span>
-
-                @if($locations->hasMorePages())
-                    <a class="pagination-link" href="{{ $locations->nextPageUrl() }}">Next</a>
-                @else
-                    <span class="pagination-disabled">Next</span>
-                @endif
-            </div>
+            @include('components.pagination-row', ['paginator' => $locations, 'ariaLabel' => 'Location pages'])
         @else
             <p>No locations found.</p>
         @endif

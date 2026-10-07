@@ -2,7 +2,7 @@
 @section('section', 'Event management')
 
 @section('content')
-    <div class="container">
+    <div class="container registration-management-page">
         <div class="page-header">
             <div class="page-heading">
                 <h1>Pre-registrations</h1>
@@ -15,6 +15,29 @@
             <div class="alert alert-success" role="status">{{ session('success') }}</div>
         @endif
 
+        <form method="GET" action="{{ route('events.registrations.index', $event) }}" class="events-filter-form registration-management-filters">
+            <div class="events-search-field">
+                <label for="registration-search" class="form-label">Search pre-registrations</label>
+                <input id="registration-search" type="search" name="search" value="{{ $search }}" class="form-control" placeholder="Name, email, phone, organisation, position...">
+            </div>
+            <div class="events-sort-field">
+                <label for="registration-status" class="form-label">Approval status</label>
+                <select id="registration-status" name="status" class="form-select">
+                    <option value="" @selected($status === '')>All statuses</option>
+                    <optgroup label="Approval">
+                        <option value="pending" @selected($status === 'pending')>Pending</option>
+                        <option value="approved" @selected($status === 'approved')>Approved</option>
+                        <option value="rejected" @selected($status === 'rejected')>Rejected</option>
+                        <option value="cancelled" @selected($status === 'cancelled')>Cancelled</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="events-filter-action"><button type="submit" class="btn btn-secondary">Apply</button></div>
+            @if($search !== '' || $status !== '')
+                <div class="events-filter-action"><a href="{{ route('events.registrations.index', $event) }}" class="btn btn-link">Clear</a></div>
+            @endif
+        </form>
+
         @if($registrations->count())
             <div class="table-responsive">
             <table class="registrations-table">
@@ -25,7 +48,7 @@
                     <th>Phone</th>
                     <th>Organisation</th>
                     <th>Position</th>
-                    <th>Request status</th>
+                    <th>Approval status</th>
                     <th>Submitted</th>
                     <th>Update status</th>
                 </tr>
@@ -60,7 +83,7 @@
                                 @method('PATCH')
 
                                 <div class="status-control">
-                                <select name="status" aria-label="Registration status for {{ $registration->guest_name }}">
+                                <select name="status" aria-label="Approval status for {{ $registration->guest_name }}">
                                     <option
                                         value="pending"
                                         @selected($registration->status === 'pending')
@@ -99,7 +122,7 @@
             </table>
             </div>
 
-        <div class="pagination-wrap">{{ $registrations->links() }}</div>
+        @include('components.pagination-row', ['paginator' => $registrations, 'ariaLabel' => 'Pre-registration pages'])
         @else
             <p>No registrations have been submitted for this event yet.</p>
         @endif

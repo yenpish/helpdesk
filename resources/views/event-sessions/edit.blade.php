@@ -3,12 +3,12 @@
 
 @section('content')
     <div class="container">
-        <h1>Edit Session</h1>
-
-        <p class="text-muted">
-            Update <strong>{{ $eventSession->name }}</strong>
-            under <strong>{{ $event->name }}</strong>.
-        </p>
+        <header class="page-header">
+            <div class="page-heading">
+                <h1>Edit Session</h1>
+                <p>Update <strong>{{ $eventSession->name }}</strong> under <strong>{{ $event->name }}</strong>.</p>
+            </div>
+        </header>
 
         @if($errors->any())
             <div class="alert alert-danger">

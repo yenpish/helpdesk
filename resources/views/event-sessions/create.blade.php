@@ -3,11 +3,12 @@
 
 @section('content')
     <div class="container">
-        <h1>Create Session</h1>
-
-        <p class="text-muted">
-            Add another session to <strong>{{ $event->name }}</strong>.
-        </p>
+        <header class="page-header">
+            <div class="page-heading">
+                <h1>Create Session</h1>
+                <p>Add another session to <strong>{{ $event->name }}</strong>.</p>
+            </div>
+        </header>
 
         @if($errors->any())
             <div class="alert alert-danger">

@@ -3,10 +3,10 @@
 
 @section('content')
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>{{ $eventType->name }}</h1>
+        <header class="page-header">
+            <div class="page-heading"><h1>{{ $eventType->name }}</h1><p>Event type details</p></div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap header-actions">
                 <a class="btn btn-primary" href="{{ route('event-types.edit', $eventType) }}">
                     Edit
                 </a>
@@ -15,7 +15,7 @@
                     Back to Event Types
                 </a>
             </div>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">

@@ -23,8 +23,9 @@ class HomeController extends Controller
             }
         });
 
-        $activeSessions = (clone $sessions)->where('attendance_opens_at', '<=', now())
-            ->where('attendance_closes_at', '>=', now())
+        $now = now();
+        $activeSessions = (clone $sessions)->where('starts_at', '<=', $now)
+            ->where('ends_at', '>=', $now)
             ->count();
 
         $todaySessions = (clone $sessions)->whereDate('starts_at', today())

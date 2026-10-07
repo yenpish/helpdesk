@@ -68,7 +68,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="pagination-wrap">{{ $auditLogs->links() }}</div>
+            @include('components.pagination-row', ['paginator' => $auditLogs, 'ariaLabel' => 'Audit log pages'])
         @else
             <div class="empty-state">No audit records have been recorded yet.</div>
         @endif

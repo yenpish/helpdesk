@@ -131,7 +131,7 @@ class RegistrationController extends Controller
     /*
      * Organizer/Admin view of registrations for an Event.
      */
-    public function eventRegistrations(Event $event): View
+    public function eventRegistrations(Request $request, Event $event): View
     {
         if (
             auth()->user()->role !== 'admin' &&
@@ -140,15 +140,34 @@ class RegistrationController extends Controller
             abort(403);
         }
 
-        $registrations = $event->registrations()
-            ->with('user')
-            ->latest('registered_at')
-            ->paginate(20);
+        $searchValue = $request->query('search', '');
+        $search = is_string($searchValue) ? trim(substr($searchValue, 0, 100)) : '';
+        $statusValue = $request->query('status', '');
+        $status = is_string($statusValue) ? $statusValue : '';
+        if (!in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
+            $status = '';
+        }
 
-        return view('registrations.index', compact(
-            'event',
-            'registrations'
-        ));
+        $query = $event->registrations()->with('user');
+        if ($search !== '') {
+            $query->where(function ($query) use ($search) {
+                foreach (['guest_name', 'guest_email', 'guest_phone', 'organisation', 'position'] as $index => $column) {
+                    $method = $index === 0 ? 'where' : 'orWhere';
+                    $query->{$method}($column, 'like', '%' . $search . '%');
+                }
+                $query->orWhereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('email', 'like', '%' . $search . '%');
+                });
+            });
+        }
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        $registrations = $query->latest('registered_at')->paginate(20)->withQueryString();
+
+        return view('registrations.index', compact('event', 'registrations', 'search', 'status'));
     }
 
     /*

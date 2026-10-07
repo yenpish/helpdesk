@@ -4,13 +4,13 @@
 @section('content')
     <div class="container">
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
+        <header class="page-header">
+            <div class="page-heading">
                 <h1>{{ $event->name }}</h1>
                 <p class="text-muted mb-0">Event details</p>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap header-actions">
                 <a
                     href="{{ route('events.edit', $event) }}"
                     class="btn btn-primary"
@@ -25,13 +25,19 @@
                     Back
                 </a>
             </div>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">
                 {{ session('success') }}
             </div>
         @endif
+
+        <dl class="event-summary-row mb-3" aria-label="Event summary">
+            <div><dt>Sessions</dt><dd>{{ $event->sessions->count() }}</dd></div>
+            <div><dt>Pre-registrations</dt><dd>{{ $event->registrations->count() }}</dd></div>
+            <div><dt>Attendance records</dt><dd>{{ $event->attendances_count }}</dd></div>
+        </dl>
 
         <div class="card mb-4">
             <div class="card-header">
@@ -95,10 +101,10 @@
 
         <div class="card mb-4">
 
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span>Sessions</span>
 
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap">
 
                     <a
                         href="{{ route('events.event-sessions.create', $event) }}"
@@ -113,6 +119,12 @@
                     >
                         Manage Sessions
                     </a>
+
+                    @if($event->attendances_count || $event->registrations->isNotEmpty())
+                        <a href="{{ route('events.attendance.export', $event) }}" class="btn btn-secondary btn-sm">Export Attendance</a>
+                    @else
+                        <button type="button" class="btn btn-secondary btn-sm" disabled title="Pre-registrations and attendance records will appear in the export">Export Attendance</button>
+                    @endif
 
                 </div>
             </div>
@@ -159,17 +171,17 @@
                                     </td>
                                     <td>{{ $session->attendances_count }}</td>
 
-                                    <td>
+                                    <td class="table-actions">
                                         <a
                                             href="{{ route('events.event-sessions.show', [$event, $session]) }}"
-                                            class="btn btn-sm btn-outline-primary"
+                                            class="btn btn-secondary btn-sm"
                                         >
                                             View
                                         </a>
 
                                         <a
                                             href="{{ route('events.event-sessions.edit', [$event, $session]) }}"
-                                            class="btn btn-sm btn-outline-secondary"
+                                            class="btn btn-secondary btn-sm"
                                         >
                                             Edit
                                         </a>
@@ -200,21 +212,13 @@
 
                 @endif
 
-                <div class="d-flex justify-content-end mt-3">
-                    @if($event->attendances_count || $event->registrations->isNotEmpty())
-                        <a href="{{ route('events.attendance.export', $event) }}" class="btn btn-secondary btn-sm">Export Attendance</a>
-                    @else
-                        <button type="button" class="btn btn-secondary btn-sm" disabled title="Registrations and attendance records will appear in the export">Export Attendance</button>
-                    @endif
-                </div>
-
             </div>
 
         </div>
 
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Registrations</span>
+                    <span>Pre-registrations</span>
 
                     <a
                         href="{{ route('events.registrations.index', $event) }}"
@@ -235,7 +239,7 @@
                     @else
 
                         <p class="text-muted mb-0">
-                            No registrations yet.
+                            No pre-registrations yet.
                         </p>
 
                     @endif

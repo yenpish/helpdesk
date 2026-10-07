@@ -39,6 +39,45 @@
             </div>
         @endforelse
 
-        @if($events->hasPages())<div class="pagination-wrap">{{ $events->links() }}</div>@endif
+        @if($events->count())
+            @php
+                $currentPage = $events->currentPage();
+                $lastPage = $events->lastPage();
+                $startPage = max(1, $currentPage - 2);
+                $endPage = min($lastPage, $currentPage + 2);
+            @endphp
+            <div class="public-events-pagination">
+                <span>Showing {{ $events->firstItem() }} to {{ $events->lastItem() }} of {{ $events->total() }} results</span>
+                <nav class="public-events-pagination-links" aria-label="Upcoming event pages">
+                    @if($events->onFirstPage())
+                        <span class="public-pagination-disabled" aria-disabled="true">Previous</span>
+                    @else
+                        <a class="public-pagination-link" href="{{ $events->previousPageUrl() }}">Previous</a>
+                    @endif
+
+                    @if($startPage > 1)
+                        <a class="public-pagination-link" href="{{ $events->url(1) }}" aria-label="Go to page 1">1</a>
+                        @if($startPage > 2)<span class="public-pagination-ellipsis" aria-hidden="true">…</span>@endif
+                    @endif
+                    @for($page = $startPage; $page <= $endPage; $page++)
+                        @if($page === $currentPage)
+                            <span class="public-pagination-link" aria-current="page">{{ $page }}</span>
+                        @else
+                            <a class="public-pagination-link" href="{{ $events->url($page) }}" aria-label="Go to page {{ $page }}">{{ $page }}</a>
+                        @endif
+                    @endfor
+                    @if($endPage < $lastPage)
+                        @if($endPage < $lastPage - 1)<span class="public-pagination-ellipsis" aria-hidden="true">…</span>@endif
+                        <a class="public-pagination-link" href="{{ $events->url($lastPage) }}" aria-label="Go to page {{ $lastPage }}">{{ $lastPage }}</a>
+                    @endif
+
+                    @if($events->hasMorePages())
+                        <a class="public-pagination-link" href="{{ $events->nextPageUrl() }}">Next</a>
+                    @else
+                        <span class="public-pagination-disabled" aria-disabled="true">Next</span>
+                    @endif
+                </nav>
+            </div>
+        @endif
     </div>
 @endsection

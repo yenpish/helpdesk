@@ -3,12 +3,12 @@
 
 @section('content')
     <div class="container">
-        <div class="mb-4">
-            <h1>Create Event</h1>
-            <p class="text-muted">
-                Create the main event. Its sessions will be created automatically.
-            </p>
-        </div>
+        <header class="page-header">
+            <div class="page-heading">
+                <h1>Create Event</h1>
+                <p>Create the main event. Its sessions will be created automatically.</p>
+            </div>
+        </header>
 
         @if($errors->any())
             <div class="alert alert-danger">

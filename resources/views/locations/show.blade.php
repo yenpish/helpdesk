@@ -3,14 +3,14 @@
 
 @section('content')
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>{{ $location->name }}</h1>
+        <header class="page-header">
+            <div class="page-heading"><h1>{{ $location->name }}</h1><p>Location details</p></div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap header-actions">
                 <a class="btn btn-primary" href="{{ route('locations.edit', $location) }}">Edit</a>
                 <a class="btn btn-secondary" href="{{ route('locations.index') }}">Back to Locations</a>
             </div>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">

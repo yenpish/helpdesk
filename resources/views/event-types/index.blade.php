@@ -3,8 +3,8 @@
 
 @section('content')
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
+        <header class="page-header">
+            <div class="page-heading">
                 <h1>Event Types</h1>
                 <p class="text-muted mb-0">Manage event categories used by events.</p>
             </div>
@@ -12,7 +12,7 @@
             <a href="{{ route('event-types.create') }}" class="btn btn-primary">
                 Create Event Type
             </a>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">
@@ -70,26 +70,7 @@
                 </tbody>
             </table>
 
-            <div class="mt-3">
-                <div class="d-flex justify-content-between">
-                    @if($eventTypes->onFirstPage())
-                        <span class="pagination-disabled">Previous</span>
-                    @else
-                        <a class="pagination-link" href="{{ $eventTypes->previousPageUrl() }}">Previous</a>
-                    @endif
-
-                    <span>
-                    Page {{ $eventTypes->currentPage() }}
-                    of {{ $eventTypes->lastPage() }}
-                </span>
-
-                    @if($eventTypes->hasMorePages())
-                        <a class="pagination-link" href="{{ $eventTypes->nextPageUrl() }}">Next</a>
-                    @else
-                        <span class="pagination-disabled">Next</span>
-                    @endif
-                </div>
-            </div>
+            @include('components.pagination-row', ['paginator' => $eventTypes, 'ariaLabel' => 'Event type pages'])
         @else
             <p>No event types found.</p>
         @endif

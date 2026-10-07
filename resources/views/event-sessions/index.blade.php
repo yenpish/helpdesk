@@ -3,13 +3,13 @@
 
 @section('content')
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
+        <header class="page-header">
+            <div class="page-heading">
                 <h1>{{ $event->name }} — Sessions</h1>
                 <p class="text-muted mb-0">Manage sessions for this event.</p>
             </div>
 
-            <div>
+            <div class="d-flex gap-2 flex-wrap header-actions">
                 <a href="{{ route('events.event-sessions.create', $event) }}" class="btn btn-primary">
                     Create Session
                 </a>
@@ -18,7 +18,7 @@
                     Back to Event
                 </a>
             </div>
-        </div>
+        </header>
 
         @if(session('success'))
             <div class="alert alert-success">

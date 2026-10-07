@@ -995,8 +995,10 @@
         .events-heading h1 { font-size: 30px; }
         .events-page .events-empty { padding: 20px; }
         .events-page .events-empty h2 { color: var(--text); }
-        .events-pagination { color: var(--muted); }
-        .events-pagination-links a, .events-pagination-links span { background: var(--surface) !important; border-color: var(--line) !important; color: var(--text) !important; }
+        .events-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; color: var(--muted); }
+        .events-pagination-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .pagination-ellipsis { padding: 0 3px; color: var(--muted); }
+        .events-pagination-links a, .events-pagination-links span:not(.pagination-ellipsis) { background: var(--surface) !important; border-color: var(--line) !important; color: var(--text) !important; }
         .events-pagination-links span[aria-current="page"] { background: var(--blue) !important; color: #fff !important; }
         .success-icon { border-color: var(--green); color: var(--green); }
         .success-page p, .guest-home p { color: var(--muted) !important; }
@@ -1040,8 +1042,9 @@
         .status-control button { flex: 0 0 auto; }
         .actions-cell { min-width: 210px; white-space: nowrap; text-align: right; }
         .inline-form { display: inline; }
-        .table-actions { white-space: nowrap; }
-        .table-actions .btn { margin-right: 4px; }
+        .table-actions { white-space: nowrap; text-align: right; vertical-align: middle; }
+        .table td.actions-cell, .table td.table-actions { white-space: nowrap; text-align: right; vertical-align: middle; }
+        .table-actions .btn, .actions-cell .btn { margin: 0 0 0 4px; }
         .table-actions .inline-form { display: inline-block; margin: 0; vertical-align: middle; }
         .btn-sm { min-height: 30px; padding: 6px 9px; font-size: 12px; }
         .events-page .page-header { margin-bottom: 24px; }
@@ -1067,9 +1070,20 @@
         .events-page .events-table td:nth-child(6), .events-page .events-table td:nth-child(7) { white-space: nowrap; }
         .events-page .event-name { min-width: 0; }
         .events-page .actions-cell .btn-sm { padding-inline: 7px; }
-        .registrations-table { min-width: 1040px; }
-        .registrations-table td:nth-child(1), .registrations-table td:nth-child(2),
-        .registrations-table td:nth-child(3), .registrations-table td:nth-child(7) { white-space: nowrap; }
+        .registrations-table { width: 100%; table-layout: fixed; }
+        .registrations-table th, .registrations-table td { overflow-wrap: anywhere; }
+        .registrations-table th:nth-child(1), .registrations-table td:nth-child(1) { width: 10%; }
+        .registrations-table th:nth-child(2), .registrations-table td:nth-child(2) { width: 15%; }
+        .registrations-table th:nth-child(3), .registrations-table td:nth-child(3) { width: 10%; }
+        .registrations-table th:nth-child(4), .registrations-table td:nth-child(4) { width: 13%; }
+        .registrations-table th:nth-child(5), .registrations-table td:nth-child(5) { width: 9%; }
+        .registrations-table th:nth-child(6), .registrations-table td:nth-child(6) { width: 12%; }
+        .registrations-table th:nth-child(7), .registrations-table td:nth-child(7) { width: 7%; }
+        .registrations-table th:nth-child(8), .registrations-table td:nth-child(8) { width: 24%; }
+        .registrations-table td:nth-child(3) { white-space: nowrap; }
+        .registrations-table .status-control { width: 100%; min-width: 0; gap: 6px; }
+        .registrations-table .status-control select { min-width: 120px; }
+        .registrations-table .status-control button { min-width: 42px; }
         .events-page .event-action, .events-page .event-actions .btn { margin-left: 3px; }
         .events-page .event-actions .inline-form { margin: 0; }
         .events-page .events-pagination { margin-top: 16px; }
@@ -1142,6 +1156,10 @@
         .session-attendance-summary > div { display: flex; align-items: baseline; gap: 7px; }
         .session-attendance-summary dt { color: var(--muted); font-weight: 500; }
         .session-attendance-summary dd { margin: 0; font-weight: 600; }
+        .event-summary-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 26px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+        .event-summary-row > div { display: flex; align-items: baseline; gap: 8px; }
+        .event-summary-row dt { color: var(--muted); font-weight: 500; }
+        .event-summary-row dd { margin: 0; font-weight: 600; }
         .card-body > .events-filter-form.session-attendance-filters { max-width: none; margin-inline: 0; }
         .session-attendance-filter-actions { display: flex; gap: 8px; }
         .session-attendance-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
@@ -1176,6 +1194,11 @@
         }
 
         .events-page > .events-filter-form {
+            max-width: none;
+            margin-inline: 0;
+        }
+
+        .registration-management-page > .registration-management-filters {
             max-width: none;
             margin-inline: 0;
         }
@@ -1272,6 +1295,13 @@
         .public-event-meta dd { margin: 0; color: var(--text); font-size: 13px; }
         .public-event-meta dd span { color: var(--muted); }
         .public-event-action { flex: 0 0 auto; }
+        .public-events-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-top: 18px; color: var(--muted); }
+        .public-events-pagination-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .public-pagination-link, .public-pagination-disabled { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--text); text-decoration: none; }
+        .public-pagination-link:hover { background: var(--surface-raised); text-decoration: none; }
+        .public-pagination-link[aria-current="page"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .public-pagination-disabled { opacity: .55; }
+        .public-pagination-ellipsis { padding: 0 3px; }
         form[onsubmit*="Delete"] button { border: 1px solid #E2B5B3 !important; background: #FAEEEE !important; color: #9B3533 !important; }
 
         @media (max-width: 900px) {

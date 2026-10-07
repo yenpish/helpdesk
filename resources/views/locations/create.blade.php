@@ -3,8 +3,7 @@
 
 @section('content')
     <div class="container">
-        <h1>Create Location</h1>
-        <p class="text-muted">Add a location that can be assigned to events.</p>
+        <header class="page-header"><div class="page-heading"><h1>Create Location</h1><p>Add a location that can be assigned to events.</p></div></header>
 
         @if($errors->any())
             <div class="alert alert-danger">

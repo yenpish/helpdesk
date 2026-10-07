@@ -8,7 +8,7 @@
         <header class="page-header">
             <div class="page-heading">
                 <h1>Events</h1>
-                <p>Manage events, sessions, and registrations.</p>
+                <p>Manage events, sessions, and pre-registrations.</p>
             </div>
             <a href="{{ route('events.create') }}" class="btn btn-primary">Create event</a>
         </header>
@@ -69,7 +69,7 @@
                         <th>Location</th>
                         <th>Organizer</th>
                         <th>Attendees</th>
-                        <th>Registrations</th>
+                        <th>Pre-registrations</th>
                         <th>Status</th>
                         <th class="actions-cell">Actions</th>
                     </tr>
@@ -107,13 +107,7 @@
                 </table>
             </div>
 
-            <div class="events-pagination">
-                <span>Showing {{ $events->firstItem() }}–{{ $events->lastItem() }} of {{ $events->total() }} events</span>
-                <div class="events-pagination-links">
-                    @if($events->onFirstPage()) <span class="pagination-disabled">Previous</span> @else <a class="pagination-link" href="{{ $events->previousPageUrl() }}">Previous</a> @endif
-                    @if($events->hasMorePages()) <a class="pagination-link" href="{{ $events->nextPageUrl() }}">Next</a> @else <span class="pagination-disabled">Next</span> @endif
-                </div>
-            </div>
+            @include('components.pagination-row', ['paginator' => $events, 'ariaLabel' => 'Event pages'])
         @else
             <div class="events-empty">
                 @if($search !== '')

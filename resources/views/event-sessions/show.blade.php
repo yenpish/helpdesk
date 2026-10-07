@@ -8,7 +8,7 @@
                 <h1>{{ $eventSession->name }}</h1>
                 <p>Session for {{ $event->name }}</p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap header-actions">
                 <a href="{{ route('events.event-sessions.edit', [$event, $eventSession]) }}" class="btn btn-primary">Edit</a>
                 <a href="{{ route('events.event-sessions.index', $event) }}" class="btn btn-secondary">Back to Sessions</a>
                 <a href="{{ route('events.show', $event) }}" class="btn btn-secondary">Back to Event</a>
@@ -84,9 +84,9 @@
             </div>
             <div class="card-body p-3">
                 <dl class="session-attendance-summary mb-3" aria-label="Session attendance summary">
-                    <div><dt>Registered</dt><dd>{{ $registeredCount }}</dd></div>
+                    <div><dt>Pre-registered</dt><dd>{{ $registeredCount }}</dd></div>
                     <div><dt>Attended</dt><dd>{{ $attendedCount }}</dd></div>
-                    <div><dt>Not Attended</dt><dd>{{ $notAttendedCount }}</dd></div>
+                    <div><dt>Not attended</dt><dd>{{ $notAttendedCount }}</dd></div>
                     <div><dt>Attendance Rate</dt><dd>{{ $attendanceRate }}%</dd></div>
                 </dl>
                 <form method="GET" action="{{ route('events.event-sessions.show', [$event, $eventSession]) }}" class="events-filter-form session-attendance-filters mb-3">
@@ -105,14 +105,20 @@
                         <label for="session-attendance-status" class="form-label">Status</label>
                         <select id="session-attendance-status" name="status" class="form-select">
                             <option value="" @selected($statusFilter === '')>All statuses</option>
-                            <option value="pre_registered" @selected($statusFilter === 'pre_registered')>Pre-registered</option>
-                            <option value="not_pre_registered" @selected($statusFilter === 'not_pre_registered')>Not pre-registered</option>
-                            <option value="pending" @selected($statusFilter === 'pending')>Pending</option>
-                            <option value="approved" @selected($statusFilter === 'approved')>Approved</option>
-                            <option value="cancelled" @selected($statusFilter === 'cancelled')>Cancelled</option>
-                            <option value="rejected" @selected($statusFilter === 'rejected')>Rejected</option>
-                            <option value="attended" @selected($statusFilter === 'attended')>Attended</option>
-                            <option value="not_attended" @selected($statusFilter === 'not_attended')>Not attended</option>
+                            <optgroup label="Pre-registration">
+                                <option value="pre_registered" @selected($statusFilter === 'pre_registered')>Pre-registered</option>
+                                <option value="not_pre_registered" @selected($statusFilter === 'not_pre_registered')>Not pre-registered</option>
+                            </optgroup>
+                            <optgroup label="Approval">
+                                <option value="pending" @selected($statusFilter === 'pending')>Pending</option>
+                                <option value="approved" @selected($statusFilter === 'approved')>Approved</option>
+                                <option value="rejected" @selected($statusFilter === 'rejected')>Rejected</option>
+                                <option value="cancelled" @selected($statusFilter === 'cancelled')>Cancelled</option>
+                            </optgroup>
+                            <optgroup label="Attendance">
+                                <option value="attended" @selected($statusFilter === 'attended')>Attended</option>
+                                <option value="not_attended" @selected($statusFilter === 'not_attended')>Not attended</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="events-filter-action session-attendance-filter-actions">
@@ -169,30 +175,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="events-pagination session-attendance-pagination">
-                        <span>Showing {{ $registrationAttendanceRows->firstItem() }}–{{ $registrationAttendanceRows->lastItem() }} of {{ $registrationAttendanceRows->total() }} results</span>
-                        <nav class="events-pagination-links" aria-label="Attendee results pages">
-                            @if($registrationAttendanceRows->onFirstPage())
-                                <span class="pagination-disabled">Previous</span>
-                            @else
-                                <a class="pagination-link" href="{{ $registrationAttendanceRows->previousPageUrl() }}">Previous</a>
-                            @endif
-
-                            @foreach($registrationAttendanceRows->getUrlRange(1, $registrationAttendanceRows->lastPage()) as $page => $url)
-                                @if($page === $registrationAttendanceRows->currentPage())
-                                    <span class="pagination-link" aria-current="page">{{ $page }}</span>
-                                @else
-                                    <a class="pagination-link" href="{{ $url }}" aria-label="Go to page {{ $page }}">{{ $page }}</a>
-                                @endif
-                            @endforeach
-
-                            @if($registrationAttendanceRows->hasMorePages())
-                                <a class="pagination-link" href="{{ $registrationAttendanceRows->nextPageUrl() }}">Next</a>
-                            @else
-                                <span class="pagination-disabled">Next</span>
-                            @endif
-                        </nav>
-                    </div>
+                    @include('components.pagination-row', ['paginator' => $registrationAttendanceRows, 'ariaLabel' => 'Attendee results pages'])
                 @elseif($search !== '' || $statusFilter !== '')
                     <p class="text-muted mb-0">No records match this search or status.</p>
                 @else

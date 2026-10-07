@@ -3,8 +3,7 @@
 
 @section('content')
     <div class="container">
-        <h1>Create Event Type</h1>
-        <p class="text-muted">Add a configurable event type.</p>
+        <header class="page-header"><div class="page-heading"><h1>Create Event Type</h1><p>Add a configurable event type.</p></div></header>
 
         @if($errors->any())
             <div class="alert alert-danger">

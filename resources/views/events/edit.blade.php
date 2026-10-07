@@ -3,12 +3,12 @@
 
 @section('content')
     <div class="container">
-        <div class="mb-4">
-            <h1>Edit Event</h1>
-            <p class="text-muted">
-                Update the overall event information.
-            </p>
-        </div>
+        <header class="page-header">
+            <div class="page-heading">
+                <h1>Edit Event</h1>
+                <p>Update the overall event information.</p>
+            </div>
+        </header>
 
         @if($errors->any())
             <div class="alert alert-danger">
