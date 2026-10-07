@@ -9,6 +9,7 @@ use App\Models\Registration;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,7 +80,7 @@ class EventSessionController extends Controller
             ->with('success', 'Session created successfully.');
     }
 
-    public function show(Event $event, EventSession $eventSession): View
+    public function show(Request $request, Event $event, EventSession $eventSession): View
     {
         $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
@@ -135,13 +136,84 @@ class EventSessionController extends Controller
             ]);
 
         $registrationAttendanceRows = $registrationAttendanceRows
-            ->concat($unregisteredAttendanceRows);
+            ->concat($unregisteredAttendanceRows)
+            ->values();
+
+        $registeredCount = $registrations->count();
+        $attendedRegisteredCount = $registrationAttendanceRows
+            ->filter(fn (array $row) => $row['registration_status'] !== 'Not pre-registered'
+                && $row['attendance_status'] === 'Attended')
+            ->pluck('email')
+            ->filter()
+            ->unique()
+            ->count();
+        $notAttendedCount = max(0, $registeredCount - $attendedRegisteredCount);
+        $attendedCount = $attendedRegisteredCount;
+        $attendanceRate = $registeredCount > 0
+            ? round(($attendedRegisteredCount / $registeredCount) * 100)
+            : 0;
+
+        $search = trim((string) $request->query('search', ''));
+        $statusFilter = (string) $request->query('status', '');
+        $validStatusFilters = [
+            'pre_registered', 'not_pre_registered', 'pending', 'approved', 'cancelled',
+            'rejected', 'attended', 'not_attended',
+        ];
+        if (!in_array($statusFilter, $validStatusFilters, true)) {
+            $statusFilter = '';
+        }
+
+        $filteredRows = $registrationAttendanceRows->filter(function (array $row) use ($search, $statusFilter): bool {
+            if ($search !== '') {
+                $searchable = strtolower(implode(' ', [
+                    $row['name'] ?? '',
+                    $row['email'] ?? '',
+                    $row['phone'] ?? '',
+                    $row['organisation'] ?? '',
+                ]));
+
+                if (!str_contains($searchable, strtolower($search))) {
+                    return false;
+                }
+            }
+
+            return match ($statusFilter) {
+                'pre_registered' => $row['registration_status'] !== 'Not pre-registered',
+                'not_pre_registered' => $row['registration_status'] === 'Not pre-registered',
+                'pending' => strtolower($row['registration_status']) === 'pending',
+                'approved' => strtolower($row['registration_status']) === 'approved',
+                'cancelled' => strtolower($row['registration_status']) === 'cancelled',
+                'rejected' => strtolower($row['registration_status']) === 'rejected',
+                'attended' => $row['attendance_status'] === 'Attended',
+                'not_attended' => $row['registration_status'] !== 'Not pre-registered'
+                    && $row['attendance_status'] === 'Not attended',
+                default => true,
+            };
+        })->values();
+
+        $perPage = 20;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $registrationAttendanceRows = new LengthAwarePaginator(
+            $filteredRows->forPage($currentPage, $perPage)->values(),
+            $filteredRows->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
 
         return view('event-sessions.show', compact(
             'event',
             'eventSession',
-            'registrations',
-            'registrationAttendanceRows'
+            'registrationAttendanceRows',
+            'registeredCount',
+            'attendedCount',
+            'notAttendedCount',
+            'attendanceRate',
+            'search',
+            'statusFilter'
         ));
     }
 

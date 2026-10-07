@@ -1115,6 +1115,7 @@
         .registration-attendance-table {
             width: 100%;
             table-layout: fixed;
+            font-size: .875rem;
         }
 
         .registration-attendance-table th,
@@ -1122,9 +1123,31 @@
             white-space: normal;
             overflow-wrap: anywhere;
             vertical-align: middle;
+            padding: .5rem .55rem;
         }
 
+        .registration-attendance-table th { padding: .55rem; }
+
         .registration-attendance-table-wrap { overflow-x: auto; }
+
+        .session-attendance-summary {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 6px 24px;
+            padding: 2px 0 10px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .session-attendance-summary > div { display: flex; align-items: baseline; gap: 7px; }
+        .session-attendance-summary dt { color: var(--muted); font-weight: 500; }
+        .session-attendance-summary dd { margin: 0; font-weight: 600; }
+        .card-body > .events-filter-form.session-attendance-filters { max-width: none; margin-inline: 0; }
+        .session-attendance-filter-actions { display: flex; gap: 8px; }
+        .session-attendance-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+        .session-information-card .event-details-meta { margin-top: 16px; padding-top: 12px; }
+        .session-information-card .event-details-pair { padding: 7px 0; }
+        .session-information-card .event-details-meta-row { padding: 5px 0; }
 
         .registration-attendance-status-headings,
         .registration-attendance-status-values {
@@ -1167,8 +1190,6 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
             column-gap: 36px;
         }
-
-        .session-details-description { grid-column: 1 / -1; }
 
         .event-details-meta {
             display: grid;
