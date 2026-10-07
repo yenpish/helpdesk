@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('section', 'Registration')
+@section('section', 'Pre-registration')
 
 @section('title', 'Upcoming Events')
 

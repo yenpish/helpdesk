@@ -224,7 +224,7 @@
                         href="{{ route('events.registrations.index', $event) }}"
                         class="btn btn-primary btn-sm"
                     >
-                        Manage Registrations
+                        Manage Pre-registrations
                     </a>
                 </div>
 
@@ -233,7 +233,7 @@
                     @if($event->registrations->count())
 
                         <p class="mb-0">
-                            {{ $event->registrations->count() }} {{ \Illuminate\Support\Str::plural('registration', $event->registrations->count()) }}
+                            {{ $event->registrations->count() }} {{ \Illuminate\Support\Str::plural('pre-registration', $event->registrations->count()) }}
                         </p>
 
                     @else

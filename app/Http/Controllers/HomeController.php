@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
 use App\Models\EventSession;
-use App\Models\User;
+use App\Models\Registration;
 
 class HomeController extends Controller
 {
@@ -17,39 +18,84 @@ class HomeController extends Controller
             return view('guest-home');
         }
 
-        $sessions = EventSession::query()->whereHas('event', function ($query) {
+        $now = now();
+        $recentStart = $now->copy()->subDays(7);
+        $scopeEvents = function ($query) {
             if (auth()->user()->role === 'organizer') {
                 $query->where('organizer_id', auth()->id());
             }
-        });
+        };
 
-        $now = now();
-        $activeSessions = (clone $sessions)->where('starts_at', '<=', $now)
+        $sessions = EventSession::query()->whereHas('event', $scopeEvents);
+        $publishedEvents = function ($query) use ($scopeEvents) {
+            $scopeEvents($query);
+            $query->where('status', 'published');
+        };
+        $operationalSessions = EventSession::query()->whereHas('event', $publishedEvents);
+
+        $sessionsInProgress = (clone $operationalSessions)->where('starts_at', '<=', $now)
             ->where('ends_at', '>=', $now)
+            ->with('event.location')
+            ->orderBy('starts_at')
+            ->get();
+
+        $sessionsStartingSoon = (clone $operationalSessions)->where('starts_at', '>', $now)
+            ->where('starts_at', '<=', $now->copy()->addDay())
+            ->with('event.location')
+            ->orderBy('starts_at')
+            ->get();
+
+        $todaySessions = (clone $operationalSessions)->whereDate('starts_at', today())
             ->count();
 
-        $todaySessions = (clone $sessions)->whereDate('starts_at', today())
-            ->count();
-
-        $todayAttendance = (clone $sessions)->whereDate('starts_at', today())
+        $todayAttendance = (clone $operationalSessions)->whereDate('starts_at', today())
             ->withCount('attendances')
             ->get()
             ->sum('attendances_count');
 
-        $totalUsers = auth()->user()->role === 'admin' ? User::count() : 0;
+        $pendingPreRegistrationsQuery = Registration::query()
+            ->where('status', 'pending')
+            ->whereHas('event', $publishedEvents);
+        $pendingPreRegistrations = (clone $pendingPreRegistrationsQuery)->count();
+        $pendingPreRegistrationEvents = (clone $pendingPreRegistrationsQuery)
+            ->select('event_id')
+            ->selectRaw('COUNT(*) as pending_count')
+            ->groupBy('event_id')
+            ->with('event:id,name')
+            ->orderByDesc('pending_count')
+            ->get();
 
-        $recentSessions = (clone $sessions)->with('event')
+        $recentSessions = (clone $operationalSessions)->with('event.location')
             ->where('ends_at', '>=', now())
             ->orderBy('starts_at')
             ->take(5)
             ->get();
 
+        $recentSessionStats = (clone $sessions)
+            ->where('ends_at', '>=', $recentStart)
+            ->where('ends_at', '<=', $now)
+            ->get();
+        $recentSessionsHeld = $recentSessionStats->count();
+        $recentCheckIns = Attendance::query()
+            ->whereBetween('created_at', [$recentStart, $now])
+            ->whereHas('session', fn ($query) => $query->whereHas('event', $scopeEvents))
+            ->count();
+        $recentPreRegistrations = Registration::query()
+            ->whereBetween('registered_at', [$recentStart, $now])
+            ->whereHas('event', $scopeEvents)
+            ->count();
+
         return view('home', compact(
-            'activeSessions',
+            'sessionsInProgress',
+            'sessionsStartingSoon',
             'todaySessions',
             'todayAttendance',
-            'totalUsers',
-            'recentSessions'
+            'pendingPreRegistrations',
+            'pendingPreRegistrationEvents',
+            'recentSessions',
+            'recentSessionsHeld',
+            'recentCheckIns',
+            'recentPreRegistrations'
         ));
     }
 }

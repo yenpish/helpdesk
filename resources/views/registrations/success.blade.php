@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('section', 'Registration')
+@section('section', 'Pre-registration')
 
 @section('content')
     <div class="container">
@@ -10,21 +10,6 @@
             Your pre-registration for
             <strong>{{ $registration->event->name }}</strong>
             has been submitted successfully.
-        </p>
-
-        <p>
-            <strong>Name:</strong>
-            {{ $registration->guest_name }}
-        </p>
-
-        <p>
-            <strong>Email:</strong>
-            {{ $registration->guest_email }}
-        </p>
-
-        <p>
-            <strong>Status:</strong>
-            {{ ucfirst($registration->status) }}
         </p>
 
         <p>

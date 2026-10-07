@@ -123,7 +123,7 @@
                     >
 
                     <small>
-                        Use the same email used during registration if you
+                        Use the same email used during pre-registration if you
                         pre-enrolled for this event.
                     </small>
                 </div>
@@ -144,7 +144,7 @@
                     >
 
                     <small>
-                        Use the same phone number used during registration if you
+                        Use the same phone number used during pre-registration if you
                         pre-enrolled for this event.
                     </small>
                 </div>

@@ -8,7 +8,7 @@
         <h1>Welcome to Attendance Management</h1>
 
         <p>
-            Attendance management portal for events, sessions, and attendance registration.
+            View events, pre-register, or record attendance with a PIN.
         </p>
 
         <div class="guest-actions">

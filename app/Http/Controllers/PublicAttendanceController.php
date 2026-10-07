@@ -41,6 +41,12 @@ class PublicAttendanceController extends Controller
             ]);
         }
 
+        if (!$this->eventAllowsAttendance($event)) {
+            return back()->withErrors([
+                'pin' => 'Attendance is unavailable for this event.',
+            ]);
+        }
+
         session([
             'attendance_event_id' => $event->id,
         ]);
@@ -52,6 +58,12 @@ class PublicAttendanceController extends Controller
     {
         if (session('attendance_event_id') !== $event->id) {
             return redirect()->route('attendance.pin');
+        }
+
+        if (!$this->eventAllowsAttendance($event)) {
+            return redirect()->route('attendance.pin')->withErrors([
+                'pin' => 'Attendance is unavailable for this event.',
+            ]);
         }
 
         $event->load('location');
@@ -94,6 +106,12 @@ class PublicAttendanceController extends Controller
     ): View|RedirectResponse {
         if (session('attendance_event_id') !== $event->id) {
             return redirect()->route('attendance.pin');
+        }
+
+        if (!$this->eventAllowsAttendance($event)) {
+            return redirect()->route('attendance.pin')->withErrors([
+                'pin' => 'Attendance is unavailable for this event.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -275,5 +293,25 @@ class PublicAttendanceController extends Controller
             'session' => $session,
             'registration' => $registration,
         ]);
+    }
+
+    private function eventAllowsAttendance(Event $event): bool
+    {
+        if ($event->status === 'published') {
+            return true;
+        }
+
+        if ($event->status !== 'completed') {
+            return false;
+        }
+
+        $now = now();
+
+        return $event->sessions()
+            ->whereNotNull('attendance_opens_at')
+            ->whereNotNull('attendance_closes_at')
+            ->where('attendance_opens_at', '<=', $now)
+            ->where('attendance_closes_at', '>=', $now)
+            ->exists();
     }
 }

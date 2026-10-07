@@ -124,7 +124,7 @@
 
         @include('components.pagination-row', ['paginator' => $registrations, 'ariaLabel' => 'Pre-registration pages'])
         @else
-            <p>No registrations have been submitted for this event yet.</p>
+            <p>No pre-registrations have been submitted for this event yet.</p>
         @endif
 
     </div>

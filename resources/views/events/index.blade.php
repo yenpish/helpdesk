@@ -116,10 +116,10 @@
                     <a href="{{ route('events.index') }}" class="btn btn-secondary">Clear search</a>
                 @elseif(auth()->user()->role === 'organizer')
                     <h2>No events assigned to you yet</h2>
-                    <p>Organizers see the events they own. Create an event to start managing its sessions and registrations.</p>
+                    <p>Organizers see the events they own. Create an event to manage its sessions and pre-registrations.</p>
                 @else
                     <h2>No events yet</h2>
-                    <p>Create an event to begin managing its sessions and registrations.</p>
+                    <p>Create an event to manage its sessions and pre-registrations.</p>
                 @endif
             </div>
         @endif

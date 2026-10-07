@@ -79,7 +79,7 @@
                 <span>Pre-registration &amp; Attendance</span>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="{{ route('events.event-sessions.attendance.export', [$event, $eventSession]) }}" class="btn btn-secondary btn-sm">Export Session CSV</a>
-                    <a href="{{ route('events.registrations.index', $event) }}" class="btn btn-secondary btn-sm">Manage Registrations</a>
+                    <a href="{{ route('events.registrations.index', $event) }}" class="btn btn-secondary btn-sm">Manage Pre-registrations</a>
                 </div>
             </div>
             <div class="card-body p-3">
@@ -179,7 +179,7 @@
                 @elseif($search !== '' || $statusFilter !== '')
                     <p class="text-muted mb-0">No records match this search or status.</p>
                 @else
-                    <p class="text-muted mb-0">No registrations or attendance records yet.</p>
+                    <p class="text-muted mb-0">No pre-registrations or attendance records yet.</p>
                 @endif
             </div>
         </section>

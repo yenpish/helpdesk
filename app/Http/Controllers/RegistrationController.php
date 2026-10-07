@@ -84,7 +84,7 @@ class RegistrationController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'guest_email' => 'This email is already registered for this event.',
+                    'guest_email' => 'This email is already pre-registered for this event.',
                 ]);
         }
 
@@ -100,7 +100,7 @@ class RegistrationController extends Controller
             return back()
                 ->withInput()
                 ->withErrors([
-                    'guest_phone' => 'This phone number is already used for a registration at this event.',
+                    'guest_phone' => 'This phone number is already used for a pre-registration at this event.',
                 ]);
         }
 
@@ -118,7 +118,7 @@ class RegistrationController extends Controller
 
         return redirect()
             ->route('registrations.success', $registration)
-            ->with('success', 'Registration submitted successfully.');
+            ->with('success', 'Pre-registration submitted successfully.');
     }
 
     public function success(Registration $registration): View
@@ -205,7 +205,7 @@ class RegistrationController extends Controller
             'action' => 'updated',
             'auditable_type' => Registration::class,
             'auditable_id' => $registration->id,
-            'description' => 'Registration status updated.',
+            'description' => 'Pre-registration status updated.',
             'old_values' => $oldValues,
             'new_values' => [
                 'status' => $registration->status,
@@ -214,7 +214,7 @@ class RegistrationController extends Controller
 
         return back()->with(
             'success',
-            'Registration status updated successfully.'
+            'Pre-registration status updated successfully.'
         );
     }
 
