@@ -9,7 +9,8 @@
                 <p>Session for {{ $event->name }}</p>
             </div>
             <div class="d-flex gap-2 flex-wrap header-actions">
-                <a href="{{ route('events.event-sessions.edit', [$event, $eventSession]) }}" class="btn btn-primary">Edit</a>
+                <a href="{{ route('events.event-sessions.live-attendance', [$event, $eventSession]) }}" class="btn btn-primary">Live Attendance</a>
+                <a href="{{ route('events.event-sessions.edit', [$event, $eventSession]) }}" class="btn btn-secondary">Edit</a>
                 <a href="{{ route('events.event-sessions.index', $event) }}" class="btn btn-secondary">Back to Sessions</a>
                 <a href="{{ route('events.show', $event) }}" class="btn btn-secondary">Back to Event</a>
             </div>

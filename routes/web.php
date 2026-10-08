@@ -76,6 +76,16 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         [EventSessionController::class, 'exportAttendance']
     )->name('events.event-sessions.attendance.export');
 
+    Route::get(
+        '/events/{event}/event-sessions/{event_session}/live-attendance',
+        [EventSessionController::class, 'liveAttendance']
+    )->name('events.event-sessions.live-attendance');
+
+    Route::get(
+        '/events/{event}/event-sessions/{event_session}/live-attendance/data',
+        [EventSessionController::class, 'liveAttendanceData']
+    )->name('events.event-sessions.live-attendance.data');
+
     Route::resource('events', EventController::class);
 
     Route::resource('events.event-sessions', EventSessionController::class);

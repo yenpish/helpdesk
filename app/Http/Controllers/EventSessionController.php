@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -215,6 +216,109 @@ class EventSessionController extends Controller
             'search',
             'statusFilter'
         ));
+    }
+
+    public function liveAttendance(Event $event, EventSession $eventSession): View
+    {
+        $this->authorizeEvent($event);
+        abort_unless($eventSession->event_id === $event->id, 404);
+
+        $data = $this->liveAttendancePayload($event, $eventSession);
+
+        return view('event-sessions.live-attendance', [
+            'event' => $event,
+            'eventSession' => $eventSession,
+            'liveData' => $data,
+        ]);
+    }
+
+    public function liveAttendanceData(Request $request, Event $event, EventSession $eventSession): JsonResponse
+    {
+        $this->authorizeEvent($event);
+        abort_unless($eventSession->event_id === $event->id, 404);
+
+        return response()
+            ->json($this->liveAttendancePayload($event, $eventSession))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    private function liveAttendancePayload(Event $event, EventSession $eventSession): array
+    {
+        $registrations = Registration::with('user:id,name,email')
+            ->where('event_id', $event->id)
+            ->latest('registered_at')
+            ->get();
+
+        $registrationByEmail = [];
+        foreach ($registrations as $registration) {
+            foreach ([$registration->guest_email, $registration->user?->email] as $email) {
+                $email = strtolower(trim($email ?? ''));
+                if ($email !== '' && !isset($registrationByEmail[$email])) {
+                    $registrationByEmail[$email] = $registration;
+                }
+            }
+        }
+
+        $attendanceEmails = $eventSession->attendances()->get(['email']);
+        $attendedRegistrationIds = [];
+        $notPreRegisteredCount = 0;
+        foreach ($attendanceEmails as $attendance) {
+            $email = strtolower(trim($attendance->email ?? ''));
+            $registration = $email !== '' ? ($registrationByEmail[$email] ?? null) : null;
+            if ($registration) {
+                $attendedRegistrationIds[$registration->id] = true;
+            } else {
+                $notPreRegisteredCount++;
+            }
+        }
+
+        $recentCheckIns = $eventSession->attendances()
+            ->orderByRaw('COALESCE(clock_in_at, created_at) DESC')
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->map(function ($attendance) use ($registrationByEmail) {
+                $email = strtolower(trim($attendance->email ?? ''));
+
+                return [
+                    'name' => $attendance->full_name,
+                    'organisation' => $attendance->unit,
+                    'checked_in_at' => ($attendance->clock_in_at ?? $attendance->created_at)?->format('d M Y, h:i A'),
+                    'pre_registered' => $email !== '' && isset($registrationByEmail[$email]),
+                ];
+            });
+
+        $now = now();
+        if (!$eventSession->starts_at || !$eventSession->ends_at) {
+            $sessionStatus = 'Schedule unavailable';
+        } elseif ($now->lt($eventSession->starts_at)) {
+            $sessionStatus = 'Upcoming';
+        } elseif ($now->lte($eventSession->ends_at)) {
+            $sessionStatus = 'In progress';
+        } else {
+            $sessionStatus = 'Ended';
+        }
+
+        if (!in_array($event->status, ['published', 'completed'], true)) {
+            $attendanceAvailability = 'Unavailable';
+        } elseif (!$eventSession->attendance_opens_at || !$eventSession->attendance_closes_at) {
+            $attendanceAvailability = 'Unavailable';
+        } elseif ($now->lt($eventSession->attendance_opens_at)) {
+            $attendanceAvailability = 'Opens ' . $eventSession->attendance_opens_at->format('d M Y, h:i A');
+        } elseif ($now->gt($eventSession->attendance_closes_at)) {
+            $attendanceAvailability = 'Closed';
+        } else {
+            $attendanceAvailability = 'Open';
+        }
+
+        return [
+            'session_status' => $sessionStatus,
+            'attendance_availability' => $attendanceAvailability,
+            'checked_in' => $attendanceEmails->count(),
+            'pre_registered_checked_in' => count($attendedRegistrationIds),
+            'not_pre_registered' => $notPreRegisteredCount,
+            'check_ins' => $recentCheckIns->values(),
+        ];
     }
 
     public function exportAttendance(Event $event, EventSession $eventSession): StreamedResponse
