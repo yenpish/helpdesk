@@ -71,9 +71,6 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/{event}/attendance/export', [EventController::class, 'exportAttendance'])
         ->name('events.attendance.export');
 
-    Route::get('/events/{event}/attendance-overview', [EventController::class, 'attendanceOverview'])
-        ->name('events.attendance-overview');
-
     Route::get(
         '/events/{event}/event-sessions/{event_session}/attendance/export',
         [EventSessionController::class, 'exportAttendance']
