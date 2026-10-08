@@ -126,6 +126,8 @@
                         <button type="button" class="btn btn-secondary btn-sm" disabled title="Pre-registrations and attendance records will appear in the export">Export Attendance</button>
                     @endif
 
+                    <a href="{{ route('events.attendance-overview', $event) }}" class="btn btn-secondary btn-sm">Attendance Overview</a>
+
                 </div>
             </div>
 

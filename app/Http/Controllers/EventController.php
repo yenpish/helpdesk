@@ -10,6 +10,7 @@ use App\Models\Location;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
@@ -254,6 +255,145 @@ class EventController extends Controller
         $event->sessions->loadCount('attendances');
 
         return view('events.show', compact('event'));
+    }
+
+    public function attendanceOverview(Request $request, Event $event): View
+    {
+        $this->authorizeEvent($event);
+
+        $registrations = $event->registrations()
+            ->with('user:id,name,email')
+            ->latest('registered_at')
+            ->get();
+        $sessions = $event->sessions()
+            ->with(['attendances' => fn ($query) => $query
+                ->orderByRaw('COALESCE(clock_in_at, created_at) ASC')
+                ->orderBy('id')])
+            ->orderBy('starts_at')
+            ->orderBy('id')
+            ->get();
+
+        $registeredEmails = $registrations
+            ->map(fn ($registration) => strtolower(trim($registration->guest_email ?? $registration->user?->email ?? '')))
+            ->filter()
+            ->unique()
+            ->values();
+        $registeredEmailSet = array_fill_keys($registeredEmails->all(), true);
+        $attendanceBySession = [];
+        $attendedEmailsBySession = [];
+        $totalAttendanceRecords = 0;
+        $unregisteredAttendanceRecords = 0;
+
+        foreach ($sessions as $session) {
+            $totalAttendanceRecords += $session->attendances->count();
+            $attendanceBySession[$session->id] = [];
+            $attendedEmailsBySession[$session->id] = [];
+
+            foreach ($session->attendances as $attendance) {
+                $email = strtolower(trim($attendance->email ?? ''));
+                if ($email === '' || !isset($registeredEmailSet[$email])) {
+                    $unregisteredAttendanceRecords++;
+                    continue;
+                }
+
+                $attendanceBySession[$session->id][$email] ??= $attendance;
+                $attendedEmailsBySession[$session->id][$email] = true;
+            }
+        }
+
+        $attendedAtLeastOnce = [];
+        foreach ($attendedEmailsBySession as $emails) {
+            $attendedAtLeastOnce += $emails;
+        }
+        $attendedAllSessions = [];
+        if ($sessions->isNotEmpty()) {
+            $attendedAllSessions = $registeredEmailSet;
+            foreach ($attendedEmailsBySession as $emails) {
+                $attendedAllSessions = array_intersect_key($attendedAllSessions, $emails);
+            }
+        }
+
+        $preRegisteredCount = $registrations->count();
+        $sessionSummaries = $sessions->map(function (EventSession $session) use ($attendedEmailsBySession, $preRegisteredCount) {
+            $attendedCount = count($attendedEmailsBySession[$session->id] ?? []);
+
+            return [
+                'name' => $session->name,
+                'starts_at' => $session->starts_at,
+                'ends_at' => $session->ends_at,
+                'attended_count' => $attendedCount,
+                'attendance_rate' => $preRegisteredCount > 0
+                    ? round(($attendedCount / $preRegisteredCount) * 100)
+                    : 0,
+            ];
+        });
+
+        $searchValue = $request->query('search', '');
+        $search = is_string($searchValue) ? trim(substr($searchValue, 0, 100)) : '';
+        $filteredRegistrations = $registrations->filter(function ($registration) use ($search): bool {
+            if ($search === '') {
+                return true;
+            }
+
+            $searchable = strtolower(implode(' ', [
+                $registration->guest_name ?? $registration->user?->name ?? '',
+                $registration->guest_email ?? $registration->user?->email ?? '',
+                $registration->organisation ?? '',
+            ]));
+
+            return str_contains($searchable, strtolower($search));
+        })->values();
+
+        $perPage = 20;
+        $currentPage = LengthAwarePaginator::resolveCurrentPage();
+        $attendeeRows = $filteredRegistrations->forPage($currentPage, $perPage)
+            ->map(function ($registration) use ($sessions, $attendanceBySession) {
+                $email = strtolower(trim($registration->guest_email ?? $registration->user?->email ?? ''));
+                $sessionAttendance = [];
+
+                foreach ($sessions as $session) {
+                    $attendance = $email !== ''
+                        ? ($attendanceBySession[$session->id][$email] ?? null)
+                        : null;
+                    $sessionAttendance[$session->id] = $attendance
+                        ? [
+                            'attended' => true,
+                            'time' => ($attendance->clock_in_at ?? $attendance->created_at)?->format('h:i A'),
+                        ]
+                        : ['attended' => false, 'time' => null];
+                }
+
+                return [
+                    'name' => $registration->guest_name ?? $registration->user?->name,
+                    'organisation' => $registration->organisation,
+                    'sessions' => $sessionAttendance,
+                ];
+            })
+            ->values();
+
+        $attendees = new LengthAwarePaginator(
+            $attendeeRows,
+            $filteredRegistrations->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
+
+        return view('events.attendance-overview', [
+            'event' => $event,
+            'sessions' => $sessions,
+            'sessionSummaries' => $sessionSummaries,
+            'attendees' => $attendees,
+            'search' => $search,
+            'preRegisteredCount' => $preRegisteredCount,
+            'attendedAtLeastOnceCount' => count($attendedAtLeastOnce),
+            'attendedAllSessionsCount' => count($attendedAllSessions),
+            'totalAttendanceRecords' => $totalAttendanceRecords,
+            'unregisteredAttendanceRecords' => $unregisteredAttendanceRecords,
+        ]);
     }
 
     public function edit(Event $event): View
