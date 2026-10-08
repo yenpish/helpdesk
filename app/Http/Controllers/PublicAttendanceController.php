@@ -114,6 +114,10 @@ class PublicAttendanceController extends Controller
             ]);
         }
 
+        if ($request->input('action') === 'lookup_pre_registration') {
+            return $this->lookupPreRegistration($request, $event);
+        }
+
         $validated = $request->validate([
             'session_id' => [
                 'required',
@@ -196,12 +200,12 @@ class PublicAttendanceController extends Controller
         /*
          * Prevent duplicate attendance for the same person/session.
          */
-        $alreadyAttended = Attendance::where(
+        $existingAttendance = Attendance::where(
             'session_id',
             $session->id
         )
             ->whereRaw('LOWER(email) = ?', [$email])
-            ->exists();
+            ->first(['clock_in_at', 'created_at']);
 
         // A phone cannot identify different people in one Event. The same
         // email/phone pair may check in once in each Session.
@@ -224,8 +228,13 @@ class PublicAttendanceController extends Controller
 
         $duplicateErrors = [];
 
-        if ($alreadyAttended) {
-            $duplicateErrors['email'] = 'Attendance has already been recorded for this session using this email address.';
+        if ($existingAttendance) {
+            $message = 'You have already checked in for this session';
+            $checkedInAt = $existingAttendance->clock_in_at ?? $existingAttendance->created_at;
+            if ($checkedInAt) {
+                $message .= ' at ' . $checkedInAt->format('d M Y, h:i A');
+            }
+            $duplicateErrors['email'] = $message . '.';
         }
 
         if ($phoneAlreadyUsed) {
@@ -293,6 +302,80 @@ class PublicAttendanceController extends Controller
             'session' => $session,
             'registration' => $registration,
         ]);
+    }
+
+    private function lookupPreRegistration(Request $request, Event $event): RedirectResponse
+    {
+        $validated = $request->validate([
+            'lookup_email' => ['required', 'email', 'max:255'],
+            'lookup_phone' => ['required', 'string', 'max:50', 'regex:/^\\+?[0-9().\\s-]+$/'],
+        ]);
+
+        $email = strtolower(trim($validated['lookup_email']));
+        $phoneDigits = MalaysianPhoneNumber::canonicalize($validated['lookup_phone']);
+
+        if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'lookup_phone' => 'Enter a phone number containing 7 to 15 digits.',
+                ]);
+        }
+
+        $registration = Registration::with('user')
+            ->where('event_id', $event->id)
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereNotNull('guest_phone')
+            ->where(function ($query) use ($email) {
+                $query->whereRaw('LOWER(TRIM(guest_email)) = ?', [$email])
+                    ->orWhereHas('user', function ($userQuery) use ($email) {
+                        $userQuery->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+                    });
+            })
+            ->get()
+            ->first(fn (Registration $candidate) =>
+                MalaysianPhoneNumber::canonicalize($candidate->guest_phone ?? '') === $phoneDigits
+            );
+
+        if ($registration) {
+            $registrationEmail = strtolower(trim(
+                $registration->guest_email ?? $registration->user?->email ?? ''
+            ));
+
+            if ($registrationEmail !== $email) {
+                $registrationEmail = strtolower(trim($registration->user?->email ?? ''));
+            }
+
+            return redirect()
+                ->route('attendance.form', $event)
+                ->withInput([
+                    'full_name' => $registration->guest_name ?? $registration->user?->name ?? '',
+                    'email' => $registrationEmail,
+                    'phone' => MalaysianPhoneNumber::canonicalize($registration->guest_phone ?? ''),
+                    'position' => $registration->position ?? '',
+                    'unit' => $registration->organisation ?? '',
+                ])
+                ->with('pre_registration_found', true)
+                ->with('pre_registration_status', $registration->status);
+        }
+
+        $attendanceInput = $request->only([
+            'session_id',
+            'full_name',
+            'email',
+            'phone',
+            'position',
+            'unit',
+            'signature',
+        ]);
+
+        return redirect()
+            ->route('attendance.form', $event)
+            ->withInput($attendanceInput + [
+                'lookup_email' => $email,
+                'lookup_phone' => $validated['lookup_phone'],
+            ])
+            ->with('pre_registration_not_found', true);
     }
 
     private function eventAllowsAttendance(Event $event): bool
