@@ -91,7 +91,8 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     )->name('events.registrations.status');
 });
 
-
+Route::post('/events/{event}/publish', [EventController::class, 'publish'])
+    ->name('events.publish');
 /*
 |--------------------------------------------------------------------------
 | Admin Configuration
@@ -141,3 +142,5 @@ Route::middleware(['auth', 'admin'])->group(function () {
 Route::view('/profile', 'profile')
     ->middleware('auth')
     ->name('profile');
+
+    

@@ -483,7 +483,36 @@ class EventController extends Controller
             ->route('events.show', $event)
             ->with('success', 'Event updated successfully.');
     }
+public function publish(Event $event): RedirectResponse
+    {
+        $this->authorizeEvent($event);
 
+        if ($event->status === 'published') {
+            return redirect()
+                ->route('events.show', $event);
+        }
+
+        $oldValues = $event->only([
+            'status',
+        ]);
+
+        $event->update([
+            'status' => 'published',
+            'updated_by' => auth()->id(),
+        ]);
+
+        $this->createAuditLog(
+            'published',
+            $event,
+            'Event published.',
+            $oldValues,
+            $event->only(['status'])
+        );
+
+        return redirect()
+            ->route('events.show', $event)
+            ->with('success', 'Event published successfully.');
+    }
     public function destroy(Event $event): RedirectResponse
     {
         $this->authorizeEvent($event);
