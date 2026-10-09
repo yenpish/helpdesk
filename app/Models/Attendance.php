@@ -21,6 +21,7 @@ class Attendance extends Model
         'longitude',
         'accuracy',
         'verification_method',
+        'offline_submission_id',
         'location_id',
         'distance_from_site',
         'within_site',

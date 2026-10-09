@@ -131,6 +131,19 @@
             margin-top: 8px;
         }
 
+        .attendance-sync-status {
+            margin: 0 0 12px;
+            padding: 9px 12px;
+            border-left: 2px solid var(--blue);
+            background: var(--surface-raised);
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .attendance-sync-status[data-state="rejected"] {
+            border-left-color: var(--red);
+        }
+
         .attendance-lookup-modal {
             position: fixed;
             inset: 0;
@@ -204,12 +217,16 @@
     @endif
 
     @if ($errors->any())
-        <div class="error">
+        <div class="error" id="attendance-submit-errors" role="alert">
             @foreach ($errors->all() as $error)
                 <div>{{ $error }}</div>
             @endforeach
         </div>
+    @else
+        <div class="error" id="attendance-submit-errors" role="alert" hidden></div>
     @endif
+
+    <div id="attendance-sync-status" class="attendance-sync-status" role="status" aria-live="polite" hidden></div>
 
     @if ($sessions->count())
 
@@ -218,6 +235,7 @@
             method="POST"
             action="{{ route('attendance.store', $event) }}"
             class="account-form"
+            data-event-id="{{ $event->id }}"
         >
             @csrf
 
@@ -563,5 +581,6 @@
             });
         }
     </script>
+    <script src="{{ asset('js/attendance-offline-sync.js') }}" defer></script>
     </div>
 @endsection

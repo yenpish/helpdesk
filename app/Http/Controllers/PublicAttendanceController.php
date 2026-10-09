@@ -7,6 +7,8 @@ use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
 use App\Support\MalaysianPhoneNumber;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -103,9 +105,30 @@ class PublicAttendanceController extends Controller
     public function store(
         Request $request,
         Event $event
-    ): View|RedirectResponse {
+    ): View|RedirectResponse|JsonResponse {
         if (session('attendance_event_id') !== $event->id) {
             return redirect()->route('attendance.pin');
+        }
+
+        $offlineSubmissionId = $request->input('offline_submission_id');
+
+        if (is_string($offlineSubmissionId) && Str::isUuid($offlineSubmissionId)) {
+            $existingSubmission = Attendance::with('session')
+                ->where('offline_submission_id', $offlineSubmissionId)
+                ->first();
+
+            if ($existingSubmission) {
+                if (
+                    (int) $existingSubmission->session_id === (int) $request->input('session_id')
+                    && (int) $existingSubmission->session?->event_id === (int) $event->id
+                ) {
+                    return $this->synchronizationAccepted($request, $existingSubmission, false);
+                }
+
+                return $this->attendanceValidationError($request, [
+                    'offline_submission_id' => 'This offline attendance submission ID has already been used.',
+                ], 409);
+            }
         }
 
         if (!$this->eventAllowsAttendance($event)) {
@@ -161,16 +184,21 @@ class PublicAttendanceController extends Controller
                 'nullable',
                 'string',
             ],
+
+            'offline_submission_id' => [
+                'nullable',
+                'uuid',
+            ],
         ]);
+
+        $offlineSubmissionId = $validated['offline_submission_id'] ?? null;
 
         $phoneDigits = MalaysianPhoneNumber::canonicalize($validated['phone']);
 
         if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'phone' => 'Enter a phone number containing 7 to 15 digits.',
-                ]);
+            return $this->attendanceValidationError($request, [
+                'phone' => 'Enter a phone number containing 7 to 15 digits.',
+            ]);
         }
 
         $session = EventSession::where('event_id', $event->id)
@@ -188,11 +216,9 @@ class PublicAttendanceController extends Controller
                 $session->attendance_closes_at
             )
         ) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'session_id' => 'Attendance is not currently available for this session.',
-                ]);
+            return $this->attendanceValidationError($request, [
+                'session_id' => 'Attendance is not currently available for this session.',
+            ]);
         }
 
         $email = strtolower(trim($validated['email']));
@@ -244,9 +270,7 @@ class PublicAttendanceController extends Controller
         }
 
         if ($duplicateErrors !== []) {
-            return back()
-                ->withInput()
-                ->withErrors($duplicateErrors);
+            return $this->attendanceValidationError($request, $duplicateErrors);
         }
 
         /*
@@ -283,25 +307,85 @@ class PublicAttendanceController extends Controller
          */
         $userId = $registration?->user_id;
 
-        Attendance::create([
-            'user_id' => $userId,
-            'full_name' => trim($validated['full_name']),
-            'position' => $validated['position'] ?? null,
-            'unit' => $validated['unit'] ?? null,
-            'phone' => $phoneDigits,
-            'email' => $email,
-            'signature' => $validated['signature'] ?? null,
+        try {
+            $attendance = Attendance::create([
+                'user_id' => $userId,
+                'full_name' => trim($validated['full_name']),
+                'position' => $validated['position'] ?? null,
+                'unit' => $validated['unit'] ?? null,
+                'phone' => $phoneDigits,
+                'email' => $email,
+                'signature' => $validated['signature'] ?? null,
+                'session_id' => $session->id,
+                'verification_method' => 'pin',
+                'offline_submission_id' => $offlineSubmissionId,
+            ]);
+        } catch (QueryException $exception) {
+            if ($offlineSubmissionId !== null) {
+                $existingSubmission = Attendance::with('session')
+                    ->where('offline_submission_id', $offlineSubmissionId)
+                    ->first();
 
-            'session_id' => $session->id,
+                if (
+                    $existingSubmission
+                    && (int) $existingSubmission->session_id === (int) $session->id
+                    && (int) $existingSubmission->session?->event_id === (int) $event->id
+                ) {
+                    return $this->synchronizationAccepted($request, $existingSubmission, false);
+                }
+            }
 
-            'verification_method' => 'pin',
-        ]);
+            throw $exception;
+        }
+
+        if ($request->header('X-Attendance-Sync') === '1') {
+            return $this->synchronizationAccepted($request, $attendance, true);
+        }
 
         return view('attendance.success', [
             'event' => $event,
             'session' => $session,
             'registration' => $registration,
         ]);
+    }
+
+    private function synchronizationAccepted(
+        Request $request,
+        Attendance $attendance,
+        bool $created
+    ): View|JsonResponse {
+        if ($request->header('X-Attendance-Sync') !== '1') {
+            $attendance->loadMissing(['session.event', 'user']);
+
+            return view('attendance.success', [
+                'event' => $attendance->session->event,
+                'session' => $attendance->session,
+                'registration' => null,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'synchronized',
+            'attendance_id' => $attendance->id,
+            'created' => $created,
+        ], $created ? 201 : 200);
+    }
+
+    private function attendanceValidationError(
+        Request $request,
+        array $errors,
+        int $status = 422
+    ): JsonResponse|RedirectResponse {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => collect($errors)->flatten()->first(),
+                'errors' => $errors,
+            ], $status);
+        }
+
+        return back()
+            ->withInput()
+            ->withErrors($errors);
     }
 
     private function lookupPreRegistration(Request $request, Event $event): RedirectResponse
