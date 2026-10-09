@@ -11,6 +11,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -56,7 +58,7 @@ class PublicAttendanceController extends Controller
         return redirect()->route('attendance.form', $event);
     }
 
-    public function showForm(Event $event): View|RedirectResponse
+    public function showForm(Request $request, Event $event): Response|RedirectResponse
     {
         if (session('attendance_event_id') !== $event->id) {
             return redirect()->route('attendance.pin');
@@ -94,18 +96,29 @@ class PublicAttendanceController extends Controller
         $selectedSession = $sessions->firstWhere('id', (int) old('session_id'))
             ?? $defaultSession;
 
-        return view('attendance.form', compact(
+        $response = response()->view('attendance.form', compact(
             'event',
             'sessions',
             'defaultSession',
             'selectedSession'
         ));
+
+        if (
+            !$request->session()->has('_old_input')
+            && !$request->session()->has('errors')
+            && !$request->session()->has('pre_registration_found')
+            && !$request->session()->has('pre_registration_not_found')
+        ) {
+            $response->headers->set('X-Attendance-Offline-Cache', 'public-attendance');
+        }
+
+        return $response;
     }
 
     public function store(
         Request $request,
         Event $event
-    ): View|RedirectResponse|JsonResponse {
+    ): Response|RedirectResponse|JsonResponse {
         if (session('attendance_event_id') !== $event->id) {
             return redirect()->route('attendance.pin');
         }
@@ -188,6 +201,11 @@ class PublicAttendanceController extends Controller
             'offline_submission_id' => [
                 'nullable',
                 'uuid',
+            ],
+
+            'client_submitted_at' => [
+                'nullable',
+                'date',
             ],
         ]);
 
@@ -319,6 +337,11 @@ class PublicAttendanceController extends Controller
                 'session_id' => $session->id,
                 'verification_method' => 'pin',
                 'offline_submission_id' => $offlineSubmissionId,
+                'client_submitted_at' => $request->header('X-Attendance-Sync') === '1'
+                    ? (isset($validated['client_submitted_at'])
+                        ? Carbon::parse($validated['client_submitted_at'])->setTimezone(config('app.timezone'))
+                        : null)
+                    : null,
             ]);
         } catch (QueryException $exception) {
             if ($offlineSubmissionId !== null) {
@@ -342,26 +365,23 @@ class PublicAttendanceController extends Controller
             return $this->synchronizationAccepted($request, $attendance, true);
         }
 
-        return view('attendance.success', [
-            'event' => $event,
-            'session' => $session,
-            'registration' => $registration,
-        ]);
+        return $this->attendanceSuccessResponse($event, $session, $registration, $attendance);
     }
 
     private function synchronizationAccepted(
         Request $request,
         Attendance $attendance,
         bool $created
-    ): View|JsonResponse {
+    ): Response|JsonResponse {
         if ($request->header('X-Attendance-Sync') !== '1') {
             $attendance->loadMissing(['session.event', 'user']);
 
-            return view('attendance.success', [
-                'event' => $attendance->session->event,
-                'session' => $attendance->session,
-                'registration' => null,
-            ]);
+            return $this->attendanceSuccessResponse(
+                $attendance->session->event,
+                $attendance->session,
+                null,
+                $attendance
+            );
         }
 
         return response()->json([
@@ -369,6 +389,19 @@ class PublicAttendanceController extends Controller
             'attendance_id' => $attendance->id,
             'created' => $created,
         ], $created ? 201 : 200);
+    }
+
+    private function attendanceSuccessResponse(
+        Event $event,
+        EventSession $session,
+        ?Registration $registration,
+        Attendance $attendance
+    ): Response {
+        return response()->view('attendance.success', compact(
+            'event',
+            'session',
+            'registration'
+        ))->header('X-Attendance-Id', (string) $attendance->id);
     }
 
     private function attendanceValidationError(
@@ -388,7 +421,7 @@ class PublicAttendanceController extends Controller
             ->withErrors($errors);
     }
 
-    private function lookupPreRegistration(Request $request, Event $event): RedirectResponse
+    private function lookupPreRegistration(Request $request, Event $event): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'lookup_email' => ['required', 'email', 'max:255'],
@@ -399,11 +432,9 @@ class PublicAttendanceController extends Controller
         $phoneDigits = MalaysianPhoneNumber::canonicalize($validated['lookup_phone']);
 
         if (strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'lookup_phone' => 'Enter a phone number containing 7 to 15 digits.',
-                ]);
+            return $this->attendanceValidationError($request, [
+                'lookup_phone' => 'Enter a phone number containing 7 to 15 digits.',
+            ]);
         }
 
         $registration = Registration::with('user')
@@ -430,17 +461,31 @@ class PublicAttendanceController extends Controller
                 $registrationEmail = strtolower(trim($registration->user?->email ?? ''));
             }
 
+            $details = [
+                'full_name' => $registration->guest_name ?? $registration->user?->name ?? '',
+                'email' => $registrationEmail,
+                'phone' => MalaysianPhoneNumber::canonicalize($registration->guest_phone ?? ''),
+                'position' => $registration->position ?? '',
+                'unit' => $registration->organisation ?? '',
+            ];
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'found',
+                    'registration_status' => $registration->status,
+                    'details' => $details,
+                ]);
+            }
+
             return redirect()
                 ->route('attendance.form', $event)
-                ->withInput([
-                    'full_name' => $registration->guest_name ?? $registration->user?->name ?? '',
-                    'email' => $registrationEmail,
-                    'phone' => MalaysianPhoneNumber::canonicalize($registration->guest_phone ?? ''),
-                    'position' => $registration->position ?? '',
-                    'unit' => $registration->organisation ?? '',
-                ])
+                ->withInput($details)
                 ->with('pre_registration_found', true)
                 ->with('pre_registration_status', $registration->status);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'not_found']);
         }
 
         $attendanceInput = $request->only([

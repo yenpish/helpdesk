@@ -17,6 +17,7 @@ class Attendance extends Model
         'signature',
         'clock_in_at',
         'clock_out_at',
+        'client_submitted_at',
         'latitude',
         'longitude',
         'accuracy',
@@ -31,6 +32,7 @@ class Attendance extends Model
     protected $casts = [
         'clock_in_at' => 'datetime',
         'clock_out_at' => 'datetime',
+        'client_submitted_at' => 'datetime',
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
         'accuracy' => 'decimal:2',

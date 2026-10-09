@@ -5,6 +5,34 @@
 @section('container_class', 'dashboard-box')
 
 @section('content')
+    <style>
+        .dashboard-trend { padding: 16px 18px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+        .dashboard-trend-heading { margin-bottom: 10px; }
+        .dashboard-trend-heading .section-heading { margin: 0 0 4px; }
+        .dashboard-trend-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+        .dashboard-trend-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+        .dashboard-trend-presets a { padding: 5px 9px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); font-size: 12px; text-decoration: none; }
+        .dashboard-trend-presets a[aria-current="true"] { border-color: var(--text); font-weight: 600; }
+        .dashboard-trend-dates { display: flex; align-items: end; gap: 8px; margin: 0 0 4px; }
+        .dashboard-trend-dates > div { display: grid; gap: 3px; }
+        .dashboard-trend-dates label { margin: 0; color: var(--muted); font-size: 11px; font-weight: 500; }
+        .dashboard-trend-dates input { width: auto; min-width: 145px; padding: 5px 7px; font-size: 12px; }
+        .dashboard-trend-dates button { min-height: 31px; }
+        .dashboard-trend-error, .dashboard-trend-empty { margin: 6px 0; color: var(--muted); font-size: 12px; }
+        .dashboard-trend-error { color: #9B3533; }
+        .dashboard-trend-chart svg { display: block; width: 100%; height: auto; max-height: 215px; overflow: visible; }
+        .dashboard-trend-gridline { stroke: var(--line); stroke-width: 1; }
+        .dashboard-trend-axis-label { fill: var(--muted); font-size: 11px; }
+        .dashboard-trend-line { fill: none; stroke: var(--blue); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+        .dashboard-trend-point { fill: var(--surface); stroke: var(--blue); stroke-width: 2; }
+        @media (max-width: 600px) {
+            .dashboard-trend-heading { align-items: flex-start; flex-direction: column; }
+            .dashboard-trend-dates { align-items: stretch; flex-wrap: wrap; }
+            .dashboard-trend-dates > div { flex: 1 1 130px; }
+            .dashboard-trend-dates input { width: 100%; min-width: 0; }
+        }
+    </style>
+
     <header class="dashboard-header">
         <div>
             <h1>Attendance dashboard</h1>
@@ -20,6 +48,61 @@
             <div class="dashboard-metric"><dt>Check-ins today</dt><dd>{{ $todayAttendance }}</dd></div>
             <div class="dashboard-metric"><dt>Pending pre-registrations</dt><dd>{{ $pendingPreRegistrations }}</dd></div>
         </dl>
+    </section>
+
+    <section class="dashboard-section dashboard-trend" aria-labelledby="attendance-trend-heading">
+        <div class="section-heading-row dashboard-trend-heading">
+            <div>
+                <h2 id="attendance-trend-heading" class="section-heading">Attendance over time</h2>
+                <p>{{ number_format($attendanceTrendTotal) }} {{ \Illuminate\Support\Str::plural('check-in', $attendanceTrendTotal) }} · {{ $from->format('d M Y') }} to {{ $to->format('d M Y') }}</p>
+            </div>
+            <nav class="dashboard-trend-presets" aria-label="Attendance chart date range">
+                @foreach(['7d' => '7 days', '30d' => '30 days', '90d' => '90 days'] as $preset => $label)
+                    <a href="{{ route('home', ['range' => $preset]) }}" {{ $range === $preset ? 'aria-current=true' : '' }}>{{ $label }}</a>
+                @endforeach
+            </nav>
+        </div>
+
+        <form class="dashboard-trend-dates" method="GET" action="{{ route('home') }}">
+            <input type="hidden" name="range" value="custom">
+            <div>
+                <label for="attendance-from">From</label>
+                <input id="attendance-from" type="date" name="from" value="{{ $from->format('Y-m-d') }}" required>
+            </div>
+            <div>
+                <label for="attendance-to">To</label>
+                <input id="attendance-to" type="date" name="to" value="{{ $to->format('Y-m-d') }}" required>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="submit">Apply</button>
+        </form>
+        @if($rangeError)
+            <p class="dashboard-trend-error" role="alert">{{ $rangeError }}</p>
+        @endif
+
+        @if($attendanceTrendTotal === 0)
+            <p class="dashboard-trend-empty">No check-ins in this date range.</p>
+        @endif
+
+        <div class="dashboard-trend-chart">
+            <svg viewBox="0 0 760 200" role="img" aria-label="Daily attendance check-ins from {{ $from->format('d M Y') }} to {{ $to->format('d M Y') }}">
+                @foreach($attendanceTrendYTicks as $tick)
+                    @php
+                        $tickY = $plot['bottom'] - ($tick / $maxTrendCount) * ($plot['bottom'] - $plot['top']);
+                    @endphp
+                    <line x1="{{ $plot['left'] }}" y1="{{ $tickY }}" x2="{{ $plot['right'] }}" y2="{{ $tickY }}" class="dashboard-trend-gridline" />
+                    <text x="{{ $plot['left'] - 10 }}" y="{{ $tickY + 4 }}" text-anchor="end" class="dashboard-trend-axis-label">{{ $tick }}</text>
+                @endforeach
+                <polyline points="{{ collect($attendanceTrendPoints)->map(fn ($point) => $point['x'] . ',' . $point['y'])->implode(' ') }}" class="dashboard-trend-line" />
+                @foreach($attendanceTrendPoints as $point)
+                    <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3" class="dashboard-trend-point">
+                        <title>{{ $point['date'] }}: {{ $point['count'] }} check-ins</title>
+                    </circle>
+                @endforeach
+                @foreach($attendanceTrendLabels as $label)
+                    <text x="{{ $label['x'] }}" y="184" text-anchor="middle" class="dashboard-trend-axis-label">{{ $label['label'] }}</text>
+                @endforeach
+            </svg>
+        </div>
     </section>
 
     <div class="dashboard-operational-grid">
@@ -70,7 +153,7 @@
                 </div>
             </div>
             <dl class="dashboard-metrics dashboard-metrics-three">
-                <div class="dashboard-metric"><dt>Sessions held</dt><dd>{{ $recentSessionsHeld }}</dd></div>
+                <div class="dashboard-metric"><dt>Sessions ended</dt><dd>{{ $recentSessionsEnded }}</dd></div>
                 <div class="dashboard-metric"><dt>Check-ins recorded</dt><dd>{{ $recentCheckIns }}</dd></div>
                 <div class="dashboard-metric"><dt>Pre-registrations received</dt><dd>{{ $recentPreRegistrations }}</dd></div>
             </dl>

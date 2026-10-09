@@ -3,7 +3,9 @@
 use App\Models\Attendance;
 use App\Models\Event;
 use App\Models\EventSession;
+use App\Models\Registration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
 uses(RefreshDatabase::class);
 
@@ -32,6 +34,7 @@ function makeOpenAttendanceSession(): array
 it('accepts an offline synchronization and records it against the selected session', function () {
     [$event, $session] = makeOpenAttendanceSession();
     $submissionId = '86de5837-94c7-488c-b6aa-6361952b2cab';
+    $clientSubmittedAt = now()->subMinutes(5)->toISOString();
 
     $this->withSession(['attendance_event_id' => $event->id])
         ->withHeader('Accept', 'application/json')
@@ -42,6 +45,7 @@ it('accepts an offline synchronization and records it against the selected sessi
             'email' => 'offline@example.test',
             'phone' => '60125902441',
             'offline_submission_id' => $submissionId,
+            'client_submitted_at' => $clientSubmittedAt,
         ])
         ->assertCreated()
         ->assertJsonPath('status', 'synchronized')
@@ -50,6 +54,8 @@ it('accepts an offline synchronization and records it against the selected sessi
     $attendance = Attendance::where('offline_submission_id', $submissionId)->sole();
     expect($attendance->session_id)->toBe($session->id)
         ->and($attendance->email)->toBe('offline@example.test')
+        ->and($attendance->client_submitted_at->format('Y-m-d H:i:s'))
+        ->toBe(Carbon::parse($clientSubmittedAt)->setTimezone(config('app.timezone'))->format('Y-m-d H:i:s'))
         ->and(Attendance::count())->toBe(1);
 });
 
@@ -97,4 +103,61 @@ it('does not report invalid queued attendance as synchronized', function () {
         ->assertJsonValidationErrors('email');
 
     expect(Attendance::count())->toBe(0);
+});
+
+it('returns event-scoped pre-registration matches for the offline lookup cache', function () {
+    [$event] = makeOpenAttendanceSession();
+    $registration = Registration::create([
+        'event_id' => $event->id,
+        'guest_name' => 'Offline Match',
+        'guest_email' => 'match@example.test',
+        'guest_phone' => '0125902441',
+        'position' => 'Intern',
+        'organisation' => 'Example Organisation',
+        'status' => 'approved',
+    ]);
+
+    $this->withSession(['attendance_event_id' => $event->id])
+        ->withHeader('Accept', 'application/json')
+        ->postJson(route('attendance.store', $event), [
+            'action' => 'lookup_pre_registration',
+            'lookup_email' => 'MATCH@example.test',
+            'lookup_phone' => '+60 12-590-2441',
+        ])
+        ->assertOk()
+        ->assertJsonPath('status', 'found')
+        ->assertJsonPath('registration_status', 'approved')
+        ->assertJsonPath('details.full_name', 'Offline Match')
+        ->assertJsonPath('details.email', 'match@example.test')
+        ->assertJsonPath('details.phone', '60125902441')
+        ->assertJsonPath('details.position', 'Intern')
+        ->assertJsonPath('details.unit', 'Example Organisation');
+
+    expect($registration->event_id)->toBe($event->id);
+});
+
+it('returns not found instead of registration details for an unmatched offline lookup', function () {
+    [$event] = makeOpenAttendanceSession();
+
+    $this->withSession(['attendance_event_id' => $event->id])
+        ->withHeader('Accept', 'application/json')
+        ->postJson(route('attendance.store', $event), [
+            'action' => 'lookup_pre_registration',
+            'lookup_email' => 'missing@example.test',
+            'lookup_phone' => '11111111',
+        ])
+        ->assertOk()
+        ->assertExactJson(['status' => 'not_found']);
+});
+
+it('marks only a clean authorized attendance form response as cacheable', function () {
+    [$event] = makeOpenAttendanceSession();
+
+    $this->withSession(['attendance_event_id' => $event->id])
+        ->get(route('attendance.form', $event))
+        ->assertOk()
+        ->assertSee('id="attendance-lookup-form"', false)
+        ->assertSee('name="action" value="lookup_pre_registration"', false)
+        ->assertSee('action="' . route('attendance.store', $event) . '"', false)
+        ->assertHeader('X-Attendance-Offline-Cache', 'public-attendance');
 });

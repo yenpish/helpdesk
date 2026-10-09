@@ -132,12 +132,28 @@
         }
 
         .attendance-sync-status {
-            margin: 0 0 12px;
-            padding: 9px 12px;
+            margin: 0 0 16px;
+            padding: 13px 15px;
             border-left: 2px solid var(--blue);
             background: var(--surface-raised);
             color: var(--text);
             font-size: 13px;
+        }
+
+        .attendance-sync-status[hidden] { display: none; }
+        .attendance-sync-status strong { display: block; margin-bottom: 3px; }
+        .attendance-sync-status span { display: block; color: var(--muted); line-height: 1.45; }
+
+        .attendance-queue-entries { display: grid; gap: 8px; margin-top: 12px; }
+        .attendance-queue-entry { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 9px; border-top: 1px solid var(--line); }
+        .attendance-queue-entry-details { min-width: 0; }
+        .attendance-queue-entry-details strong,
+        .attendance-queue-entry-details span { display: block; }
+        .attendance-queue-entry-details span { margin-top: 2px; overflow-wrap: anywhere; }
+        .attendance-queue-entry-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+
+        @media (max-width: 600px) {
+            .attendance-queue-entry { align-items: flex-start; flex-direction: column; }
         }
 
         .attendance-sync-status[data-state="rejected"] {
@@ -226,7 +242,11 @@
         <div class="error" id="attendance-submit-errors" role="alert" hidden></div>
     @endif
 
-    <div id="attendance-sync-status" class="attendance-sync-status" role="status" aria-live="polite" hidden></div>
+    <div id="attendance-sync-status" class="attendance-sync-status" role="status" aria-live="polite" hidden>
+        <strong data-status-heading></strong>
+        <span data-status-message></span>
+        <div id="attendance-queue-entries" class="attendance-queue-entries" hidden></div>
+    </div>
 
     @if ($sessions->count())
 
@@ -252,6 +272,8 @@
                                     data-name="{{ $session->name }}"
                                     data-start="{{ $session->starts_at?->format('d/m/Y H:i') }}"
                                     data-end="{{ $session->ends_at?->format('d/m/Y H:i') }}"
+                                    data-opens-at="{{ $session->attendance_opens_at?->toIso8601String() }}"
+                                    data-closes-at="{{ $session->attendance_closes_at?->toIso8601String() }}"
                                     @selected($selectedSession && (int) $selectedSession->id === (int) $session->id)
                                     @disabled(!$session->attendance_available)
                                 >
@@ -414,7 +436,7 @@
             Already pre-registered?<span class="lookup-action">Use your pre-registration details</span>
         </summary>
         <div class="lookup-content">
-            <form method="POST" action="{{ route('attendance.store', $event) }}" class="account-form attendance-lookup-form">
+            <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', $event) }}" class="account-form attendance-lookup-form" data-event-id="{{ $event->id }}">
                 @csrf
                 <input type="hidden" name="action" value="lookup_pre_registration">
                 <div class="field">
@@ -537,6 +559,7 @@
             }
 
             canvas.addEventListener('pointerdown', (event) => {
+                canvas.dataset.restoringSignature = 'false';
                 drawing = true;
 
                 const position = getPosition(event);
@@ -566,6 +589,7 @@
             });
 
             clearButton.addEventListener('click', () => {
+                canvas.dataset.restoringSignature = 'false';
                 ctx.clearRect(
                     0,
                     0,
@@ -577,7 +601,9 @@
             });
 
             form.addEventListener('submit', () => {
-                signature.value = canvas.toDataURL('image/png');
+                if (canvas.dataset.restoringSignature !== 'true') {
+                    signature.value = canvas.toDataURL('image/png');
+                }
             });
         }
     </script>

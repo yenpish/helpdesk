@@ -191,7 +191,8 @@
                 </form>
                 <dialog id="reschedule-confirmation" aria-labelledby="reschedule-title">
                     <h2 id="reschedule-title">Reschedule sessions?</h2>
-                    <p>Changing the event dates will also move its existing sessions.<br>Attendance records will stay with their sessions.</p>
+                    <p>Existing sessions shift by the change to the event start time. Each keeps its own start and end times, duration, and attendance records.</p>
+                    <p>Added event dates receive generated default sessions. A session outside the new date range can be removed only if it has no attendance; otherwise, the date change is blocked.</p>
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" id="cancel-reschedule">Cancel</button>
                         <button type="button" class="btn btn-primary" id="confirm-reschedule">Reschedule Event</button>

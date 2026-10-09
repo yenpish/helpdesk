@@ -86,7 +86,10 @@ it('shows a short rescheduling confirmation with explicit actions', function () 
         ->get(route('events.edit', $event))
         ->assertOk()
         ->assertSee('Reschedule sessions?')
-        ->assertSee('Attendance records will stay with their sessions.')
+        ->assertSee('Existing sessions shift by the change to the event start time.')
+        ->assertSee('Each keeps its own start and end times, duration, and attendance records.')
+        ->assertSee('Added event dates receive generated default sessions.')
+        ->assertSee('A session outside the new date range can be removed only if it has no attendance; otherwise, the date change is blocked.')
         ->assertSee('Reschedule Event')
         ->assertSee('Cancel');
 });
@@ -110,6 +113,8 @@ it('moves existing sessions by seven days and keeps attendance attached', functi
         $updated = $session->fresh();
         expect($updated->starts_at->toDateTimeString())->toBe($session->starts_at->copy()->addDays(7)->toDateTimeString())
             ->and($updated->ends_at->toDateTimeString())->toBe($session->ends_at->copy()->addDays(7)->toDateTimeString())
+            ->and($updated->starts_at->diffInSeconds($updated->ends_at))
+            ->toBe($session->starts_at->diffInSeconds($session->ends_at))
             ->and($updated->attendance_opens_at->toDateTimeString())->toBe($session->attendance_opens_at->copy()->addDays(7)->toDateTimeString())
             ->and($updated->attendance_closes_at->toDateTimeString())->toBe($updated->starts_at->copy()->setTime(23, 59)->toDateTimeString());
     }
