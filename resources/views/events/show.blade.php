@@ -10,18 +10,30 @@
                 <p class="text-muted mb-0">Event details</p>
             </div>
 
-            <div class="d-flex gap-2 flex-wrap header-actions">
+            <div class="d-flex gap-2">
+                @if ($event->status !== 'published')
+                    <form action="{{ route('events.publish', $event) }}"
+                        method="POST"
+                        onsubmit="return confirm('Are you sure you want to publish this event?');">
+                        @csrf
+                        <button type="submit" class="btn btn-success">
+                            Publish
+                        </button>
+                    </form>
+                @endif
+
                 <a
-                    href="{{ route('events.edit', $event) }}"
-                    class="btn btn-primary"
+                    href="{{ route('feedback.index', $event) }}"
+                    class="btn btn-outline-primary"
                 >
+                    Feedback Results
+                </a>
+
+                <a href="{{ route('events.edit', $event) }}" class="btn btn-primary">
                     Edit Event
                 </a>
 
-                <a
-                    href="{{ route('events.index') }}"
-                    class="btn btn-secondary"
-                >
+                <a href="{{ route('events.index') }}" class="btn btn-outline-secondary">
                     Back
                 </a>
             </div>

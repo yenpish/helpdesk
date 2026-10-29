@@ -16,6 +16,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
+
 
 class PublicAttendanceController extends Controller
 {
@@ -525,5 +528,25 @@ class PublicAttendanceController extends Controller
             ->where('attendance_opens_at', '<=', $now)
             ->where('attendance_closes_at', '>=', $now)
             ->exists();
+    }
+    public function openEncryptedLink(string $token)
+    {
+        try {
+            $eventId = Crypt::decryptString(urldecode($token));
+        } catch (DecryptException $e) {
+            abort(404);
+        }
+
+        $event = Event::findOrFail($eventId);
+
+        if (!$this->eventAllowsAttendance($event)) {
+            abort(403, 'Attendance is unavailable for this event.');
+        }
+
+        session([
+            'attendance_event_id' => $event->id,
+        ]);
+
+        return redirect()->route('attendance.form', $event);
     }
 }

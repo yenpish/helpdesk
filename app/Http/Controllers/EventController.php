@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Crypt;
 
 class EventController extends Controller
 {
@@ -237,7 +238,7 @@ class EventController extends Controller
             ->with('success', 'Event created successfully.');
     }
 
-    public function show(Event $event): View
+public function show(Event $event): View
     {
         $this->authorizeEvent($event);
 
@@ -250,10 +251,18 @@ class EventController extends Controller
             'sessions',
             'registrations',
         ]);
+
         $event->loadCount('attendances');
         $event->sessions->loadCount('attendances');
 
-        return view('events.show', compact('event'));
+        // Generate an encrypted attendance URL
+        $encryptedId = Crypt::encryptString((string) $event->id);
+
+        $attendanceUrl = route('attendance.encrypted', [
+            'token' => urlencode($encryptedId),
+        ]);
+
+        return view('events.show', compact('event', 'attendanceUrl'));
     }
 
     public function edit(Event $event): View
@@ -642,4 +651,19 @@ class EventController extends Controller
             abort(403);
         }
     }
+    public function publish(Event $event)
+{
+    if ($event->status === 'published') {
+        return redirect()
+            ->route('events.show', $event)
+            ->with('success', 'This event is already published.');
+    }
+
+    $event->status = 'published';
+    $event->save();
+
+    return redirect()
+        ->route('events.show', $event)
+        ->with('success', 'Event published successfully.');
+}
 }

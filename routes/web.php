@@ -1,3 +1,4 @@
+
 <?php
 
 use App\Http\Controllers\AccountController;
@@ -5,12 +6,23 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventSessionController;
 use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocationController;
-use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PublicAttendanceController;
+use App\Http\Controllers\RegistrationController;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| Encrypted Attendance Link
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/attendance-link/{token}', [
+    PublicAttendanceController::class,
+    'openEncryptedLink',
+])->name('attendance.encrypted');
 
 /*
 |--------------------------------------------------------------------------
@@ -21,25 +33,31 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
 
-
 /*
 |--------------------------------------------------------------------------
 | Public Registration
 |--------------------------------------------------------------------------
 */
 
-Route::get('/events-public', [RegistrationController::class, 'publicIndex'])
-    ->name('registrations.public-index');
+Route::get('/events-public', [
+    RegistrationController::class,
+    'publicIndex',
+])->name('registrations.public-index');
 
-Route::get('/events-public/{event}/register', [RegistrationController::class, 'create'])
-    ->name('registrations.create');
+Route::get('/events-public/{event}/register', [
+    RegistrationController::class,
+    'create',
+])->name('registrations.create');
 
-Route::post('/events-public/{event}/register', [RegistrationController::class, 'store'])
-    ->name('registrations.store');
+Route::post('/events-public/{event}/register', [
+    RegistrationController::class,
+    'store',
+])->name('registrations.store');
 
-Route::get('/registration/{registration}/success', [RegistrationController::class, 'success'])
-    ->name('registrations.success');
-
+Route::get('/registration/{registration}/success', [
+    RegistrationController::class,
+    'success',
+])->name('registrations.success');
 
 /*
 |--------------------------------------------------------------------------
@@ -47,18 +65,42 @@ Route::get('/registration/{registration}/success', [RegistrationController::clas
 |--------------------------------------------------------------------------
 */
 
-Route::get('/attendance', [PublicAttendanceController::class, 'enterPin'])
-    ->name('attendance.pin');
+Route::get('/attendance', [
+    PublicAttendanceController::class,
+    'enterPin',
+])->name('attendance.pin');
 
-Route::post('/attendance/verify', [PublicAttendanceController::class, 'verifyPin'])
-    ->name('attendance.verify');
+Route::post('/attendance/verify', [
+    PublicAttendanceController::class,
+    'verifyPin',
+])->name('attendance.verify');
 
-Route::get('/attendance/{event}', [PublicAttendanceController::class, 'showForm'])
-    ->name('attendance.form');
+Route::get('/attendance/{event}', [
+    PublicAttendanceController::class,
+    'showForm',
+])->name('attendance.form');
 
-Route::post('/attendance/{event}', [PublicAttendanceController::class, 'store'])
-    ->name('attendance.store');
+Route::post('/attendance/{event}', [
+    PublicAttendanceController::class,
+    'store',
+])->name('attendance.store');
 
+/*
+|--------------------------------------------------------------------------
+| Public Feedback Submission
+|--------------------------------------------------------------------------
+| Participants can submit feedback without logging in.
+*/
+
+Route::get('/events/{event}/feedback', [
+    FeedbackController::class,
+    'create',
+])->name('feedback.create');
+
+Route::post('/events/{event}/feedback', [
+    FeedbackController::class,
+    'store',
+])->name('feedback.store');
 
 /*
 |--------------------------------------------------------------------------
@@ -68,8 +110,10 @@ Route::post('/attendance/{event}', [PublicAttendanceController::class, 'store'])
 
 Route::middleware(['auth', 'organizer'])->group(function () {
 
-    Route::get('/events/{event}/attendance/export', [EventController::class, 'exportAttendance'])
-        ->name('events.attendance.export');
+    Route::get('/events/{event}/attendance/export', [
+        EventController::class,
+        'exportAttendance',
+    ])->name('events.attendance.export');
 
     Route::get(
         '/events/{event}/event-sessions/{event_session}/attendance/export',
@@ -86,14 +130,42 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         [EventSessionController::class, 'liveAttendanceData']
     )->name('events.event-sessions.live-attendance.data');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Feedback Results
+    |--------------------------------------------------------------------------
+    | Login and organizer middleware required.
+    | FeedbackController@index must also authorize event ownership.
+    */
+
+    Route::get('/events/{event}/feedback/results', [
+        FeedbackController::class,
+        'index',
+    ])->name('feedback.index');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Event Resources
+    |--------------------------------------------------------------------------
+    */
+
     Route::resource('events', EventController::class);
 
-    Route::resource('events.event-sessions', EventSessionController::class);
+    Route::resource(
+        'events.event-sessions',
+        EventSessionController::class
+    );
 
-    Route::get(
-        '/events/{event}/registrations',
-        [RegistrationController::class, 'eventRegistrations']
-    )->name('events.registrations.index');
+    /*
+    |--------------------------------------------------------------------------
+    | Registrations
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/events/{event}/registrations', [
+        RegistrationController::class,
+        'eventRegistrations',
+    ])->name('events.registrations.index');
 
     Route::patch(
         '/events/{event}/registrations/{registration}/status',
@@ -101,6 +173,18 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     )->name('events.registrations.status');
 });
 
+/*
+|--------------------------------------------------------------------------
+| Publish Event
+|--------------------------------------------------------------------------
+*/
+
+Route::post('/events/{event}/publish', [
+    EventController::class,
+    'publish',
+])
+    ->middleware(['auth', 'organizer'])
+    ->name('events.publish');
 
 /*
 |--------------------------------------------------------------------------
@@ -114,33 +198,46 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::resource('locations', LocationController::class);
 
-    Route::get('/audit-logs', [AuditLogController::class, 'index'])
-        ->name('audit-logs.index');
+    Route::get('/audit-logs', [
+        AuditLogController::class,
+        'index',
+    ])->name('audit-logs.index');
 
     Route::prefix('accounts')
         ->name('accounts.')
         ->group(function () {
 
-            Route::get('/', [AccountController::class, 'index'])
-                ->name('index');
+            Route::get('/', [
+                AccountController::class,
+                'index',
+            ])->name('index');
 
-            Route::get('/create', [AccountController::class, 'create'])
-                ->name('create');
+            Route::get('/create', [
+                AccountController::class,
+                'create',
+            ])->name('create');
 
-            Route::post('/', [AccountController::class, 'store'])
-                ->name('store');
+            Route::post('/', [
+                AccountController::class,
+                'store',
+            ])->name('store');
 
-            Route::get('/{user}/edit', [AccountController::class, 'edit'])
-                ->name('edit');
+            Route::get('/{user}/edit', [
+                AccountController::class,
+                'edit',
+            ])->name('edit');
 
-            Route::put('/{user}', [AccountController::class, 'update'])
-                ->name('update');
+            Route::put('/{user}', [
+                AccountController::class,
+                'update',
+            ])->name('update');
 
-            Route::delete('/{user}', [AccountController::class, 'destroy'])
-                ->name('destroy');
+            Route::delete('/{user}', [
+                AccountController::class,
+                'destroy',
+            ])->name('destroy');
         });
 });
-
 
 /*
 |--------------------------------------------------------------------------

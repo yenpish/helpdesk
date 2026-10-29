@@ -79,5 +79,72 @@
                 </nav>
             </div>
         @endif
+        {{-- Recently Ended Events --}}
+<section class="past-events-section mt-5">
+    <header class="page-header">
+        <div class="page-heading">
+            <h1>Recently Ended Events</h1>
+            <p>
+                Share your feedback for events that ended within the last
+                7 days.
+            </p>
+        </div>
+    </header>
+
+    @forelse ($pastEvents as $event)
+        <article class="public-event-card">
+            <div class="public-event-main">
+                @if ($event->eventType)
+                    <span class="event-type-label">
+                        {{ $event->eventType->name }}
+                    </span>
+                @endif
+
+                <h2>{{ $event->name }}</h2>
+
+                @if ($event->description)
+                    <p>
+                        {{ \Illuminate\Support\Str::limit(
+                            $event->description,
+                            200
+                        ) }}
+                    </p>
+                @endif
+
+                <dl class="public-event-meta">
+                    <div>
+                        <dt>Ended</dt>
+                        <dd>
+                            {{ $event->ends_at->format('d M Y, h:i A') }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Location</dt>
+                        <dd>
+                            {{ $event->location?->name ?? 'To be confirmed' }}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="public-event-action">
+                <a
+                    href="{{ route('feedback.create', $event) }}"
+                    class="btn btn-primary"
+                >
+                    Give Feedback
+                </a>
+            </div>
+        </article>
+    @empty
+        <div class="empty-state">
+            <h2>No recently ended events</h2>
+            <p>
+                Events will appear here after they end.
+            </p>
+        </div>
+    @endforelse
+</section>
     </div>
 @endsection
