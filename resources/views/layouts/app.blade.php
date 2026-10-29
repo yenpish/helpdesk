@@ -1111,7 +1111,14 @@
         @media (max-width: 600px) { .attendance-form-actions { flex-wrap: wrap; } }
         .field-error { margin-top: 6px; color: var(--red); font-size: 12px; }
         .form-note { margin: 5px 0 0; padding: 12px 14px; border-left: 2px solid var(--blue); background: var(--surface-raised); color: var(--muted); font-size: 13px; }
-        .empty-state { padding: 38px 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); text-align: center; }
+        .empty-state {
+            padding: 38px 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: var(--surface);
+            text-align: center;
+        }
         .empty-state h2 { margin: 0 0 8px; font-size: 18px; }
         .empty-state p { margin: 0 0 18px; }
         .role-label { display: inline-block; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-raised); color: var(--text); font-size: 12px; }

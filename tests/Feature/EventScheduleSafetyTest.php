@@ -317,6 +317,8 @@ it('allows deleting an event when no session has attendance', function () {
 });
 
 it('prevents marking an event completed before its scheduled end', function () {
+    $this->travelTo(Carbon::parse('2026-10-06 10:00:00', config('app.timezone')));
+
     [$event] = makeScheduledEvent();
     $admin = User::factory()->create(['role' => 'admin']);
 

@@ -302,6 +302,15 @@ public function show(Event $event): View
             ],
         ]);
 
+        if (
+            in_array($event->status, ['cancelled', 'completed'], true) &&
+            in_array($validated['status'], ['draft', 'published'], true)
+        ) {
+            return back()->withInput()->withErrors([
+                'status' => 'Cancelled or completed events cannot be reopened or published again.',
+            ]);
+        }
+
         $newStartsAt = Carbon::parse($validated['starts_at']);
         $newEndsAt = Carbon::parse($validated['ends_at']);
 
@@ -651,19 +660,29 @@ public function show(Event $event): View
             abort(403);
         }
     }
-    public function publish(Event $event)
-{
-    if ($event->status === 'published') {
+    public function publish(Event $event): RedirectResponse
+    {
+        $this->authorizeEvent($event);
+
+        if ($event->status === 'published') {
+            return redirect()
+                ->route('events.show', $event)
+                ->with('success', 'This event is already published.');
+        }
+
+        if ($event->status !== 'draft') {
+            return redirect()
+                ->route('events.show', $event)
+                ->withErrors([
+                    'event' => 'Only draft events can be published.',
+                ]);
+        }
+
+        $event->status = 'published';
+        $event->save();
+
         return redirect()
             ->route('events.show', $event)
-            ->with('success', 'This event is already published.');
+            ->with('success', 'Event published successfully.');
     }
-
-    $event->status = 'published';
-    $event->save();
-
-    return redirect()
-        ->route('events.show', $event)
-        ->with('success', 'Event published successfully.');
-}
 }

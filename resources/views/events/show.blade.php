@@ -11,7 +11,7 @@
             </div>
 
             <div class="d-flex gap-2">
-                @if ($event->status !== 'published')
+                @if ($event->status === 'draft')
                     <form action="{{ route('events.publish', $event) }}"
                         method="POST"
                         onsubmit="return confirm('Are you sure you want to publish this event?');">
@@ -24,12 +24,12 @@
 
                 <a
                     href="{{ route('feedback.index', $event) }}"
-                    class="btn btn-outline-primary"
+                    class="btn btn-outline-secondary"
                 >
                     Feedback Results
                 </a>
 
-                <a href="{{ route('events.edit', $event) }}" class="btn btn-primary">
+                <a href="{{ route('events.edit', $event) }}" class="btn btn-outline-secondary">
                     Edit Event
                 </a>
 

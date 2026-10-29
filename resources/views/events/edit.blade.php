@@ -151,13 +151,17 @@
                             class="form-select"
                             required
                         >
-                            <option value="draft" @selected(old('status', $event->status) === 'draft')>
-                                Draft
-                            </option>
+                            @if (!in_array($event->status, ['cancelled', 'completed'], true))
+                                <option value="draft" @selected(old('status', $event->status) === 'draft')>
+                                    Draft
+                                </option>
+                            @endif
 
-                            <option value="published" @selected(old('status', $event->status) === 'published')>
-                                Published
-                            </option>
+                            @if (!in_array($event->status, ['cancelled', 'completed'], true))
+                                <option value="published" @selected(old('status', $event->status) === 'published')>
+                                    Published
+                                </option>
+                            @endif
 
                             <option value="cancelled" @selected(old('status', $event->status) === 'cancelled')>
                                 Cancelled

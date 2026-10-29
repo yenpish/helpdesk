@@ -61,4 +61,5 @@
     </a>
     </div>
     <script src="{{ asset('js/attendance-pin.js') }}" defer></script>
+    <script src="{{ asset('js/attendance-service-worker-cleanup.js') }}" defer></script>
 @endsection

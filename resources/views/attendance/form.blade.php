@@ -131,35 +131,6 @@
             margin-top: 8px;
         }
 
-        .attendance-sync-status {
-            margin: 0 0 16px;
-            padding: 13px 15px;
-            border-left: 2px solid var(--blue);
-            background: var(--surface-raised);
-            color: var(--text);
-            font-size: 13px;
-        }
-
-        .attendance-sync-status[hidden] { display: none; }
-        .attendance-sync-status strong { display: block; margin-bottom: 3px; }
-        .attendance-sync-status span { display: block; color: var(--muted); line-height: 1.45; }
-
-        .attendance-queue-entries { display: grid; gap: 8px; margin-top: 12px; }
-        .attendance-queue-entry { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 9px; border-top: 1px solid var(--line); }
-        .attendance-queue-entry-details { min-width: 0; }
-        .attendance-queue-entry-details strong,
-        .attendance-queue-entry-details span { display: block; }
-        .attendance-queue-entry-details span { margin-top: 2px; overflow-wrap: anywhere; }
-        .attendance-queue-entry-actions { display: flex; flex: 0 0 auto; gap: 6px; }
-
-        @media (max-width: 600px) {
-            .attendance-queue-entry { align-items: flex-start; flex-direction: column; }
-        }
-
-        .attendance-sync-status[data-state="rejected"] {
-            border-left-color: var(--red);
-        }
-
         .attendance-lookup-modal {
             position: fixed;
             inset: 0;
@@ -233,20 +204,12 @@
     @endif
 
     @if ($errors->any())
-        <div class="error" id="attendance-submit-errors" role="alert">
+        <div class="error" role="alert">
             @foreach ($errors->all() as $error)
                 <div>{{ $error }}</div>
             @endforeach
         </div>
-    @else
-        <div class="error" id="attendance-submit-errors" role="alert" hidden></div>
     @endif
-
-    <div id="attendance-sync-status" class="attendance-sync-status" role="status" aria-live="polite" hidden>
-        <strong data-status-heading></strong>
-        <span data-status-message></span>
-        <div id="attendance-queue-entries" class="attendance-queue-entries" hidden></div>
-    </div>
 
     @if ($sessions->count())
 
@@ -255,7 +218,6 @@
             method="POST"
             action="{{ route('attendance.store', $event) }}"
             class="account-form"
-            data-event-id="{{ $event->id }}"
         >
             @csrf
 
@@ -436,7 +398,7 @@
             Already pre-registered?<span class="lookup-action">Use your pre-registration details</span>
         </summary>
         <div class="lookup-content">
-            <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', $event) }}" class="account-form attendance-lookup-form" data-event-id="{{ $event->id }}">
+            <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', $event) }}" class="account-form attendance-lookup-form">
                 @csrf
                 <input type="hidden" name="action" value="lookup_pre_registration">
                 <div class="field">
@@ -536,6 +498,7 @@
             updateSessionSummary();
         }
 
+
         const canvas = document.getElementById('signature-pad');
 
         if (canvas) {
@@ -545,22 +508,79 @@
             const form = document.getElementById('attendance-form');
 
             let drawing = false;
+            let hasSignature = false;
+            let savedImage = null;
+
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+
+                if (!rect.width || !rect.height) return;
+
+                if (hasSignature) {
+                    savedImage = canvas.toDataURL('image/png');
+                }
+
+                canvas.width = Math.round(rect.width * dpr);
+                canvas.height = Math.round(rect.height * dpr);
+
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = '#000';
+
+                if (savedImage) {
+                    const image = new Image();
+
+                    image.onload = () => {
+                        ctx.drawImage(image, 0, 0, rect.width, rect.height);
+                        signature.value = canvas.toDataURL('image/png');
+                    };
+
+                    image.src = savedImage;
+                }
+            }
 
             function getPosition(event) {
                 const rect = canvas.getBoundingClientRect();
 
                 return {
-                    x: (event.clientX - rect.left)
-                        * (canvas.width / rect.width),
-
-                    y: (event.clientY - rect.top)
-                        * (canvas.height / rect.height)
+                    x: event.clientX - rect.left,
+                    y: event.clientY - rect.top
                 };
             }
 
+            function getSubmissionSignature() {
+                if (!hasSignature) return '';
+
+                const rect = canvas.getBoundingClientRect();
+                const scale = Math.min(600 / rect.width, 200 / rect.height);
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = Math.round(rect.width * scale);
+                exportCanvas.height = Math.round(rect.height * scale);
+                exportCanvas.getContext('2d').drawImage(
+                    canvas,
+                    0,
+                    0,
+                    exportCanvas.width,
+                    exportCanvas.height
+                );
+
+                return exportCanvas.toDataURL('image/png');
+            }
+
+            resizeCanvas();
+
+            window.addEventListener('resize', () => {
+                if (!drawing) resizeCanvas();
+            });
+
             canvas.addEventListener('pointerdown', (event) => {
-                canvas.dataset.restoringSignature = 'false';
+                event.preventDefault();
                 drawing = true;
+                hasSignature = true;
+                canvas.setPointerCapture(event.pointerId);
 
                 const position = getPosition(event);
 
@@ -569,9 +589,9 @@
             });
 
             canvas.addEventListener('pointermove', (event) => {
-                if (!drawing) {
-                    return;
-                }
+                if (!drawing) return;
+
+                event.preventDefault();
 
                 const position = getPosition(event);
 
@@ -579,34 +599,35 @@
                 ctx.stroke();
             });
 
-            canvas.addEventListener('pointerup', () => {
-                drawing = false;
-                signature.value = canvas.toDataURL('image/png');
-            });
+            function stopDrawing() {
+                if (!drawing) return;
 
-            canvas.addEventListener('pointerleave', () => {
                 drawing = false;
-            });
+                signature.value = getSubmissionSignature();
+            }
+
+            canvas.addEventListener('pointerup', stopDrawing);
+            canvas.addEventListener('pointercancel', stopDrawing);
 
             clearButton.addEventListener('click', () => {
-                canvas.dataset.restoringSignature = 'false';
                 ctx.clearRect(
                     0,
                     0,
-                    canvas.width,
-                    canvas.height
+                    canvas.width / (window.devicePixelRatio || 1),
+                    canvas.height / (window.devicePixelRatio || 1)
                 );
 
+                hasSignature = false;
+                savedImage = null;
                 signature.value = '';
             });
 
             form.addEventListener('submit', () => {
-                if (canvas.dataset.restoringSignature !== 'true') {
-                    signature.value = canvas.toDataURL('image/png');
-                }
+                signature.value = getSubmissionSignature();
             });
         }
+
     </script>
-    <script src="{{ asset('js/attendance-offline-sync.js') }}" defer></script>
+    <script src="{{ asset('js/attendance-service-worker-cleanup.js') }}" defer></script>
     </div>
 @endsection

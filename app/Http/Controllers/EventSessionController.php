@@ -117,6 +117,7 @@ class EventSessionController extends Controller
                 'registration_status' => ucfirst($registration->status),
                 'attendance_status' => $attendance ? 'Attended' : 'Not attended',
                 'attended_at' => $attendance?->created_at,
+                'signature' => $attendance?->signature,
             ];
         });
 
@@ -134,6 +135,7 @@ class EventSessionController extends Controller
                 'registration_status' => 'Not pre-registered',
                 'attendance_status' => 'Attended',
                 'attended_at' => $attendance->created_at,
+                'signature' => $attendance->signature,
             ]);
 
         $registrationAttendanceRows = $registrationAttendanceRows

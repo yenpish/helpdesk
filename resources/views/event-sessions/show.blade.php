@@ -2,6 +2,62 @@
 @section('section', 'Event management')
 
 @section('content')
+    <style>
+        .attendance-signature-dialog {
+            width: min(640px, calc(100vw - 32px));
+            max-width: 640px;
+            padding: 20px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        .attendance-signature-dialog::backdrop {
+            background: rgb(15 23 42 / 55%);
+        }
+
+        .attendance-signature-image {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 60vh;
+            margin-inline: auto;
+            object-fit: contain;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            background: #fff;
+        }
+
+        .attendance-signature-action-cell {
+            width: 1%;
+            padding-inline: .25rem !important;
+            text-align: center;
+            white-space: nowrap !important;
+        }
+
+        .attendance-signature-icon-button {
+            display: inline-grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            padding: 0;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            background: var(--surface-raised);
+            color: #495057;
+            cursor: pointer;
+        }
+
+        .attendance-signature-icon-button:hover,
+        .attendance-signature-icon-button:focus-visible {
+            background: var(--line);
+            color: #343a40;
+        }
+
+        .attendance-signature-icon-button svg { width: 21px; height: 21px; }
+        .attendance-signature-missing { color: var(--muted); }
+    </style>
     <div class="container">
         <div class="page-header mb-4">
             <div class="page-heading">
@@ -134,12 +190,13 @@
                     <div class="table-responsive registration-attendance-table-wrap">
                         <table class="table table-hover mb-0 registration-attendance-table">
                             <colgroup>
-                                <col style="width: 13%">
-                                <col style="width: 20%">
                                 <col style="width: 12%">
-                                <col style="width: 16%">
-                                <col style="width: 24%">
+                                <col style="width: 19%">
+                                <col style="width: 11%">
                                 <col style="width: 15%">
+                                <col style="width: 23%">
+                                <col style="width: 16%">
+                                <col style="width: 4%">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -155,6 +212,7 @@
                                         </span>
                                     </th>
                                     <th>Attended At</th>
+                                    <th class="attendance-signature-action-cell" aria-label="Signature"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -171,6 +229,24 @@
                                             </div>
                                         </td>
                                         <td>{{ $row['attended_at']?->format('d M Y, h:i A') ?? '—' }}</td>
+                                        <td class="attendance-signature-action-cell">
+                                            @if(!empty($row['signature']))
+                                                <button
+                                                    type="button"
+                                                    class="attendance-signature-icon-button"
+                                                    data-view-signature
+                                                    data-signature="{{ $row['signature'] }}"
+                                                    aria-label="View signature"
+                                                    title="View signature"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                                        <path d="M2.5 16.5c1.7-2.6 3-5.1 4.2-5.1 1.5 0 .3 5.8 1.7 5.8 1.2 0 3.1-5.8 4.5-5.8 1.2 0-.2 5.8 1.1 5.8 1.1 0 2.7-3.4 4-3.4.8 0 .8 1.8 1.8 1.8.7 0 1.3-.5 1.8-1.1M2.5 20c5.8-1.3 12.4-2.1 19-2.2" />
+                                                    </svg>
+                                                </button>
+                                            @else
+                                                <span class="attendance-signature-missing" aria-label="No signature recorded" title="No signature recorded">—</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -182,7 +258,46 @@
                 @else
                     <p class="text-muted mb-0">No pre-registrations or attendance records yet.</p>
                 @endif
+
+                <dialog id="attendance-signature-dialog" class="attendance-signature-dialog" aria-labelledby="attendance-signature-title">
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                        <h2 id="attendance-signature-title" class="h5 mb-0">Attendance Signature</h2>
+                        <button type="button" class="btn btn-secondary btn-sm" data-close-signature>Close</button>
+                    </div>
+                    <p id="attendance-signature-empty" class="text-muted mb-0" hidden>No signature recorded</p>
+                    <img id="attendance-signature-image" class="attendance-signature-image" alt="Saved attendee signature" hidden>
+                </dialog>
             </div>
         </section>
     </div>
+
+    <script>
+        (() => {
+            const dialog = document.getElementById('attendance-signature-dialog');
+            const image = document.getElementById('attendance-signature-image');
+            const emptyMessage = document.getElementById('attendance-signature-empty');
+            if (!dialog || !image || !emptyMessage) return;
+
+            document.querySelectorAll('[data-view-signature]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const signature = button.dataset.signature || '';
+                    const isPngDataUrl = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signature);
+
+                    if (isPngDataUrl) {
+                        image.src = signature;
+                        image.hidden = false;
+                        emptyMessage.hidden = true;
+                    } else {
+                        image.removeAttribute('src');
+                        image.hidden = true;
+                        emptyMessage.hidden = false;
+                    }
+
+                    dialog.showModal();
+                });
+            });
+
+            dialog.querySelector('[data-close-signature]')?.addEventListener('click', () => dialog.close());
+        })();
+    </script>
 @endsection

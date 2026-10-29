@@ -211,9 +211,11 @@ it('keeps email duplicate protection and allows the same attendee at another ses
         ])
         ->assertSessionHasErrors(['email', 'phone'])
         ->assertSessionHasErrors([
-            'email' => 'Attendance has already been recorded for this session using this email address.',
             'phone' => 'This phone number has already been used for this session.',
         ]);
+
+    expect(session('errors')->get('email')[0])
+        ->toStartWith('You have already checked in for this session at ');
 
     $this->withSession(['attendance_event_id' => $event->id])
         ->post(route('attendance.store', $event), [
@@ -291,7 +293,7 @@ it('shows registrations and session attendance together in one session report', 
         ->assertOk()
         ->assertSee('Pre-registration &amp; Attendance', false)
         ->assertSee('Registered Person')
-        ->assertSee('Registration')
+        ->assertSee('Pre-registration')
         ->assertSee('Attendance')
         ->assertSee('Pending')
         ->assertSee('Not attended')
@@ -301,7 +303,7 @@ it('shows registrations and session attendance together in one session report', 
         ->assertSee('Approved')
         ->assertSee('Walk In')
         ->assertSee('Not pre-registered')
-        ->assertSee('Manage Registrations')
+        ->assertSee('Manage Pre-registrations')
         ->assertSee('Export Session CSV')
         ->assertDontSee('Unregistered Attendance')
         ->assertDontSee('Session outcome');
