@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
-use Illuminate\Support\Facades\Crypt;
 
 class EventController extends Controller
 {
@@ -255,14 +254,7 @@ public function show(Event $event): View
         $event->loadCount('attendances');
         $event->sessions->loadCount('attendances');
 
-        // Generate an encrypted attendance URL
-        $encryptedId = Crypt::encryptString((string) $event->id);
-
-        $attendanceUrl = route('attendance.encrypted', [
-            'token' => urlencode($encryptedId),
-        ]);
-
-        return view('events.show', compact('event', 'attendanceUrl'));
+        return view('events.show', compact('event'));
     }
 
     public function edit(Event $event): View

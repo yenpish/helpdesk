@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
+use JsonException;
 
 
 class PublicAttendanceController extends Controller
@@ -54,6 +55,7 @@ class PublicAttendanceController extends Controller
         session([
             'attendance_event_id' => $event->id,
         ]);
+        session()->forget('attendance_session_id');
 
         return redirect()->route('attendance.form', $event);
     }
@@ -75,6 +77,21 @@ class PublicAttendanceController extends Controller
         $sessions = $event->sessions()
             ->orderBy('starts_at')
             ->get();
+
+        $boundSessionId = session('attendance_session_id');
+        if ($boundSessionId !== null) {
+            $sessions = $sessions
+                ->where('id', (int) $boundSessionId)
+                ->values();
+
+            if ($sessions->isEmpty()) {
+                session()->forget('attendance_session_id');
+
+                return redirect()->route('attendance.pin')->withErrors([
+                    'pin' => 'This attendance link is no longer valid.',
+                ]);
+            }
+        }
 
         $now = now();
 
@@ -181,6 +198,15 @@ class PublicAttendanceController extends Controller
 
         $session = EventSession::where('event_id', $event->id)
             ->findOrFail($validated['session_id']);
+
+        if (
+            session('attendance_session_id') !== null
+            && (int) session('attendance_session_id') !== (int) $session->id
+        ) {
+            return $this->attendanceValidationError($request, [
+                'session_id' => 'This attendance link is for a different session.',
+            ]);
+        }
 
         /*
          * The selected Session must actually be open right now.
@@ -434,22 +460,66 @@ class PublicAttendanceController extends Controller
             ->where('attendance_closes_at', '>=', $now)
             ->exists();
     }
-    public function openEncryptedLink(string $token)
+    public function openEncryptedLink(string $token): RedirectResponse
     {
-        try {
-            $eventId = Crypt::decryptString(urldecode($token));
-        } catch (DecryptException $e) {
+        if ($token === '' || strlen($token) > 4096 || !preg_match('/\A[A-Za-z0-9_-]+\z/', $token)) {
             abort(404);
         }
 
-        $event = Event::findOrFail($eventId);
+        $encodedCiphertext = strtr($token, '-_', '+/');
+        $encodedCiphertext .= str_repeat('=', (4 - strlen($encodedCiphertext) % 4) % 4);
+        $ciphertext = base64_decode($encodedCiphertext, true);
+        if ($ciphertext === false) {
+            abort(404);
+        }
+
+        try {
+            $payload = json_decode(
+                Crypt::decryptString($ciphertext),
+                true,
+                512,
+                JSON_THROW_ON_ERROR
+            );
+        } catch (DecryptException|JsonException $exception) {
+            abort(404);
+        }
+
+        if (
+            !is_array($payload)
+            || ($payload['version'] ?? null) !== 1
+            || !is_int($payload['event_id'] ?? null)
+            || $payload['event_id'] < 1
+            || !is_int($payload['session_id'] ?? null)
+            || $payload['session_id'] < 1
+            || !is_int($payload['expires_at'] ?? null)
+            || $payload['expires_at'] < 1
+        ) {
+            abort(404);
+        }
+
+        if (now()->timestamp > $payload['expires_at']) {
+            abort(403, 'This attendance link has expired.');
+        }
+
+        $event = Event::findOrFail($payload['event_id']);
+        $eventSession = EventSession::where('event_id', $event->id)
+            ->findOrFail($payload['session_id']);
 
         if (!$this->eventAllowsAttendance($event)) {
             abort(403, 'Attendance is unavailable for this event.');
         }
 
+        if (
+            $eventSession->attendance_opens_at === null
+            || $eventSession->attendance_closes_at === null
+            || !now()->between($eventSession->attendance_opens_at, $eventSession->attendance_closes_at)
+        ) {
+            abort(403, 'Attendance is unavailable for this session.');
+        }
+
         session([
             'attendance_event_id' => $event->id,
+            'attendance_session_id' => $eventSession->id,
         ]);
 
         return redirect()->route('attendance.form', $event);

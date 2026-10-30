@@ -6,11 +6,16 @@ use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -37,18 +42,12 @@ class EventSessionController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'session_date' => ['required', 'date'],
-            'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
         ]);
-
-        $startsAt = Carbon::parse(
-            $validated['session_date'] . ' ' . $validated['start_time']
-        );
-
-        $endsAt = Carbon::parse(
-            $validated['session_date'] . ' ' . $validated['end_time']
-        );
+        $schedule = $this->validatedSessionSchedule($request, $event);
+        if ($schedule instanceof RedirectResponse) {
+            return $schedule;
+        }
+        [$startsAt, $endsAt] = $schedule;
 
         $session = $event->sessions()->create([
             'name' => $validated['name'],
@@ -92,6 +91,29 @@ class EventSessionController extends Controller
             'updatedBy',
             'attendances',
         ]);
+
+        $attendanceUrl = null;
+        $attendanceQrSvg = null;
+        if (
+            in_array($event->status, ['published', 'completed'], true)
+            && $eventSession->attendance_opens_at !== null
+            && $eventSession->attendance_closes_at !== null
+            && now()->between($eventSession->attendance_opens_at, $eventSession->attendance_closes_at)
+        ) {
+            // Shared session links must be reusable for legitimate attendees during this session.
+            // The server-side attendance window and duplicate checks remain authoritative.
+            $encryptedPayload = Crypt::encryptString(json_encode([
+                'version' => 1,
+                'event_id' => (int) $event->id,
+                'session_id' => (int) $eventSession->id,
+                'expires_at' => $eventSession->attendance_closes_at->timestamp,
+            ], JSON_THROW_ON_ERROR));
+            $token = rtrim(strtr(base64_encode($encryptedPayload), '+/', '-_'), '=');
+            $attendanceUrl = route('attendance.encrypted', ['token' => $token]);
+            $attendanceQrSvg = base64_encode((new Writer(
+                new ImageRenderer(new RendererStyle(420, 4), new SvgImageBackEnd())
+            ))->writeString($attendanceUrl));
+        }
 
         $registrations = Registration::with('user')
             ->where('event_id', $event->id)
@@ -210,6 +232,8 @@ class EventSessionController extends Controller
         return view('event-sessions.show', compact(
             'event',
             'eventSession',
+            'attendanceUrl',
+            'attendanceQrSvg',
             'registrationAttendanceRows',
             'registeredCount',
             'attendedCount',
@@ -386,20 +410,14 @@ class EventSessionController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'session_date' => ['required', 'date'],
-            'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
         ]);
 
         $oldValues = $eventSession->toArray();
-
-        $startsAt = Carbon::parse(
-            $validated['session_date'] . ' ' . $validated['start_time']
-        );
-
-        $endsAt = Carbon::parse(
-            $validated['session_date'] . ' ' . $validated['end_time']
-        );
+        $schedule = $this->validatedSessionSchedule($request, $event);
+        if ($schedule instanceof RedirectResponse) {
+            return $schedule;
+        }
+        [$startsAt, $endsAt] = $schedule;
 
         $eventSession->update([
             'name' => $validated['name'],
@@ -479,5 +497,38 @@ class EventSessionController extends Controller
         ) {
             abort(403);
         }
+    }
+
+    /** @return array{Carbon, Carbon}|RedirectResponse */
+    private function validatedSessionSchedule(Request $request, Event $event): array|RedirectResponse
+    {
+        $schedule = $request->validate([
+            'starts_at' => ['required_without:session_date', 'date'],
+            'ends_at' => ['required_without:session_date', 'date', 'after:starts_at'],
+            'session_date' => ['required_without:starts_at', 'date'],
+            'start_time' => ['required_with:session_date', 'date_format:H:i'],
+            'end_time' => ['required_with:session_date', 'date_format:H:i', 'after:start_time'],
+        ]);
+
+        if (filled($schedule['starts_at'] ?? null)) {
+            $startsAt = Carbon::parse($schedule['starts_at']);
+            $endsAt = Carbon::parse($schedule['ends_at']);
+        } else {
+            $startsAt = Carbon::parse($schedule['session_date'] . ' ' . $schedule['start_time']);
+            $endsAt = Carbon::parse($schedule['session_date'] . ' ' . $schedule['end_time']);
+        }
+
+        if (
+            $event->starts_at === null
+            || $event->ends_at === null
+            || $startsAt->lt($event->starts_at)
+            || $endsAt->gt($event->ends_at)
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors(['schedule' => 'The session must fall within the parent event schedule.']);
+        }
+
+        return [$startsAt, $endsAt];
     }
 }

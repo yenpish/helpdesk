@@ -168,6 +168,7 @@ it('creates automatic daily sessions with attendance open until 11:59 PM', funct
 
 it('sets the attendance close to 11:59 PM when a session is manually created or edited', function () {
     [$event, $sessions] = makeScheduledEvent();
+    $event->update(['ends_at' => Carbon::parse('2026-10-08 23:59:00')]);
     $admin = User::factory()->create(['role' => 'admin']);
 
     $this->actingAs($admin)

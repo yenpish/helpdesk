@@ -89,6 +89,12 @@ class LocationController extends Controller
 
     public function destroy(Location $location): RedirectResponse
     {
+        if ($location->events()->exists()) {
+            return redirect()
+                ->route('locations.index')
+                ->with('error', 'This location cannot be deleted while events use it.');
+        }
+
         $oldValues = $location->toArray();
 
         AuditLog::create([

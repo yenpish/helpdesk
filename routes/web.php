@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/attendance-link/{token}', [
     PublicAttendanceController::class,
     'openEncryptedLink',
-])->name('attendance.encrypted');
+])->middleware('throttle:120,1')->name('attendance.encrypted');
 
 /*
 |--------------------------------------------------------------------------
@@ -73,7 +73,7 @@ Route::get('/attendance', [
 Route::post('/attendance/verify', [
     PublicAttendanceController::class,
     'verifyPin',
-])->name('attendance.verify');
+])->middleware('throttle:5,1')->name('attendance.verify');
 
 Route::get('/attendance/{event}', [
     PublicAttendanceController::class,

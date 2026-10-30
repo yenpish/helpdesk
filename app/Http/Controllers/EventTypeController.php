@@ -85,6 +85,12 @@ class EventTypeController extends Controller
 
     public function destroy(EventType $eventType): RedirectResponse
     {
+        if ($eventType->events()->exists()) {
+            return redirect()
+                ->route('event-types.index')
+                ->with('error', 'This event type cannot be deleted while events use it.');
+        }
+
         $oldValues = $eventType->toArray();
 
         AuditLog::create([

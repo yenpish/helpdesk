@@ -53,48 +53,33 @@
                 >{{ old('description') }}</textarea>
             </div>
 
-            <div class="mb-3">
-                <label for="session_date" class="form-label">
-                    Session Date <span class="text-danger">*</span>
-                </label>
-
-                <input
-                    type="date"
-                    id="session_date"
-                    name="session_date"
-                    class="form-control"
-                    value="{{ old('session_date') }}"
-                    required
-                >
-            </div>
-
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="start_time" class="form-label">
-                        Start Time <span class="text-danger">*</span>
+                    <label for="starts_at" class="form-label">
+                        Session Starts <span class="text-danger">*</span>
                     </label>
 
                     <input
-                        type="time"
-                        id="start_time"
-                        name="start_time"
+                        type="datetime-local"
+                        id="starts_at"
+                        name="starts_at"
                         class="form-control"
-                        value="{{ old('start_time') }}"
+                        value="{{ old('starts_at', $event->starts_at?->format('Y-m-d\\TH:i')) }}"
                         required
                     >
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label for="end_time" class="form-label">
-                        End Time <span class="text-danger">*</span>
+                    <label for="ends_at" class="form-label">
+                        Session Ends <span class="text-danger">*</span>
                     </label>
 
                     <input
-                        type="time"
-                        id="end_time"
-                        name="end_time"
+                        type="datetime-local"
+                        id="ends_at"
+                        name="ends_at"
                         class="form-control"
-                        value="{{ old('end_time') }}"
+                        value="{{ old('ends_at', $event->ends_at?->format('Y-m-d\\TH:i')) }}"
                         required
                     >
                 </div>

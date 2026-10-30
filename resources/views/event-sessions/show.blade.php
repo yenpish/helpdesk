@@ -57,6 +57,71 @@
 
         .attendance-signature-icon-button svg { width: 21px; height: 21px; }
         .attendance-signature-missing { color: var(--muted); }
+
+        .attendance-qr-utility {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px 20px;
+            padding: 12px 16px;
+        }
+
+        .attendance-qr-utility p {
+            margin: 3px 0 0;
+            color: var(--muted);
+        }
+
+        .attendance-qr-actions,
+        .attendance-qr-copy-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .attendance-qr-dialog {
+            width: min(500px, calc(100vw - 32px));
+            max-width: 500px;
+            max-height: calc(100vh - 32px);
+            padding: 0;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        .attendance-qr-dialog::backdrop {
+            background: rgb(15 23 42 / 55%);
+        }
+
+        .attendance-qr-dialog-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--line);
+            background: var(--surface-raised);
+        }
+
+        .attendance-qr-dialog-body {
+            padding: 18px;
+            text-align: center;
+        }
+
+        .attendance-qr-dialog-image {
+            display: block;
+            width: min(250px, 70vw);
+            height: auto;
+            margin: 0 auto 14px;
+        }
+
+        @media (max-width: 600px) {
+            .attendance-qr-utility {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
     </style>
     <div class="container">
         <div class="page-header mb-4">
@@ -130,6 +195,42 @@
                 </div>
             </div>
         </div>
+
+        @if($attendanceUrl)
+            <section class="card mb-3 attendance-qr-utility" aria-labelledby="attendance-qr-heading">
+                <div>
+                    <strong id="attendance-qr-heading">Attendance QR Code</strong>
+                    <p>Available during the active attendance window.</p>
+                </div>
+                <div class="attendance-qr-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" data-view-attendance-qr aria-haspopup="dialog" aria-controls="attendance-qr-dialog">View QR Code</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-copy-attendance-link="{{ $attendanceUrl }}">Copy Attendance Link</button>
+                    <span class="small text-muted" role="status" aria-live="polite" data-copy-attendance-feedback></span>
+                </div>
+            </section>
+
+            <dialog id="attendance-qr-dialog" class="attendance-qr-dialog" aria-labelledby="attendance-qr-dialog-title">
+                <div class="attendance-qr-dialog-header">
+                    <h2 id="attendance-qr-dialog-title" class="h5 mb-0">Attendance QR Code</h2>
+                    <button type="button" class="btn btn-secondary btn-sm" data-close-attendance-qr>Close</button>
+                </div>
+                <div class="attendance-qr-dialog-body">
+                    <img
+                        src="data:image/svg+xml;base64,{{ $attendanceQrSvg }}"
+                        data-qr-content="{{ $attendanceUrl }}"
+                        alt="QR code for this session's attendance link"
+                        width="250"
+                        height="250"
+                        class="attendance-qr-dialog-image"
+                    >
+                    <p class="mb-3">Scan this QR code to access the attendance form for this session.</p>
+                    <div class="attendance-qr-copy-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" data-copy-attendance-link="{{ $attendanceUrl }}">Copy Attendance Link</button>
+                        <span class="small text-muted" role="status" aria-live="polite" data-copy-attendance-feedback></span>
+                    </div>
+                </div>
+            </dialog>
+        @endif
 
         <section class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -273,6 +374,56 @@
 
     <script>
         (() => {
+            const copyButtons = document.querySelectorAll('[data-copy-attendance-link]');
+
+            const copyWithFallback = async text => {
+                if (window.isSecureContext && navigator.clipboard?.writeText) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch (error) {
+                        // Fall through to the legacy copy method when clipboard access is denied.
+                    }
+                }
+
+                const temporaryInput = document.createElement('textarea');
+                temporaryInput.value = text;
+                temporaryInput.setAttribute('readonly', '');
+                temporaryInput.setAttribute('aria-hidden', 'true');
+                temporaryInput.style.position = 'fixed';
+                temporaryInput.style.opacity = '0';
+                document.body.appendChild(temporaryInput);
+                temporaryInput.focus();
+                temporaryInput.select();
+
+                let copied = false;
+                try {
+                    copied = document.execCommand('copy');
+                } catch (error) {
+                    copied = false;
+                }
+
+                temporaryInput.remove();
+                return copied;
+            };
+
+            copyButtons.forEach(button => {
+                button.addEventListener('click', async () => {
+                    const feedback = button.parentElement.querySelector('[data-copy-attendance-feedback]');
+                    const copied = await copyWithFallback(button.dataset.copyAttendanceLink || '');
+                    if (feedback) feedback.textContent = copied ? 'Attendance link copied.' : 'Could not copy the link. Please try again.';
+                });
+            });
+
+            const qrDialog = document.getElementById('attendance-qr-dialog');
+            document.querySelectorAll('[data-view-attendance-qr]').forEach(button => {
+                button.addEventListener('click', () => qrDialog?.showModal());
+            });
+            qrDialog?.querySelector('[data-close-attendance-qr]')?.addEventListener('click', () => qrDialog.close());
+            qrDialog?.addEventListener('click', event => {
+                if (event.target === qrDialog) qrDialog.close();
+            });
+
             const dialog = document.getElementById('attendance-signature-dialog');
             const image = document.getElementById('attendance-signature-image');
             const emptyMessage = document.getElementById('attendance-signature-empty');

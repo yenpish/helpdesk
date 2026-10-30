@@ -20,6 +20,10 @@
             </div>
         @endif
 
+        @if(session('error'))
+            <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+        @endif
+
         @if($eventTypes->count())
             <table class="table">
                 <thead>
