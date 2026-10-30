@@ -117,7 +117,7 @@
         }
 
         .sidebar-footer {
-            border-top: 1px solid #383838;
+            border-top: 1px solid var(--line);
             padding: 12px;
         }
 
@@ -877,8 +877,39 @@
         .sidebar-link { color: #D6DEE6; border-radius: 5px; }
         .sidebar-link:hover, .sidebar-link.active { background: var(--sidebar-raised); color: #FFFFFF; }
         .sidebar-link.active { box-shadow: inset 2px 0 var(--blue); }
-        .sidebar-footer { border-color: var(--line); }
-        .profile-menu summary { color: var(--text); }
+        .sidebar-footer {
+            border-color: var(--line);
+            padding: 12px;
+        }
+
+        .profile-menu {
+            border-radius: 8px;
+        }
+
+        .profile-menu > summary {
+            color: var(--text);
+            padding: 10px 12px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            list-style: none;
+            transition: background-color 0.18s ease, border-color 0.18s ease;
+        }
+
+        .profile-menu > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .profile-menu > summary:hover,
+        .profile-menu[open] > summary {
+            background: var(--sidebar-raised);
+            border-color: var(--line);
+        }
+
+        .profile-menu > summary:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
         .profile-menu summary:hover, .profile-menu[open] summary { background: var(--surface); }
         .profile-dropdown, .profile-action { background: var(--surface); border-color: var(--line); color: var(--text); }
         .profile-details { border-color: var(--line); }
@@ -1426,9 +1457,68 @@
         .sidebar-link { color: var(--sidebar-text); }
         .sidebar-link:hover, .sidebar-link.active { background: var(--sidebar-raised); color: var(--sidebar-active-text); }
         .app-topbar { background: var(--topbar) !important; border-color: var(--line); }
-        .topbar-title, .topbar-user, .app-topbar a { color: var(--topbar-text); }
+        .topbar-title,
+        .topbar-profile-menu > summary {
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .topbar-title {
+            color: var(--topbar-text);
+        }
+
+        .topbar-profile-menu > summary {
+            color: var(--topbar-text);
+        }
         .profile-menu summary { color: var(--text); }
+        .topbar-profile-menu {
+            position: relative;
+        }
+
+        .topbar-profile-menu > summary {
+            display: block;
+            padding: 7px 12px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            color: var(--topbar-text);
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .topbar-profile-menu > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .topbar-profile-menu > summary:hover,
+        .topbar-profile-menu[open] > summary {
+            background: var(--sidebar-raised);
+            border-color: var(--line);
+        }
+
+        .topbar-profile-menu .profile-summary-name {
+            margin: 0;
+            color: var(--topbar-text);
+        }
+
+        .topbar-profile-menu .profile-summary-role {
+            color: var(--topbar-muted);
+        }
+
+        .topbar-profile-menu .profile-dropdown {
+            top: calc(100% + 8px);
+            right: 0;
+            bottom: auto;
+            left: auto;
+            width: 240px;
+        }
         .profile-menu summary:hover, .profile-menu[open] summary { background: var(--sidebar-raised); }
+
+        /* Position the bottom-left account menu above its trigger. */
+        .profile-menu:not(.topbar-profile-menu) .profile-dropdown {
+            left: 0;
+            right: auto;
+            bottom: calc(100% + 8px);
+        }
 
         .card, .card-body, .content-panel, .panel, .dashboard-list, .dashboard-list-item,
         .table-container, .table-responsive, .events-table-wrapper, .events-empty, .event-info > div,
@@ -1666,9 +1756,31 @@
                     @yield('section', 'Attendance Management')
                 </span>
 
-                <span class="topbar-user">
-                    {{ auth()->user()->name }}
-                </span>
+                <details class="profile-menu topbar-profile-menu">
+                    <summary>
+                        {{ auth()->user()->name }}
+                    </summary>
+
+                    <div class="profile-dropdown">
+                        <div class="profile-details">
+                            <strong class="profile-name">{{ auth()->user()->name }}</strong>
+                            <span class="profile-email">{{ auth()->user()->email }}</span>
+                            <span class="profile-role">
+                Role: {{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}
+            </span>
+                        </div>
+
+                        <a class="profile-action" href="{{ route('profile') }}">Profile</a>
+
+                        <a class="profile-action {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                           href="{{ route('settings.edit') }}">Appearance</a>
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button class="profile-action" type="submit">Logout</button>
+                        </form>
+                    </div>
+                </details>
             </div>
 
             <div class="app-content">
@@ -1719,8 +1831,11 @@
 <script>
     document.addEventListener('click', (event) => {
         document.querySelectorAll('.profile-menu[open]').forEach((menu) => {
-            if (!menu.contains(event.target)) menu.removeAttribute('open');
+            if (!menu.contains(event.target)) {
+                menu.removeAttribute('open');
+            }
         });
+
         if (event.target.closest('.profile-menu a, .profile-menu button')) {
             event.target.closest('.profile-menu')?.removeAttribute('open');
         }
