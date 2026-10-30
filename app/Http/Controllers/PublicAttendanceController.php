@@ -52,19 +52,22 @@ class PublicAttendanceController extends Controller
             ]);
         }
 
-        session([
-            'attendance_event_id' => $event->id,
-        ]);
-        session()->forget('attendance_session_id');
+        $access = $this->createAttendanceAccess($event);
 
-        return redirect()->route('attendance.form', $event);
+        return redirect()->route('attendance.form', ['access' => $access]);
     }
 
-    public function showForm(Event $event): Response|RedirectResponse
+    public function showForm(string $access): Response|RedirectResponse
     {
-        if (session('attendance_event_id') !== $event->id) {
+        $grant = $this->resolveAttendanceAccess($access);
+        if ($grant === null) {
             return redirect()->route('attendance.pin');
         }
+
+        /** @var Event $event */
+        $event = $grant['event'];
+        /** @var EventSession|null $boundSession */
+        $boundSession = $grant['session'];
 
         if (!$this->eventAllowsAttendance($event)) {
             return redirect()->route('attendance.pin')->withErrors([
@@ -78,14 +81,13 @@ class PublicAttendanceController extends Controller
             ->orderBy('starts_at')
             ->get();
 
-        $boundSessionId = session('attendance_session_id');
-        if ($boundSessionId !== null) {
+        if ($boundSession !== null) {
             $sessions = $sessions
-                ->where('id', (int) $boundSessionId)
+                ->where('id', (int) $boundSession->id)
                 ->values();
 
             if ($sessions->isEmpty()) {
-                session()->forget('attendance_session_id');
+                $this->forgetAttendanceAccess($access);
 
                 return redirect()->route('attendance.pin')->withErrors([
                     'pin' => 'This attendance link is no longer valid.',
@@ -117,7 +119,8 @@ class PublicAttendanceController extends Controller
             'event',
             'sessions',
             'defaultSession',
-            'selectedSession'
+            'selectedSession',
+            'access'
         ));
 
         return $response;
@@ -125,11 +128,17 @@ class PublicAttendanceController extends Controller
 
     public function store(
         Request $request,
-        Event $event
+        string $access
     ): Response|RedirectResponse|JsonResponse {
-        if (session('attendance_event_id') !== $event->id) {
+        $grant = $this->resolveAttendanceAccess($access);
+        if ($grant === null) {
             return redirect()->route('attendance.pin');
         }
+
+        /** @var Event $event */
+        $event = $grant['event'];
+        /** @var EventSession|null $boundSession */
+        $boundSession = $grant['session'];
 
         if (!$this->eventAllowsAttendance($event)) {
             return redirect()->route('attendance.pin')->withErrors([
@@ -138,7 +147,7 @@ class PublicAttendanceController extends Controller
         }
 
         if ($request->input('action') === 'lookup_pre_registration') {
-            return $this->lookupPreRegistration($request, $event);
+            return $this->lookupPreRegistration($request, $event, $access);
         }
 
         $validated = $request->validate([
@@ -199,10 +208,7 @@ class PublicAttendanceController extends Controller
         $session = EventSession::where('event_id', $event->id)
             ->findOrFail($validated['session_id']);
 
-        if (
-            session('attendance_session_id') !== null
-            && (int) session('attendance_session_id') !== (int) $session->id
-        ) {
+        if ($boundSession !== null && (int) $boundSession->id !== (int) $session->id) {
             return $this->attendanceValidationError($request, [
                 'session_id' => 'This attendance link is for a different session.',
             ]);
@@ -355,7 +361,7 @@ class PublicAttendanceController extends Controller
             ->withErrors($errors);
     }
 
-    private function lookupPreRegistration(Request $request, Event $event): RedirectResponse|JsonResponse
+    private function lookupPreRegistration(Request $request, Event $event, string $access): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'lookup_email' => ['required', 'email', 'max:255'],
@@ -412,7 +418,7 @@ class PublicAttendanceController extends Controller
             }
 
             return redirect()
-                ->route('attendance.form', $event)
+                ->route('attendance.form', ['access' => $access])
                 ->withInput($details)
                 ->with('pre_registration_found', true)
                 ->with('pre_registration_status', $registration->status);
@@ -433,7 +439,7 @@ class PublicAttendanceController extends Controller
         ]);
 
         return redirect()
-            ->route('attendance.form', $event)
+            ->route('attendance.form', ['access' => $access])
             ->withInput($attendanceInput + [
                 'lookup_email' => $email,
                 'lookup_phone' => $validated['lookup_phone'],
@@ -517,11 +523,94 @@ class PublicAttendanceController extends Controller
             abort(403, 'Attendance is unavailable for this session.');
         }
 
-        session([
-            'attendance_event_id' => $event->id,
-            'attendance_session_id' => $eventSession->id,
-        ]);
+        $access = $this->createAttendanceAccess(
+            $event,
+            $eventSession,
+            $payload['expires_at']
+        );
 
-        return redirect()->route('attendance.form', $event);
+        return redirect()->route('attendance.form', ['access' => $access]);
+    }
+
+    /**
+     * Create a cryptographically random URL handle scoped to this browser session.
+     * QR links establish a fresh handle per browser after their encrypted claim is validated.
+     */
+    private function createAttendanceAccess(
+        Event $event,
+        ?EventSession $eventSession = null,
+        ?int $expiresAt = null
+    ): string {
+        $access = bin2hex(random_bytes(32));
+        $grants = session('attendance_accesses', []);
+        $grants[$access] = [
+            'event_id' => (int) $event->id,
+            'session_id' => $eventSession ? (int) $eventSession->id : null,
+            'expires_at' => $expiresAt,
+        ];
+
+        // Bound session growth while allowing several event/session tabs.
+        session(['attendance_accesses' => array_slice($grants, -10, null, true)]);
+
+        return $access;
+    }
+
+    /**
+     * Resolve a submitted opaque handle only from the current browser session,
+     * and re-check event/session eligibility on every form and submission request.
+     *
+     * @return array{event: Event, session: EventSession|null}|null
+     */
+    private function resolveAttendanceAccess(string $access): ?array
+    {
+        if (!preg_match('/\A[a-f0-9]{64}\z/', $access)) {
+            return null;
+        }
+
+        $grant = session("attendance_accesses.{$access}");
+        if (!is_array($grant) || !is_int($grant['event_id'] ?? null)) {
+            return null;
+        }
+
+        if (is_int($grant['expires_at'] ?? null) && now()->timestamp > $grant['expires_at']) {
+            $this->forgetAttendanceAccess($access);
+            return null;
+        }
+
+        $event = Event::find($grant['event_id']);
+        if (!$event || !$this->eventAllowsAttendance($event)) {
+            $this->forgetAttendanceAccess($access);
+            return null;
+        }
+
+        $eventSession = null;
+        if (isset($grant['session_id'])) {
+            if (!is_int($grant['session_id'])) {
+                $this->forgetAttendanceAccess($access);
+                return null;
+            }
+
+            $eventSession = EventSession::where('event_id', $event->id)
+                ->find($grant['session_id']);
+
+            if (
+                !$eventSession
+                || $eventSession->attendance_opens_at === null
+                || $eventSession->attendance_closes_at === null
+                || !now()->between($eventSession->attendance_opens_at, $eventSession->attendance_closes_at)
+            ) {
+                $this->forgetAttendanceAccess($access);
+                return null;
+            }
+        }
+
+        return ['event' => $event, 'session' => $eventSession];
+    }
+
+    private function forgetAttendanceAccess(string $access): void
+    {
+        $grants = session('attendance_accesses', []);
+        unset($grants[$access]);
+        session(['attendance_accesses' => $grants]);
     }
 }

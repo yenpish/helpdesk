@@ -153,9 +153,10 @@ it('rejects equivalent phone representations for attendance in the same event', 
         'attendance_opens_at' => now()->subMinutes(10),
         'attendance_closes_at' => now()->addMinutes(50),
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'First attendee',
             'email' => 'first@example.test',
@@ -163,15 +164,15 @@ it('rejects equivalent phone representations for attendance in the same event', 
         ])->assertViewIs('attendance.success');
 
     foreach (['+60125902441', '60125902441', '012-590-2441', '+60 12 590 2441'] as $phone) {
-        $this->withSession(['attendance_event_id' => $event->id])
-            ->from(route('attendance.form', $event))
-            ->post(route('attendance.store', $event), [
+        $this->withSession($access['session'])
+            ->from(route('attendance.form', ['access' => $access['access']]))
+            ->post(route('attendance.store', ['access' => $access['access']]), [
                 'session_id' => $session->id,
                 'full_name' => 'Another attendee',
                 'email' => 'another@example.test',
                 'phone' => $phone,
             ])
-            ->assertRedirect(route('attendance.form', $event))
+            ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
             ->assertSessionHasErrors('phone');
     }
 
@@ -200,10 +201,11 @@ it('keeps email duplicate protection and allows the same attendee at another ses
         'email' => 'returning@example.test',
         'phone' => '60125902441',
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->from(route('attendance.form', $event))
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->from(route('attendance.form', ['access' => $access['access']]))
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $sessions[0]->id,
             'full_name' => 'Returning attendee',
             'email' => 'returning@example.test',
@@ -217,8 +219,8 @@ it('keeps email duplicate protection and allows the same attendee at another ses
     expect(session('errors')->get('email')[0])
         ->toStartWith('You have already checked in for this session at ');
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $sessions[1]->id,
             'full_name' => 'Returning attendee',
             'email' => 'returning@example.test',
@@ -358,9 +360,10 @@ it('shows the selected session beside its time on attendance entry', function ()
         'attendance_opens_at' => now()->subMinutes(10),
         'attendance_closes_at' => now()->addMinutes(50),
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->get(route('attendance.form', $event))
+    $this->withSession($access['session'])
+        ->get(route('attendance.form', ['access' => $access['access']]))
         ->assertOk()
         ->assertSee('Selected session')
         ->assertSee('Current session')
@@ -393,10 +396,12 @@ it('keeps the submitted session selected after attendance validation fails', fun
         'attendance_closes_at' => now()->addHours(2),
     ]);
 
-    $response = $this->withSession(['attendance_event_id' => $event->id])
-        ->from(route('attendance.form', $event))
+    $access = makeAttendanceAccessGrant($event);
+    $formUrl = route('attendance.form', ['access' => $access['access']]);
+    $response = $this->withSession($access['session'])
+        ->from($formUrl)
         ->followingRedirects()
-        ->post(route('attendance.store', $event), [
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $secondSession->id,
             'full_name' => 'Returning Person',
             'email' => 'invalid-email',
@@ -427,16 +432,17 @@ it('requires a valid phone number for session attendance', function () {
         'attendance_opens_at' => now()->subMinutes(10),
         'attendance_closes_at' => now()->addMinutes(50),
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->from(route('attendance.form', $event))
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->from(route('attendance.form', ['access' => $access['access']]))
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'Test Attendee',
             'email' => 'attendee@example.test',
             'phone' => '',
         ])
-        ->assertRedirect(route('attendance.form', $event))
+        ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
         ->assertSessionHasErrors('phone');
 
     expect(Attendance::count())->toBe(0);

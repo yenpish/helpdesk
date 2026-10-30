@@ -75,12 +75,12 @@ Route::post('/attendance/verify', [
     'verifyPin',
 ])->middleware('throttle:5,1')->name('attendance.verify');
 
-Route::get('/attendance/{event}', [
+Route::get('/attendance/{access}', [
     PublicAttendanceController::class,
     'showForm',
 ])->name('attendance.form');
 
-Route::post('/attendance/{event}', [
+Route::post('/attendance/{access}', [
     PublicAttendanceController::class,
     'store',
 ])->name('attendance.store');
@@ -248,3 +248,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
 Route::view('/profile', 'profile')
     ->middleware('auth')
     ->name('profile');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/settings', [\App\Http\Controllers\AppearanceSettingsController::class, 'edit'])
+        ->name('settings.edit');
+    Route::put('/settings/appearance', [\App\Http\Controllers\AppearanceSettingsController::class, 'update'])
+        ->name('settings.appearance.update');
+});

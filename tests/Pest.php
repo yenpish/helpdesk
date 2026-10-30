@@ -48,3 +48,21 @@ function something()
 {
     // ..
 }
+
+function makeAttendanceAccessGrant(\App\Models\Event $event, ?\App\Models\EventSession $session = null): array
+{
+    $access = bin2hex(random_bytes(32));
+
+    return [
+        'access' => $access,
+        'session' => [
+            'attendance_accesses' => [
+                $access => [
+                    'event_id' => (int) $event->id,
+                    'session_id' => $session ? (int) $session->id : null,
+                    'expires_at' => null,
+                ],
+            ],
+        ],
+    ];
+}

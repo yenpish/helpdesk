@@ -33,9 +33,10 @@ function makeOnlineAttendanceFixture(array $eventAttributes = []): array
 it('records an ordinary online attendance submission against its selected session', function () {
     [$event, $session] = makeOnlineAttendanceFixture();
 
-    $this->withSession(['attendance_event_id' => $event->id])
+    $access = makeAttendanceAccessGrant($event);
+    $this->withSession($access['session'])
         ->withHeader('X-Attendance-Sync', '1')
-        ->post(route('attendance.store', $event), [
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'Online Attendee',
             'email' => 'online@example.test',
@@ -61,15 +62,16 @@ it('continues to reject a duplicate check-in for the same session', function () 
         'email' => 'duplicate@example.test',
         'phone' => '60125902441',
     ];
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), $payload)
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), $payload)
         ->assertOk();
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->from(route('attendance.form', $event))
-        ->post(route('attendance.store', $event), $payload)
-        ->assertRedirect(route('attendance.form', $event))
+    $this->withSession($access['session'])
+        ->from(route('attendance.form', ['access' => $access['access']]))
+        ->post(route('attendance.store', ['access' => $access['access']]), $payload)
+        ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
         ->assertSessionHasErrors('email');
 
     expect(Attendance::count())->toBe(1);
@@ -81,16 +83,17 @@ it('rejects online attendance outside the session attendance window', function (
         'attendance_opens_at' => now()->subHours(2),
         'attendance_closes_at' => now()->subHour(),
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->from(route('attendance.form', $event))
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->from(route('attendance.form', ['access' => $access['access']]))
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'Late Attendee',
             'email' => 'late@example.test',
             'phone' => '60125902441',
         ])
-        ->assertRedirect(route('attendance.form', $event))
+        ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
         ->assertSessionHasErrors('session_id');
 
     expect(Attendance::count())->toBe(0);
@@ -98,9 +101,10 @@ it('rejects online attendance outside the session attendance window', function (
 
 it('renders the public form without offline queue assets or cache markers', function () {
     [$event] = makeOnlineAttendanceFixture();
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->get(route('attendance.form', $event))
+    $this->withSession($access['session'])
+        ->get(route('attendance.form', ['access' => $access['access']]))
         ->assertOk()
         ->assertSee('id="attendance-form"', false)
         ->assertSee('attendance-service-worker-cleanup.js')
@@ -119,18 +123,19 @@ it('keeps the online pre-registration lookup and fills attendance details on a m
         'organisation' => 'Example Organisation',
         'status' => 'approved',
     ]);
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'action' => 'lookup_pre_registration',
             'lookup_email' => 'LOOKUP@example.test',
             'lookup_phone' => '+60 12-590-2441',
         ])
-        ->assertRedirect(route('attendance.form', $event))
+        ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
         ->assertSessionHas('pre_registration_found', true)
         ->assertSessionHas('pre_registration_status', 'approved');
 
-    $this->get(route('attendance.form', $event))
+    $this->get(route('attendance.form', ['access' => $access['access']]))
         ->assertOk()
         ->assertSee('Lookup Attendee')
         ->assertSee('lookup@example.test')
@@ -141,17 +146,18 @@ it('keeps the online pre-registration lookup and fills attendance details on a m
 
 it('keeps manual attendance entry available when online pre-registration lookup has no match', function () {
     [$event] = makeOnlineAttendanceFixture();
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'action' => 'lookup_pre_registration',
             'lookup_email' => 'missing@example.test',
             'lookup_phone' => '11111111',
         ])
-        ->assertRedirect(route('attendance.form', $event))
+        ->assertRedirect(route('attendance.form', ['access' => $access['access']]))
         ->assertSessionHas('pre_registration_not_found', true);
 
-    $this->get(route('attendance.form', $event))
+    $this->get(route('attendance.form', ['access' => $access['access']]))
         ->assertOk()
         ->assertSee('No matching pre-registration was found for this event.')
         ->assertSee('name="full_name"', false)

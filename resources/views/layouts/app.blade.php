@@ -1,3 +1,15 @@
+@php
+    $appearanceUser = auth()->user();
+    $appearanceTheme = $appearanceUser?->appearance_theme === 'dark' ? 'dark' : 'light';
+    $appearanceAccents = [
+        'blue' => ['#2563EB', '#1D4ED8'],
+        'teal' => ['#0F766E', '#115E59'],
+        'violet' => ['#7C3AED', '#6D28D9'],
+        'amber' => ['#B45309', '#92400E'],
+    ];
+    $appearanceAccent = $appearanceAccents[$appearanceUser?->appearance_accent ?? 'blue']
+        ?? $appearanceAccents['blue'];
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1344,10 +1356,70 @@
             .public-event-action .btn { width: 100%; }
             .form-actions .btn { flex: 1 1 auto; }
         }
+
+        html[data-theme="dark"] {
+            color-scheme: dark;
+            --canvas: #111827;
+            --sidebar: #0B1220;
+            --sidebar-raised: #293548;
+            --topbar: #111827;
+            --surface: #1F2937;
+            --surface-raised: #273449;
+            --table-head: #263448;
+            --line: #3B4757;
+            --text: #E5E7EB;
+            --muted: #AAB6C4;
+        }
+
+        html[data-theme="dark"] body { background: var(--canvas) !important; color: var(--text) !important; }
+        html[data-theme="dark"] .card,
+        html[data-theme="dark"] .dashboard-list,
+        html[data-theme="dark"] .table-container,
+        html[data-theme="dark"] .table-responsive,
+        html[data-theme="dark"] .events-table-wrapper,
+        html[data-theme="dark"] .events-empty,
+        html[data-theme="dark"] .content-panel,
+        html[data-theme="dark"] .attendance-lookup-modal-content,
+        html[data-theme="dark"] .guest-home,
+        html[data-theme="dark"] .empty-state,
+        html[data-theme="dark"] .stat,
+        html[data-theme="dark"] .attendee-details { background: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] .card-header,
+        html[data-theme="dark"] .table th,
+        html[data-theme="dark"] th,
+        html[data-theme="dark"] .events-table th { background: var(--surface-raised) !important; color: var(--muted) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] table,
+        html[data-theme="dark"] .table td,
+        html[data-theme="dark"] td { background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] input,
+        html[data-theme="dark"] textarea,
+        html[data-theme="dark"] select,
+        html[data-theme="dark"] .form-control,
+        html[data-theme="dark"] .form-select { background-color: #17212E !important; color: var(--text) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] .btn-secondary,
+        html[data-theme="dark"] .btn-outline-primary,
+        html[data-theme="dark"] .btn-outline-secondary,
+        html[data-theme="dark"] .event-action,
+        html[data-theme="dark"] .event-back { background: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] .btn-danger,
+        html[data-theme="dark"] .event-action-danger,
+        html[data-theme="dark"] form[onsubmit*="Delete"] button { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
+        html[data-theme="dark"] .alert-light { background: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--line) !important; }
+        html[data-theme="dark"] .alert-success,
+        html[data-theme="dark"] .events-message { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
+        html[data-theme="dark"] .alert-danger { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
+        html[data-theme="dark"] .event-status.published,
+        html[data-theme="dark"] .badge-success { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
+        html[data-theme="dark"] .event-status.draft,
+        html[data-theme="dark"] .badge-warning { background: #3A2D18 !important; color: #F3D493 !important; border-color: #715A2B !important; }
+        html[data-theme="dark"] .event-status.cancelled,
+        html[data-theme="dark"] .badge-danger { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
+        html[data-theme="dark"] .outcome-attended { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
+        html[data-theme="dark"] .outcome-missed { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
     </style>
 </head>
 
-<body>
+<body data-theme="{{ $appearanceTheme }}" style="--blue: {{ $appearanceAccent[0] }}; --blue-hover: {{ $appearanceAccent[1] }};">
 
 @auth
 
@@ -1369,6 +1441,12 @@
                         href="{{ route('home') }}"
                     >
                         Dashboard
+                    </a>
+                    <a
+                        class="sidebar-link {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                        href="{{ route('settings.edit') }}"
+                    >
+                        Settings
                     </a>
                 </div>
 

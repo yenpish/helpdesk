@@ -216,7 +216,7 @@
         <form
             id="attendance-form"
             method="POST"
-            action="{{ route('attendance.store', $event) }}"
+            action="{{ route('attendance.store', ['access' => $access]) }}"
             class="account-form"
         >
             @csrf
@@ -398,7 +398,7 @@
             Already pre-registered?<span class="lookup-action">Use your pre-registration details</span>
         </summary>
         <div class="lookup-content">
-            <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', $event) }}" class="account-form attendance-lookup-form">
+            <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', ['access' => $access]) }}" class="account-form attendance-lookup-form">
                 @csrf
                 <input type="hidden" name="action" value="lookup_pre_registration">
                 <div class="field">

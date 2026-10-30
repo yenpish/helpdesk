@@ -146,25 +146,99 @@ it('opens a valid link, binds the attendee session, and allows reusable scans du
     [, $event, $session] = makeEncryptedAttendanceFixture();
     $url = encryptedAttendanceTestUrl($event->id, $session->id);
 
-    $this->get($url)
-        ->assertRedirect(route('attendance.form', $event))
-        ->assertSessionHas('attendance_event_id', $event->id)
-        ->assertSessionHas('attendance_session_id', $session->id);
+    $firstResponse = $this->get($url)->assertRedirect();
+    $firstFormPath = parse_url($firstResponse->headers->get('Location'), PHP_URL_PATH);
+    $firstAccess = basename($firstFormPath);
 
-    $this->get(route('attendance.form', $event))
+    expect($firstFormPath)->toMatch('/\A\/attendance\/[a-f0-9]{64}\z/')
+        ->and($firstAccess)->not->toBe((string) $event->id);
+    expect(session("attendance_accesses.{$firstAccess}.event_id"))->toBe($event->id)
+        ->and(session("attendance_accesses.{$firstAccess}.session_id"))->toBe($session->id)
+        ->and(session()->has('attendance_event_id'))->toBeFalse()
+        ->and(session()->has('attendance_session_id'))->toBeFalse();
+
+    $this->get($firstFormPath)
         ->assertOk()
         ->assertSee($session->name);
 
-    $this->get($url)->assertRedirect(route('attendance.form', $event));
+    $secondResponse = $this->get($url)->assertRedirect();
+    $secondFormPath = parse_url($secondResponse->headers->get('Location'), PHP_URL_PATH);
+    expect($secondFormPath)->not->toBe($firstFormPath);
+    $this->get($secondFormPath)->assertOk();
+});
+
+it('rejects a copied opaque form URL in an independent browser session', function () {
+    [, $event, $session] = makeEncryptedAttendanceFixture();
+    $qrUrl = encryptedAttendanceTestUrl($event->id, $session->id);
+    $response = $this->get($qrUrl)->assertRedirect();
+    $formPath = parse_url($response->headers->get('Location'), PHP_URL_PATH);
+    $sessionCookieName = config('session.cookie');
+    $firstBrowserSessionId = $response->getCookie($sessionCookieName)->getValue();
+
+    $this->get($formPath)->assertOk();
+
+    // A different session cookie represents an independent browser session.
+    $secondBrowserSessionId = bin2hex(random_bytes(20));
+    expect($secondBrowserSessionId)->not->toBe($firstBrowserSessionId);
+
+    // A browser with no matching server-side grant cannot use the copied form URL.
+    $this->app['session']->forgetDrivers();
+    $this->app->forgetInstance('session.store');
+    $this->withCookie($sessionCookieName, $secondBrowserSessionId)
+        ->get($formPath)
+        ->assertRedirect(route('attendance.pin'));
+
+    // The reusable encrypted QR can establish a separate grant for that browser.
+    $newResponse = $this->get($qrUrl)->assertRedirect();
+    $newFormPath = parse_url($newResponse->headers->get('Location'), PHP_URL_PATH);
+    expect($newFormPath)->not->toBe($formPath);
+    $this->get($newFormPath)->assertOk();
+});
+
+it('rejects direct attendance URLs containing sequential event identifiers', function () {
+    [, $event] = makeEncryptedAttendanceFixture();
+
+    $this->get('/attendance/' . $event->id)
+        ->assertRedirect(route('attendance.pin'));
+});
+
+it('issues an opaque browser-bound form URL after successful PIN verification', function () {
+    [, $event] = makeEncryptedAttendanceFixture();
+    $event->update(['pin' => 'ABCD']);
+
+    $response = $this->post(route('attendance.verify'), ['pin' => 'ABCD'])
+        ->assertRedirect();
+    $formPath = parse_url($response->headers->get('Location'), PHP_URL_PATH);
+    $access = basename($formPath);
+
+    expect($formPath)->toMatch('/\A\/attendance\/[a-f0-9]{64}\z/')
+        ->and($access)->not->toBe((string) $event->id);
+
+    $this->get($formPath)->assertOk();
+});
+
+it('rejects an attendance POST without a current-session access grant', function () {
+    [, $event, $session] = makeEncryptedAttendanceFixture();
+    $access = bin2hex(random_bytes(32));
+
+    $this->post(route('attendance.store', ['access' => $access]), [
+        'session_id' => $session->id,
+        'full_name' => 'Unauthorized attendee',
+        'email' => 'unauthorized@example.test',
+        'phone' => '60125902441',
+    ])->assertRedirect(route('attendance.pin'));
+
+    expect($event->attendances()->count())->toBe(0);
 });
 
 it('allows a QR-bound online check-in for the encrypted session', function () {
     [, $event, $session] = makeEncryptedAttendanceFixture();
 
-    $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
-        ->assertRedirect(route('attendance.form', $event));
+    $response = $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
+        ->assertRedirect();
+    $access = basename(parse_url($response->headers->get('Location'), PHP_URL_PATH));
 
-    $this->post(route('attendance.store', $event), [
+    $this->post(route('attendance.store', ['access' => $access]), [
         'session_id' => $session->id,
         'full_name' => 'QR Attendee',
         'email' => 'qr-attendee@example.test',
@@ -212,6 +286,18 @@ it('rejects links after their session window has ended', function () {
     $this->get($url)->assertForbidden();
 });
 
+it('invalidates an already established form handle when its attendance window closes', function () {
+    [, $event, $session] = makeEncryptedAttendanceFixture();
+    $url = encryptedAttendanceTestUrl($event->id, $session->id);
+    $response = $this->get($url)->assertRedirect();
+    $formPath = parse_url($response->headers->get('Location'), PHP_URL_PATH);
+
+    $this->get($formPath)->assertOk();
+
+    $this->travelTo($session->attendance_closes_at->copy()->addSecond());
+    $this->get($formPath)->assertRedirect(route('attendance.pin'));
+});
+
 it('rejects expired tokens even if a session window is later reopened', function () {
     [, $event, $session] = makeEncryptedAttendanceFixture();
     $expiredUrl = encryptedAttendanceTestUrl($event->id, $session->id, now()->subMinute()->timestamp);
@@ -233,9 +319,11 @@ it('rejects links for draft and cancelled events even when the session window is
 it('allows a completed event while its session attendance window is still open', function () {
     [, $event, $session] = makeEncryptedAttendanceFixture('completed');
 
-    $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
-        ->assertRedirect(route('attendance.form', $event))
-        ->assertSessionHas('attendance_session_id', $session->id);
+    $response = $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
+        ->assertRedirect();
+    $access = basename(parse_url($response->headers->get('Location'), PHP_URL_PATH));
+    expect(session("attendance_accesses.{$access}.session_id"))->toBe($session->id);
+    $this->get(route('attendance.form', ['access' => $access]))->assertOk();
 });
 
 it('does not allow a QR-bound form to submit attendance for another session', function () {
@@ -249,17 +337,18 @@ it('does not allow a QR-bound form to submit attendance for another session', fu
         'attendance_closes_at' => now()->addMinutes(30),
     ]);
 
-    $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
-        ->assertRedirect(route('attendance.form', $event));
+    $response = $this->get(encryptedAttendanceTestUrl($event->id, $session->id))
+        ->assertRedirect();
+    $access = basename(parse_url($response->headers->get('Location'), PHP_URL_PATH));
 
-    $this->from(route('attendance.form', $event))
-        ->post(route('attendance.store', $event), [
+    $this->from(route('attendance.form', ['access' => $access]))
+        ->post(route('attendance.store', ['access' => $access]), [
             'session_id' => $otherSession->id,
             'full_name' => 'Test Attendee',
             'email' => 'qr-bound@example.test',
             'phone' => '60125902441',
         ])
-        ->assertRedirect(route('attendance.form', $event))
+        ->assertRedirect(route('attendance.form', ['access' => $access]))
         ->assertSessionHasErrors('session_id');
 
     expect($session->attendances()->count())->toBe(0)

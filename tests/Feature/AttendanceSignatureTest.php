@@ -47,9 +47,10 @@ it('persists the submitted PNG signature on a normal online attendance record', 
     $organizer = User::factory()->create(['role' => 'organizer']);
     [$event, $session] = makeSignatureTestSession($organizer);
     $signature = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a2YAAAAASUVORK5CYII=';
+    $access = makeAttendanceAccessGrant($event);
 
-    $this->withSession(['attendance_event_id' => $event->id])
-        ->post(route('attendance.store', $event), [
+    $this->withSession($access['session'])
+        ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'Signed Attendee',
             'email' => 'signed@example.test',
