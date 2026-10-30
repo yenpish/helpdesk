@@ -1,17 +1,11 @@
 @php
     $appearanceUser = auth()->user();
-    $appearanceTheme = $appearanceUser?->appearance_theme === 'dark' ? 'dark' : 'light';
-    $appearanceAccents = [
-        'blue' => ['#2563EB', '#1D4ED8'],
-        'teal' => ['#0F766E', '#115E59'],
-        'violet' => ['#7C3AED', '#6D28D9'],
-        'amber' => ['#B45309', '#92400E'],
-    ];
-    $appearanceAccent = $appearanceAccents[$appearanceUser?->appearance_accent ?? 'blue']
-        ?? $appearanceAccents['blue'];
+    $appearanceTheme = in_array($appearanceUser?->appearance_theme, ['light', 'dark', 'midnight', 'ocean', 'forest'], true)
+        ? $appearanceUser->appearance_theme
+        : 'light';
 @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ $appearanceTheme }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -891,6 +885,7 @@
         .profile-name, .profile-action { color: var(--text); }
         .profile-email, .profile-role { color: var(--muted); }
         .profile-action:hover { background: var(--surface-raised); }
+        .profile-action.active { box-shadow: inset 2px 0 var(--blue); }
         .app-topbar { background: var(--topbar); border-color: #35404B; }
         .topbar-title, .topbar-user { color: #CCD2D8; }
         .app-topbar a { color: #E7EDF2; }
@@ -1357,69 +1352,157 @@
             .form-actions .btn { flex: 1 1 auto; }
         }
 
+        /* Complete palettes are selected on <html> so they are present before first paint. */
+        html[data-theme="light"] {
+            color-scheme: light;
+            --canvas: #F3F4F6; --sidebar: #22262B; --sidebar-raised: #343A40; --topbar: #20252A;
+            --surface: #FFFFFF; --surface-raised: #F0F1F2; --table-head: #E8EAEC; --line: #D6DADF;
+            --text: #1F2933; --muted: #66717D; --blue: #2563EB; --blue-hover: #1D4ED8;
+            --control: #FFFFFF; --control-text: #1F2933; --hover: #F1F3F5; --green: #2F855A;
+            --sidebar-text: #F3F5F7; --sidebar-muted: #C2C9D0; --sidebar-active-text: #FFFFFF;
+            --topbar-text: #F3F5F7; --topbar-muted: #C2C9D0;
+            --button: #2563EB; --button-hover: #1D4ED8; --button-text: #FFFFFF;
+            --success-bg: #EAF5EE; --success-text: #276749; --success-line: #A8D5BA;
+            --warning-bg: #F8F1E5; --warning-text: #805B18; --warning-line: #E3C995;
+            --danger-bg: #FAEEEE; --danger-text: #9B3533; --danger-line: #E2B5B3;
+        }
         html[data-theme="dark"] {
             color-scheme: dark;
-            --canvas: #111827;
-            --sidebar: #0B1220;
-            --sidebar-raised: #293548;
-            --topbar: #111827;
-            --surface: #1F2937;
-            --surface-raised: #273449;
-            --table-head: #263448;
-            --line: #3B4757;
-            --text: #E5E7EB;
-            --muted: #AAB6C4;
+            --canvas: #141618; --sidebar: #101214; --sidebar-raised: #2B2E31; --topbar: #191C1F;
+            --surface: #202326; --surface-raised: #2A2D30; --table-head: #303438; --line: #3C4145;
+            --text: #E5E7EB; --muted: #AAB6C4; --blue: #60A5FA; --blue-hover: #93C5FD;
+            --control: #17212E; --control-text: #E5E7EB; --hover: #2B394D; --green: #68C291;
+            --sidebar-text: #E5E7EB; --sidebar-muted: #AAB6C4; --sidebar-active-text: #FFFFFF;
+            --topbar-text: #E5E7EB; --topbar-muted: #AAB6C4;
+            --button: #1D4ED8; --button-hover: #1E40AF; --button-text: #FFFFFF;
+            --success-bg: #173629; --success-text: #B7E4C7; --success-line: #286044;
+            --warning-bg: #3A2D18; --warning-text: #F3D493; --warning-line: #715A2B;
+            --danger-bg: #3B2226; --danger-text: #F0B7B5; --danger-line: #704044;
+        }
+        html[data-theme="midnight"] {
+            color-scheme: dark;
+            --canvas: #131219; --sidebar: #0E0D13; --sidebar-raised: #292732; --topbar: #191821;
+            --surface: #211F28; --surface-raised: #2C2A34; --table-head: #33313C; --line: #45434F;
+            --text: #F0ECFA; --muted: #B9AECF; --blue: #C4B5FD; --blue-hover: #DDD6FE;
+            --control: #151025; --control-text: #F0ECFA; --hover: #342A4B; --green: #74C59A;
+            --sidebar-text: #F0ECFA; --sidebar-muted: #B9AECF; --sidebar-active-text: #FFFFFF;
+            --topbar-text: #F0ECFA; --topbar-muted: #B9AECF;
+            --button: #7C3AED; --button-hover: #6D28D9; --button-text: #FFFFFF;
+            --success-bg: #1D3A35; --success-text: #BDE8D4; --success-line: #356B5A;
+            --warning-bg: #43381F; --warning-text: #F4DE9C; --warning-line: #776232;
+            --danger-bg: #3E2436; --danger-text: #F4B8D2; --danger-line: #704259;
+        }
+        html[data-theme="ocean"] {
+            color-scheme: dark;
+            --canvas: #10181B; --sidebar: #0C1214; --sidebar-raised: #263337; --topbar: #151F22;
+            --surface: #1D292D; --surface-raised: #273438; --table-head: #303D41; --line: #3E4B4F;
+            --text: #E4F5F7; --muted: #A7C8CE; --blue: #7DD3FC; --blue-hover: #BAE6FD;
+            --control: #09212B; --control-text: #E4F5F7; --hover: #19404D; --green: #69C7A5;
+            --sidebar-text: #E4F5F7; --sidebar-muted: #A7C8CE; --sidebar-active-text: #FFFFFF;
+            --topbar-text: #E4F5F7; --topbar-muted: #A7C8CE;
+            --button: #0E7490; --button-hover: #155E75; --button-text: #FFFFFF;
+            --success-bg: #163A35; --success-text: #B8E8D9; --success-line: #2B6A5D;
+            --warning-bg: #3D351E; --warning-text: #F2DD9C; --warning-line: #756334;
+            --danger-bg: #3D2428; --danger-text: #F1B8B8; --danger-line: #704044;
+        }
+        html[data-theme="forest"] {
+            color-scheme: dark;
+            --canvas: #121815; --sidebar: #0D120F; --sidebar-raised: #29332D; --topbar: #171F1A;
+            --surface: #202923; --surface-raised: #2B352E; --table-head: #343E37; --line: #414B44;
+            --text: #ECF5EE; --muted: #B5C9B9; --blue: #91E0A5; --blue-hover: #B1F0BD;
+            --control: #142219; --control-text: #ECF5EE; --hover: #304936; --green: #75CE8D;
+            --sidebar-text: #ECF5EE; --sidebar-muted: #B5C9B9; --sidebar-active-text: #FFFFFF;
+            --topbar-text: #ECF5EE; --topbar-muted: #B5C9B9;
+            --button: #15803D; --button-hover: #166534; --button-text: #FFFFFF;
+            --success-bg: #203D2A; --success-text: #BFE8C6; --success-line: #3D7049;
+            --warning-bg: #40371D; --warning-text: #F2DC9A; --warning-line: #756333;
+            --danger-bg: #3C2525; --danger-text: #F0B8B2; --danger-line: #704443;
         }
 
-        html[data-theme="dark"] body { background: var(--canvas) !important; color: var(--text) !important; }
-        html[data-theme="dark"] .card,
-        html[data-theme="dark"] .dashboard-list,
-        html[data-theme="dark"] .table-container,
-        html[data-theme="dark"] .table-responsive,
-        html[data-theme="dark"] .events-table-wrapper,
-        html[data-theme="dark"] .events-empty,
-        html[data-theme="dark"] .content-panel,
-        html[data-theme="dark"] .attendance-lookup-modal-content,
-        html[data-theme="dark"] .guest-home,
-        html[data-theme="dark"] .empty-state,
-        html[data-theme="dark"] .stat,
-        html[data-theme="dark"] .attendee-details { background: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] .card-header,
-        html[data-theme="dark"] .table th,
-        html[data-theme="dark"] th,
-        html[data-theme="dark"] .events-table th { background: var(--surface-raised) !important; color: var(--muted) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] table,
-        html[data-theme="dark"] .table td,
-        html[data-theme="dark"] td { background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] input,
-        html[data-theme="dark"] textarea,
-        html[data-theme="dark"] select,
-        html[data-theme="dark"] .form-control,
-        html[data-theme="dark"] .form-select { background-color: #17212E !important; color: var(--text) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] .btn-secondary,
-        html[data-theme="dark"] .btn-outline-primary,
-        html[data-theme="dark"] .btn-outline-secondary,
-        html[data-theme="dark"] .event-action,
-        html[data-theme="dark"] .event-back { background: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] .btn-danger,
-        html[data-theme="dark"] .event-action-danger,
-        html[data-theme="dark"] form[onsubmit*="Delete"] button { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
-        html[data-theme="dark"] .alert-light { background: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--line) !important; }
-        html[data-theme="dark"] .alert-success,
-        html[data-theme="dark"] .events-message { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
-        html[data-theme="dark"] .alert-danger { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
-        html[data-theme="dark"] .event-status.published,
-        html[data-theme="dark"] .badge-success { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
-        html[data-theme="dark"] .event-status.draft,
-        html[data-theme="dark"] .badge-warning { background: #3A2D18 !important; color: #F3D493 !important; border-color: #715A2B !important; }
-        html[data-theme="dark"] .event-status.cancelled,
-        html[data-theme="dark"] .badge-danger { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
-        html[data-theme="dark"] .outcome-attended { background: #173629 !important; color: #B7E4C7 !important; border-color: #286044 !important; }
-        html[data-theme="dark"] .outcome-missed { background: #3B2226 !important; color: #F0B7B5 !important; border-color: #704044 !important; }
+        body, .app-shell, .app-main, .app-content { background: var(--canvas) !important; color: var(--text); }
+        .app-sidebar { background: var(--sidebar) !important; color: var(--text); border-color: var(--line); }
+        .app-brand, .app-brand:hover { color: var(--sidebar-text); border-color: var(--line); }
+        .sidebar-label, .profile-summary-role { color: var(--sidebar-muted); }
+        .sidebar-link { color: var(--sidebar-text); }
+        .sidebar-link:hover, .sidebar-link.active { background: var(--sidebar-raised); color: var(--sidebar-active-text); }
+        .app-topbar { background: var(--topbar) !important; border-color: var(--line); }
+        .topbar-title, .topbar-user, .app-topbar a { color: var(--topbar-text); }
+        .profile-menu summary { color: var(--text); }
+        .profile-menu summary:hover, .profile-menu[open] summary { background: var(--sidebar-raised); }
+
+        .card, .card-body, .content-panel, .panel, .dashboard-list, .dashboard-list-item,
+        .table-container, .table-responsive, .events-table-wrapper, .events-empty, .event-info > div,
+        .stat, .attendee-details, .empty-state, .public-event-card, .event-summary-row,
+        .guest-home, .session-information-card, .attendance-lookup-modal-content,
+        .modal-content, .modal-header, .modal-body, .modal-footer, .dropdown-menu,
+        .list-group-item, .profile-dropdown, .profile-action, .session-actions-menu,
+        .session-actions-menu a, .session-actions-menu button, dialog {
+            background-color: var(--surface) !important; color: var(--text); border-color: var(--line) !important;
+        }
+        .card-header, .table thead th, th, .events-table th { background: var(--table-head) !important; color: var(--muted); border-color: var(--line); }
+        table, .table, td, .table td { background-color: var(--surface); color: var(--text); border-color: var(--line); }
+        tbody tr:hover, .dashboard-list-item:hover, .profile-action:hover, .dropdown-item:hover,
+        .session-actions-menu a:hover, .session-actions-menu button:hover { background: var(--hover) !important; }
+        input, textarea, select, .form-control, .form-select {
+            background-color: var(--control) !important; color: var(--control-text) !important; border-color: var(--line) !important;
+        }
+        input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
+        input:focus, textarea:focus, select:focus { outline-color: var(--blue); }
+        label, .form-label, dt, .event-details-pair dt, .event-details-meta-row dt,
+        .text-dark, .text-body, .page-heading h1, h1, h2, h3, h4, strong { color: var(--text); }
+        p, small, .subtitle, .text-muted, .stat-label, .dashboard-list-item span { color: var(--muted); }
+        a { color: var(--blue); }
+        a:hover { color: var(--blue-hover); }
+        .btn-primary, .button, .dashboard-action, .session-primary-action,
+        .guest-button, .create-event-button { background: var(--button) !important; border-color: var(--button) !important; color: var(--button-text) !important; }
+        .btn-primary:hover, .button:hover, .dashboard-action:hover, .session-primary-action:hover,
+        .guest-button:hover, .create-event-button:hover { background: var(--button-hover) !important; border-color: var(--button-hover) !important; }
+        .btn-secondary, .btn-outline-primary, .btn-outline-secondary, .event-action, .event-back,
+        .page-link, .public-pagination-link, .public-pagination-disabled {
+            background: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important;
+        }
+        .btn-secondary:hover, .btn-outline-primary:hover, .btn-outline-secondary:hover, .event-action:hover, .event-back:hover { background: var(--surface-raised) !important; }
+        .btn-danger, .event-action-danger, form[onsubmit*="Delete"] button { background: var(--danger-bg) !important; border-color: var(--danger-line) !important; color: var(--danger-text) !important; }
+        .alert, .error, .success, .events-message { background: var(--surface-raised); color: var(--text); border-color: var(--line); }
+        .alert-success, .success, .events-message, .event-status.published, .badge-success, .outcome-attended { background: var(--success-bg) !important; color: var(--success-text) !important; border-color: var(--success-line) !important; }
+        .alert-warning, .event-status.draft, .badge-warning { background: var(--warning-bg) !important; color: var(--warning-text) !important; border-color: var(--warning-line) !important; }
+        .alert-danger, .error, .event-status.cancelled, .badge-danger, .outcome-missed { background: var(--danger-bg) !important; color: var(--danger-text) !important; border-color: var(--danger-line) !important; }
+        .pagination-wrap, .pagination-wrap nav, .pagination-wrap nav a, .pagination-wrap nav span,
+        .events-pagination-links a, .public-events-pagination, .session-attendance-pagination { color: var(--text); }
+        .attendance-signature-icon-button { color: var(--text) !important; }
+        .attendance-signature-icon-button:hover, .attendance-signature-icon-button:focus-visible { color: var(--text) !important; background: var(--hover) !important; }
+        .pagination .page-link, .pagination-wrap nav a, .pagination-wrap nav span { background: var(--surface) !important; color: var(--text) !important; border-color: var(--line) !important; }
+        .pagination .page-item.active .page-link, .pagination-wrap nav [aria-current="page"],
+        .events-pagination-links span[aria-current="page"], .public-pagination-link[aria-current="page"] { background: var(--button) !important; color: var(--button-text) !important; border-color: var(--button) !important; }
+        button:not(.profile-action):not(.session-actions-menu button) { background: var(--button); color: var(--button-text); }
+        button:not(.profile-action):not(.session-actions-menu button):hover { background: var(--button-hover); }
+
+        .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+        .theme-choice { position: relative; display: block; margin: 0; cursor: pointer; }
+        .theme-choice-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; border: 0; opacity: 0; }
+        .theme-choice-card { display: flex; min-height: 190px; flex-direction: column; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); transition: border-color .12s ease, box-shadow .12s ease; }
+        .theme-choice:hover .theme-choice-card { border-color: var(--blue); }
+        .theme-choice-input:checked + .theme-choice-card { border: 2px solid var(--blue); padding: 11px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 20%, transparent); }
+        .theme-choice-input:focus-visible + .theme-choice-card { outline: 3px solid var(--blue); outline-offset: 3px; }
+        .theme-preview { display: grid; height: 112px; grid-template-columns: 27% 1fr; overflow: hidden; border: 1px solid var(--preview-line); border-radius: 4px; background: var(--preview-canvas); }
+        .theme-preview-nav { background: var(--preview-nav); }
+        .theme-preview-main { display: flex; flex-direction: column; justify-content: space-between; padding: 12px; }
+        .theme-preview-panel { display: block; height: 52px; border: 1px solid var(--preview-line); border-radius: 3px; background: var(--preview-surface); }
+        .theme-preview-accent { display: block; width: 42px; height: 8px; border-radius: 4px; background: var(--preview-accent); }
+        .theme-choice-name { margin-top: 12px; font-weight: 600; }
+        .theme-choice-selected { margin-top: auto; color: var(--muted); font-size: 12px; visibility: hidden; }
+        .theme-choice-input:checked + .theme-choice-card .theme-choice-selected { color: var(--blue); visibility: visible; }
+        [data-preview-theme="light"] { --preview-canvas:#F3F4F6; --preview-nav:#20252A; --preview-surface:#fff; --preview-line:#D6DADF; --preview-accent:#2563EB; }
+        [data-preview-theme="dark"] { --preview-canvas:#141618; --preview-nav:#101214; --preview-surface:#202326; --preview-line:#3C4145; --preview-accent:#60A5FA; }
+        [data-preview-theme="midnight"] { --preview-canvas:#131219; --preview-nav:#0E0D13; --preview-surface:#211F28; --preview-line:#45434F; --preview-accent:#C4B5FD; }
+        [data-preview-theme="ocean"] { --preview-canvas:#10181B; --preview-nav:#0C1214; --preview-surface:#1D292D; --preview-line:#3E4B4F; --preview-accent:#7DD3FC; }
+        [data-preview-theme="forest"] { --preview-canvas:#121815; --preview-nav:#0D120F; --preview-surface:#202923; --preview-line:#414B44; --preview-accent:#91E0A5; }
+        .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+        @media (max-width: 600px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .theme-choice-card { min-height: 170px; } }
     </style>
 </head>
 
-<body data-theme="{{ $appearanceTheme }}" style="--blue: {{ $appearanceAccent[0] }}; --blue-hover: {{ $appearanceAccent[1] }};">
+<body>
 
 @auth
 
@@ -1441,12 +1524,6 @@
                         href="{{ route('home') }}"
                     >
                         Dashboard
-                    </a>
-                    <a
-                        class="sidebar-link {{ request()->routeIs('settings.*') ? 'active' : '' }}"
-                        href="{{ route('settings.edit') }}"
-                    >
-                        Settings
                     </a>
                 </div>
 
@@ -1556,6 +1633,13 @@
                             Profile
                         </a>
 
+                        <a
+                            class="profile-action {{ request()->routeIs('settings.*') ? 'active' : '' }}"
+                            href="{{ route('settings.edit') }}"
+                        >
+                            Appearance
+                        </a>
+
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
 
@@ -1631,6 +1715,21 @@
     </div>
 
 @endauth
+
+<script>
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.profile-menu[open]').forEach((menu) => {
+            if (!menu.contains(event.target)) menu.removeAttribute('open');
+        });
+        if (event.target.closest('.profile-menu a, .profile-menu button')) {
+            event.target.closest('.profile-menu')?.removeAttribute('open');
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') document.querySelectorAll('.profile-menu[open]').forEach((menu) => menu.removeAttribute('open'));
+    });
+</script>
 
 </body>
 </html>

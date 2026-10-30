@@ -9,26 +9,29 @@ use Illuminate\View\View;
 
 class AppearanceSettingsController extends Controller
 {
-    private const ACCENTS = [
-        'blue' => 'Blue',
-        'teal' => 'Teal',
-        'violet' => 'Violet',
-        'amber' => 'Amber',
+    private const THEMES = [
+        'light' => 'blue',
+        'dark' => 'blue',
+        'midnight' => 'violet',
+        'ocean' => 'teal',
+        'forest' => 'green',
     ];
 
     public function edit(): View
     {
-        return view('settings.appearance', ['accents' => self::ACCENTS]);
+        return view('settings.appearance', ['themes' => array_keys(self::THEMES)]);
     }
 
     public function update(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'appearance_theme' => ['required', Rule::in(['light', 'dark'])],
-            'appearance_accent' => ['required', Rule::in(array_keys(self::ACCENTS))],
+            'appearance_theme' => ['required', Rule::in(array_keys(self::THEMES))],
         ]);
 
-        $request->user()->update($validated);
+        $request->user()->update([
+            'appearance_theme' => $validated['appearance_theme'],
+            'appearance_accent' => self::THEMES[$validated['appearance_theme']],
+        ]);
 
         return redirect()->route('settings.edit')->with('status', 'Appearance settings saved.');
     }

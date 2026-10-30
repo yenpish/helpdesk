@@ -9,36 +9,44 @@ it('requires authentication to view appearance settings', function () {
     $this->get(route('settings.edit'))->assertRedirect(route('login'));
 });
 
-it('allows an authenticated user to save and retain appearance preferences', function () {
+it('offers and persists each supported theme for the authenticated user', function () {
     $user = User::factory()->create();
+    $themes = ['light', 'dark', 'midnight', 'ocean', 'forest'];
 
-    $this->actingAs($user)
-        ->get(route('settings.edit'))
+    $this->actingAs($user)->get(route('settings.edit'))
         ->assertOk()
-        ->assertSee('Appearance');
+        ->assertSee('Choose a theme')
+        ->assertSee('Save Theme')
+        ->assertDontSee('appearance_accent')
+        ->assertSee("input.addEventListener('change'", false)
+        ->assertSee('document.documentElement.dataset.theme = input.value', false);
 
-    $this->put(route('settings.appearance.update'), [
-        'appearance_theme' => 'dark',
-        'appearance_accent' => 'teal',
-    ])->assertRedirect(route('settings.edit'))
-        ->assertSessionHas('status', 'Appearance settings saved.');
+    $appearanceResponse = $this->get(route('settings.edit'));
+    foreach ($themes as $theme) {
+        $appearanceResponse->assertSee('for="theme-'.$theme.'"', false)
+            ->assertSee('html[data-theme="'.$theme.'"]', false);
+    }
+
+    foreach ($themes as $theme) {
+        $this->put(route('settings.appearance.update'), ['appearance_theme' => $theme])
+            ->assertRedirect(route('settings.edit'));
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('data-theme="'.$theme.'"', false);
+
+        expect($user->fresh()->appearance_theme)->toBe($theme);
+    }
 
     auth()->logout();
-
     $this->post(route('login'), [
         'email' => $user->email,
         'password' => 'password',
     ])->assertRedirect();
 
-    $this->get(route('settings.edit'))
+    $this->get(route('home'))
         ->assertOk()
-        ->assertSee('data-theme="dark"', false)
-        ->assertSee('--blue: #0F766E', false)
-        ->assertSee('value="dark" selected', false)
-        ->assertSee('value="teal" selected', false);
-
-    expect($user->fresh()->appearance_theme)->toBe('dark')
-        ->and($user->fresh()->appearance_accent)->toBe('teal');
+        ->assertSee('data-theme="forest"', false);
 });
 
 it('keeps appearance preferences isolated between users', function () {
@@ -46,47 +54,58 @@ it('keeps appearance preferences isolated between users', function () {
     $secondUser = User::factory()->create();
 
     $this->actingAs($firstUser)->put(route('settings.appearance.update'), [
-        'appearance_theme' => 'dark',
-        'appearance_accent' => 'violet',
+        'appearance_theme' => 'midnight',
     ])->assertRedirect(route('settings.edit'));
 
     $this->actingAs($secondUser)
         ->get(route('settings.edit'))
         ->assertOk()
-        ->assertSee('data-theme="light"', false)
-        ->assertSee('--blue: #2563EB', false);
+        ->assertSee('data-theme="light"', false);
 
-    expect($firstUser->fresh()->appearance_theme)->toBe('dark')
-        ->and($firstUser->fresh()->appearance_accent)->toBe('violet')
-        ->and($secondUser->fresh()->appearance_theme)->toBe('light')
-        ->and($secondUser->fresh()->appearance_accent)->toBe('blue');
+    expect($firstUser->fresh()->appearance_theme)->toBe('midnight')
+        ->and($secondUser->fresh()->appearance_theme)->toBe('light');
 });
 
-it('rejects invalid theme and accent values', function () {
+it('rejects unsupported themes without changing the saved preference', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->from(route('settings.edit'))
-        ->put(route('settings.appearance.update'), [
-            'appearance_theme' => 'system',
-            'appearance_accent' => 'url(javascript:alert(1))',
-        ])
+        ->put(route('settings.appearance.update'), ['appearance_theme' => 'system'])
         ->assertRedirect(route('settings.edit'))
-        ->assertSessionHasErrors(['appearance_theme', 'appearance_accent']);
+        ->assertSessionHasErrors(['appearance_theme']);
 
-    expect($user->fresh()->appearance_theme)->toBe('light')
-        ->and($user->fresh()->appearance_accent)->toBe('blue');
+    expect($user->fresh()->appearance_theme)->toBe('light');
 });
 
-it('gives existing users the current light blue appearance by default', function () {
+it('defaults existing users to light and shows account actions without a sidebar settings item', function () {
     $user = User::factory()->create();
 
-    expect($user->fresh()->appearance_theme)->toBe('light')
-        ->and($user->fresh()->appearance_accent)->toBe('blue');
+    expect($user->fresh()->appearance_theme)->toBe('light');
 
     $this->actingAs($user)
         ->get(route('home'))
         ->assertOk()
         ->assertSee('data-theme="light"', false)
-        ->assertSee('--blue: #2563EB', false);
+        ->assertSee('--sidebar-muted: #C2C9D0', false)
+        ->assertSee('.sidebar-link { color: var(--sidebar-text); }', false)
+        ->assertSee('href="'.route('settings.edit').'"', false)
+        ->assertSee('Appearance')
+        ->assertSee('Profile')
+        ->assertSee('action="'.route('logout').'"', false)
+        ->assertDontSee('Settings');
+});
+
+it('preserves the existing csrf-protected logout action', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('home'))
+        ->assertOk()
+        ->assertSee('action="'.route('logout').'"', false)
+        ->assertSee('name="_token"', false);
+
+    $this->post(route('logout'))->assertRedirect();
+
+    $this->assertGuest();
 });
