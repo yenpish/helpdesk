@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Attendance extends Model
 {
@@ -17,12 +18,10 @@ class Attendance extends Model
         'signature',
         'clock_in_at',
         'clock_out_at',
-        'client_submitted_at',
         'latitude',
         'longitude',
         'accuracy',
         'verification_method',
-        'offline_submission_id',
         'location_id',
         'distance_from_site',
         'within_site',
@@ -53,5 +52,10 @@ class Attendance extends Model
     public function session(): BelongsTo
     {
         return $this->belongsTo(EventSession::class, 'session_id');
+    }
+
+    public function feedbackInvitation(): HasOne
+    {
+        return $this->hasOne(FeedbackInvitation::class);
     }
 }

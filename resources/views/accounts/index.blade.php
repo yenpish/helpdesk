@@ -32,14 +32,7 @@
                             <td><strong>{{ $user->name }}</strong>@if($user->id === auth()->id()) <span class="text-muted">(you)</span>@endif</td>
                             <td>{{ $user->email }}</td>
                             <td>
-                                <span class="role-label">
-                                    @switch($user->role)
-                                        @case('admin') System Admin @break
-                                        @case('organizer') Organizer @break
-                                        @case('user') User @break
-                                        @default Legacy role
-                                    @endswitch
-                                </span>
+                                <span class="role-label">{{ $user->roleDefinition?->name ?? 'Unassigned legacy role' }}</span>
                             </td>
                             <td>{{ $user->created_at?->format('d M Y') }}</td>
                             <td class="actions-cell">

@@ -11,7 +11,7 @@
             </div>
 
             <div class="d-flex gap-2">
-                @if ($event->status === 'draft')
+                @if ($event->status === 'draft' && auth()->user()->hasPermission('events.publish'))
                     <form action="{{ route('events.publish', $event) }}"
                         method="POST"
                         onsubmit="return confirm('Are you sure you want to publish this event?');">
@@ -22,12 +22,30 @@
                     </form>
                 @endif
 
-                <a
-                    href="{{ route('feedback.index', $event) }}"
-                    class="btn btn-outline-secondary"
-                >
-                    Feedback Results
-                </a>
+                    @if (
+                        $event->ends_at !== null
+                        && $event->ends_at->lte(now())
+                        && $event->ends_at->gte(now()->subDays(7))
+                    )
+                        <form
+                            method="POST"
+                            action="{{ route('feedback.invitations.send', $event) }}"
+                            class="d-inline"
+                            onsubmit="return confirm('Send feedback invitations to all recorded attendees?');"
+                        >
+                            @csrf
+                            <button type="submit" class="btn btn-primary">
+                                Send Feedback Invitations
+                            </button>
+                        </form>
+                    @endif
+
+                    <a
+                        href="{{ route('feedback.index', $event) }}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Feedback Results
+                    </a>
 
                 <a href="{{ route('events.edit', $event) }}" class="btn btn-outline-secondary">
                     Edit Event
@@ -50,6 +68,50 @@
             <div><dt>Pre-registrations</dt><dd>{{ $event->registrations->count() }}</dd></div>
             <div><dt>Attendance records</dt><dd>{{ $event->attendances_count }}</dd></div>
         </dl>
+
+        <section class="card mb-4" aria-labelledby="event-notifications-heading">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span id="event-notifications-heading">Email notifications</span>
+                <small class="text-muted">Transport acceptance does not confirm delivery to the recipient’s inbox.</small>
+            </div>
+            <div class="card-body py-2">
+                @forelse($notificationBatches as $batch)
+                    <div class="d-flex justify-content-between align-items-center gap-2 py-2 border-bottom flex-wrap">
+                        <div>
+                            <strong>{{ [
+                                'published' => 'Event published',
+                                'updated' => 'Event updated',
+                                'cancelled' => 'Event cancelled',
+                                'reminder_24h' => 'Reminder · 24 hours before',
+                                'reminder_1h' => 'Reminder · 1 hour before',
+                            ][$batch['type']] ?? 'Event notification' }}</strong>
+                            <small class="text-muted ms-2">{{ \Illuminate\Support\Carbon::parse($batch['created_at'])->format('d M Y, h:i A') }}</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <small class="d-flex flex-wrap gap-3">
+                                @if ($batch['accepted'] > 0)
+                                    <span>{{ $batch['accepted'] }} Transport accepted</span>
+                                @endif
+                                @if ($batch['failed'] > 0)
+                                    <span>{{ $batch['failed'] }} Failed</span>
+                                @endif
+                                @if ($batch['pending'] > 0)
+                                    <span>{{ $batch['pending'] }} Pending</span>
+                                @endif
+                            </small>
+                            @if($batch['failed'] > 0)
+                                <form method="POST" action="{{ route('events.notifications.retry', [$event, $batch['key']]) }}">
+                                    @csrf
+                                    <button class="btn btn-outline-secondary btn-sm" type="submit">Retry failed</button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                @empty
+                    <span class="text-muted">No notification history.</span>
+                @endforelse
+            </div>
+        </section>
 
         <div class="card mb-4">
             <div class="card-header">

@@ -131,6 +131,10 @@
             margin-top: 8px;
         }
 
+        .attendance-request-status {
+            margin: 0 0 12px;
+        }
+
         .attendance-lookup-modal {
             position: fixed;
             inset: 0;
@@ -210,6 +214,8 @@
             @endforeach
         </div>
     @endif
+
+    <div id="attendance-request-status" class="error attendance-request-status" role="alert" aria-live="assertive" hidden></div>
 
     @if ($sessions->count())
 
@@ -624,6 +630,49 @@
 
             form.addEventListener('submit', () => {
                 signature.value = getSubmissionSignature();
+            });
+        }
+
+        const attendanceForm = document.getElementById('attendance-form');
+        const requestStatus = document.getElementById('attendance-request-status');
+
+        if (attendanceForm && requestStatus) {
+            let submitting = false;
+            const submitButton = attendanceForm.querySelector('button[type="submit"]');
+
+            attendanceForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                if (submitting || !attendanceForm.reportValidity()) return;
+
+                submitting = true;
+                requestStatus.hidden = true;
+                if (submitButton) submitButton.disabled = true;
+
+                try {
+                    const response = await fetch(attendanceForm.action, {
+                        method: 'POST',
+                        body: new FormData(attendanceForm),
+                        credentials: 'same-origin',
+                        headers: { Accept: 'text/html' },
+                    });
+
+                    if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
+                        document.open();
+                        document.write(await response.text());
+                        document.close();
+                        return;
+                    }
+
+                    requestStatus.textContent = response.status === 419
+                        ? 'This page expired before attendance could be confirmed. Reload it and try again.'
+                        : 'The server could not confirm your attendance. Your entries are still here; try again in a moment. Duplicate check-in protection remains active.';
+                } catch (error) {
+                    requestStatus.textContent = 'A server connection is required to submit attendance. Your attendance was not confirmed; reconnect and try again. Duplicate check-in protection remains active.';
+                }
+
+                requestStatus.hidden = false;
+                submitting = false;
+                if (submitButton) submitButton.disabled = false;
             });
         }
 

@@ -59,10 +59,12 @@ it('counts published sessions for the organizer and check-ins by their recorded 
     dashboardCheckIn($publishedSession, 'published@example.test', '2026-10-09 09:15:00');
     dashboardCheckIn($draftSession, 'draft@example.test', '2026-10-09 09:30:00');
     dashboardCheckIn($otherSession, 'other@example.test', '2026-10-09 09:45:00');
-    Attendance::create([
+    // Legacy timestamp fixture: preserve dashboard reporting without allowing
+    // normal attendance submissions to write client-controlled timestamps.
+    Attendance::forceCreate([
         'session_id' => $draftSession->id,
-        'full_name' => 'Offline Attendee',
-        'email' => 'offline@example.test',
+        'full_name' => 'Legacy Timestamp Attendee',
+        'email' => 'legacy-timestamp@example.test',
         'client_submitted_at' => '2026-10-08 23:50:00',
         'created_at' => '2026-10-09 09:30:00',
         'updated_at' => '2026-10-09 09:30:00',

@@ -1,11 +1,22 @@
 @php
+    $appearanceOptions = config('appearance');
     $appearanceUser = auth()->user();
-    $appearanceTheme = in_array($appearanceUser?->appearance_theme, ['light', 'dark', 'midnight', 'ocean', 'forest'], true)
+    $appearanceTheme = array_key_exists($appearanceUser?->appearance_theme, $appearanceOptions['themes'])
         ? $appearanceUser->appearance_theme
-        : 'light';
+        : $appearanceOptions['defaults']['theme'];
+    $appearanceAccent = array_key_exists($appearanceUser?->appearance_accent, $appearanceOptions['accents'])
+        ? $appearanceUser->appearance_accent
+        : $appearanceOptions['defaults']['accent'];
+    $appearanceDensity = array_key_exists($appearanceUser?->appearance_density, $appearanceOptions['density'])
+        ? $appearanceUser->appearance_density
+        : $appearanceOptions['defaults']['density'];
+    $appearanceSidebar = array_key_exists($appearanceUser?->appearance_sidebar, $appearanceOptions['sidebar'])
+        ? $appearanceUser->appearance_sidebar
+        : $appearanceOptions['defaults']['sidebar'];
+    $appearanceGradients = (bool) ($appearanceUser?->appearance_gradients ?? $appearanceOptions['defaults']['gradients']);
 @endphp
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ $appearanceTheme }}">
+<html lang="en" data-theme="{{ $appearanceTheme }}" data-accent="{{ $appearanceAccent }}" data-density="{{ $appearanceDensity }}" data-sidebar="{{ $appearanceSidebar }}" data-gradients="{{ $appearanceGradients ? 'on' : 'off' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1138,6 +1149,16 @@
         .events-page .event-actions .inline-form { margin: 0; }
         .events-page .events-pagination { margin-top: 16px; }
         .container > form, .card-body > form { max-width: 780px; margin-inline: auto; }
+        .feedback-content {
+            max-width: 780px;
+            margin-inline: auto;
+        }
+
+        .feedback-content form {
+            width: 100%;
+            max-width: 100%;
+            margin-inline: 0;
+        }
         .account-form { max-width: 680px; margin-inline: auto; }
         .profile-menu summary:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
         button:not(.profile-action):not(.session-actions-menu button) { background: var(--blue); color: #fff; font-weight: 600; }
@@ -1582,13 +1603,133 @@
         .theme-choice-name { margin-top: 12px; font-weight: 600; }
         .theme-choice-selected { margin-top: auto; color: var(--muted); font-size: 12px; visibility: hidden; }
         .theme-choice-input:checked + .theme-choice-card .theme-choice-selected { color: var(--blue); visibility: visible; }
-        [data-preview-theme="light"] { --preview-canvas:#F3F4F6; --preview-nav:#20252A; --preview-surface:#fff; --preview-line:#D6DADF; --preview-accent:#2563EB; }
-        [data-preview-theme="dark"] { --preview-canvas:#141618; --preview-nav:#101214; --preview-surface:#202326; --preview-line:#3C4145; --preview-accent:#60A5FA; }
-        [data-preview-theme="midnight"] { --preview-canvas:#131219; --preview-nav:#0E0D13; --preview-surface:#211F28; --preview-line:#45434F; --preview-accent:#C4B5FD; }
-        [data-preview-theme="ocean"] { --preview-canvas:#10181B; --preview-nav:#0C1214; --preview-surface:#1D292D; --preview-line:#3E4B4F; --preview-accent:#7DD3FC; }
-        [data-preview-theme="forest"] { --preview-canvas:#121815; --preview-nav:#0D120F; --preview-surface:#202923; --preview-line:#414B44; --preview-accent:#91E0A5; }
+        @foreach($appearanceOptions['themes'] as $themeKey => $theme)
+            [data-preview-theme="{{ $themeKey }}"] {
+                --preview-canvas: {{ $theme['preview']['canvas'] }};
+                --preview-nav: {{ $theme['preview']['nav'] }};
+                --preview-surface: {{ $theme['preview']['surface'] }};
+                --preview-line: {{ $theme['preview']['line'] }};
+            }
+        @endforeach
         .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
         @media (max-width: 600px) { .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .theme-choice-card { min-height: 170px; } }
+
+        /* Roles & Permissions page: compact, theme-aware form and role cards. */
+        .roles-page { max-width: 1180px; }
+        .roles-page .content-panel { max-width: none; margin-inline: 0; padding: 16px 18px; }
+        .roles-page .role-create-panel h2, .roles-page > section > h2 { margin: 0 0 12px; font-size: 18px; }
+        .roles-page .account-form { max-width: none; margin-inline: 0; }
+        .roles-page .field { margin-bottom: 12px; }
+        .roles-page .field > label:not(.role-permission-option) { display: block; margin-bottom: 5px; }
+        .roles-page .role-permissions { min-width: 0; margin: 7px 0 12px; padding: 0; border: 0; }
+        .roles-page .role-permissions legend { float: none; width: auto; margin: 0 0 7px; padding: 0; color: var(--text); font-size: 14px; font-weight: 600; }
+        .roles-page .role-permissions-create { display: grid; gap: 6px; }
+        .roles-page .role-permissions-edit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 16px; }
+        .roles-page .role-permissions-edit legend { grid-column: 1 / -1; }
+        .roles-page .role-permission-option { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--text); font-size: 14px; font-weight: 400; line-height: 1.35; }
+        .roles-page .role-permission-option input[type="checkbox"] { flex: 0 0 16px; width: 16px !important; min-width: 16px; height: 16px !important; margin: 0 !important; padding: 0 !important; accent-color: var(--blue); }
+        .roles-page .form-actions { gap: 8px; margin-top: 10px; }
+        .roles-page .role-card { margin-bottom: 10px !important; padding: 14px 18px; }
+        .roles-page .role-card-header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 7px; }
+        .roles-page .role-card-header h3 { color: var(--text); font-size: 16px; }
+        .roles-page .role-card-header p { font-size: 12px; }
+        .roles-page .role-system-note { color: var(--muted); font-size: 13px; line-height: 1.4; }
+        .roles-page .role-edit-form .field:first-child { max-width: 420px; }
+        .roles-page .role-edit-form { max-width: none; margin: 0; }
+        .roles-page .role-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+        .roles-page .role-card-actions form { display: block; margin: 0; }
+        .roles-page .role-card small { font-size: 12px; }
+        @media (max-width: 600px) {
+            .roles-page .content-panel { padding: 14px; }
+            .roles-page .role-permissions-edit { grid-template-columns: 1fr; }
+        }
+
+        /* Accent choices come from config/appearance.php so previews and saved palettes share one source. */
+        @foreach($appearanceOptions['accents'] as $accentKey => $accent)
+            @foreach($appearanceOptions['themes'] as $themeKey => $theme)
+                html[data-theme="{{ $themeKey }}"][data-accent="{{ $accentKey }}"] {
+                    --blue: {{ $themeKey === 'light' ? $accent['light'] : $accent['dark'] }};
+                    --blue-hover: {{ $themeKey === 'light' ? $accent['light_hover'] : $accent['dark_hover'] }};
+                    --button: {{ $accent['button'] }};
+                    --button-hover: {{ $accent['button_hover'] }};
+                    --accent-swatch: {{ $accent['swatch'] }};
+                    --button-gradient: {{ $appearanceOptions['gradients'][$accent['gradient']] }};
+                }
+            @endforeach
+        @endforeach
+        html[data-accent] .sidebar-link.active { box-shadow: inset 2px 0 var(--blue); }
+        html[data-accent] .profile-action.active { box-shadow: inset 2px 0 var(--blue); }
+        html[data-sidebar="wide"] .app-sidebar { width: 260px; }
+        html[data-sidebar="wide"] .app-main { width: calc(100% - 260px); margin-left: 260px; }
+        html[data-density="compact"] .app-content { padding-block: 20px; }
+        html[data-density="compact"] .content-panel { padding-top: 18px; padding-bottom: 18px; }
+        html[data-density="compact"] .field { margin-bottom: 12px; }
+        html[data-density="compact"] .app-content table th { padding-top: 9px; padding-bottom: 9px; }
+        html[data-density="compact"] .app-content table td { padding-top: 9px; padding-bottom: 9px; }
+        html[data-density="compact"] .sidebar-link { padding-top: 8px; padding-bottom: 8px; }
+        html[data-gradients="on"] .btn-primary,
+        html[data-gradients="on"] .button,
+        html[data-gradients="on"] .dashboard-action,
+        html[data-gradients="on"] .session-primary-action,
+        html[data-gradients="on"] .guest-button,
+        html[data-gradients="on"] .create-event-button { background-image: var(--button-gradient) !important; }
+
+        .appearance-page { max-width: 1160px; padding: 28px; }
+        .appearance-page .content-panel { max-width: none; }
+        .appearance-page-header { margin-bottom: 12px; }
+        .appearance-page-header .page-heading p { margin: 3px 0 0; }
+        .appearance-page h1 { margin-bottom: 0; }
+        .settings-section { padding: 16px 0; border-top: 1px solid var(--line); }
+        .settings-section:first-of-type { border-top: 0; padding-top: 4px; }
+        .settings-section-heading { margin-bottom: 10px; }
+        .appearance-page .settings-section-heading h2 { margin: 0; font-size: 18px; }
+        .appearance-page .settings-label { display: block; margin: 0 0 7px; color: var(--text); font-size: 14px; font-weight: 600; }
+        .settings-fieldset { min-width: 0; margin: 0 0 13px; padding: 0; border: 0; }
+        .theme-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+        .appearance-page .theme-choice-card { min-height: 0; padding: 7px; border-radius: 6px; }
+        .appearance-page .theme-choice-input:checked + .theme-choice-card { padding: 6px; }
+        .appearance-page .theme-choice-input:focus-visible + .theme-choice-card { outline: 3px solid var(--blue); outline-offset: 2px; }
+        .appearance-page .theme-preview { height: 58px; grid-template-columns: 22% 1fr; }
+        .appearance-page .theme-preview-main { padding: 6px; }
+        .appearance-page .theme-preview-panel { height: 25px; }
+        .appearance-page .theme-preview-accent { width: 28px; height: 5px; background: var(--button); }
+        .appearance-page .theme-choice-name { margin-top: 6px; font-size: 13px; }
+        .accent-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px 10px; max-width: 850px; }
+        .appearance-page .accent-choice { display: flex; min-width: 0; align-items: center; gap: 7px; margin: 0; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--text); cursor: pointer; font-size: 13px; }
+        .accent-choice:focus-within { outline: 2px solid var(--blue); outline-offset: 1px; }
+        .accent-choice input { flex: 0 0 auto; width: 14px !important; height: 14px !important; margin: 0 !important; accent-color: var(--blue); }
+        .accent-choice input:checked + .accent-swatch { outline: 2px solid var(--text); outline-offset: 2px; }
+        .accent-swatch { flex: 0 0 14px; width: 14px; height: 14px; border: 1px solid #0003; border-radius: 50%; background: var(--swatch); }
+        .gradient-setting { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; gap: 8px; width: fit-content; max-width: 100%; }
+        .gradient-setting > input { width: 16px !important; height: 16px !important; margin: 0 !important; accent-color: var(--blue); }
+        .gradient-setting label { display: block; margin: 0; cursor: pointer; }
+        .gradient-setting .settings-label { margin: 0; }
+        .gradient-setting small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .settings-preference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 700px; }
+        .settings-field .settings-label { margin-bottom: 5px; }
+        .appearance-page .settings-field select { width: 100%; min-height: 40px; }
+        .appearance-actions { display: flex; justify-content: flex-end; padding-top: 4px; }
+        .appearance-dirty-bar { position: sticky; z-index: 20; bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: 0 4px 16px #0002; color: var(--text); }
+        .appearance-dirty-bar[hidden] { display: none !important; }
+        .appearance-dirty-bar > span { font-size: 13px; font-weight: 600; }
+        .appearance-dirty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        @media (max-width: 700px) {
+            html[data-sidebar="wide"] .app-sidebar { width: 100%; }
+            html[data-sidebar="wide"] .app-main { width: 100%; margin-left: 0; }
+            .settings-preference-grid { grid-template-columns: 1fr; }
+            .appearance-dirty-bar { align-items: flex-start; flex-direction: column; }
+            .appearance-dirty-actions { width: 100%; }
+            .appearance-dirty-actions .btn { flex: 1 1 auto; }
+        }
+        @media (max-width: 600px) {
+            .appearance-page { padding: 16px; }
+            .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .accent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 701px) and (max-width: 900px) {
+            html[data-sidebar="wide"] .app-sidebar { width: 210px; }
+            html[data-sidebar="wide"] .app-main { width: calc(100% - 210px); margin-left: 0; }
+        }
     </style>
 </head>
 
@@ -1606,16 +1747,18 @@
 
             <div class="sidebar-content">
 
-                <div class="sidebar-section">
-                    <div class="sidebar-label">Overview</div>
+                @if(auth()->user()->hasPermission('dashboard.view'))
+                    <div class="sidebar-section">
+                        <div class="sidebar-label">Overview</div>
 
-                    <a
-                        class="sidebar-link {{ request()->routeIs('home') ? 'active' : '' }}"
-                        href="{{ route('home') }}"
-                    >
-                        Dashboard
-                    </a>
-                </div>
+                        <a
+                            class="sidebar-link {{ request()->routeIs('home') ? 'active' : '' }}"
+                            href="{{ route('home') }}"
+                        >
+                            Dashboard
+                        </a>
+                    </div>
+                @endif
 
                 <div class="sidebar-section">
                     <div class="sidebar-label">Attendance &amp; pre-registration</div>
@@ -1634,7 +1777,7 @@
                         Browse Events
                     </a>
 
-                    @if(in_array(auth()->user()->role, ['admin', 'organizer']))
+                    @if(auth()->user()->hasPermission('events.manage'))
                         <a
                             class="sidebar-link {{ request()->routeIs('events.*') ? 'active' : '' }}"
                             href="{{ route('events.index') }}"
@@ -1654,6 +1797,13 @@
                             href="{{ route('accounts.index') }}"
                         >
                             User Accounts
+                        </a>
+
+                        <a
+                            class="sidebar-link {{ request()->routeIs('roles.*') ? 'active' : '' }}"
+                            href="{{ route('roles.index') }}"
+                        >
+                            Roles &amp; Permissions
                         </a>
 
                         <a
@@ -1696,7 +1846,7 @@
                         </span>
 
                         <span class="profile-summary-role">
-                            {{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}
+                            {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
                         </span>
                     </summary>
 
@@ -1712,7 +1862,7 @@
                             </span>
 
                             <span class="profile-role">
-                                Role: {{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}
+                                Role: {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
                             </span>
                         </div>
 
@@ -1766,7 +1916,7 @@
                             <strong class="profile-name">{{ auth()->user()->name }}</strong>
                             <span class="profile-email">{{ auth()->user()->email }}</span>
                             <span class="profile-role">
-                Role: {{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}
+                Role: {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
             </span>
                         </div>
 

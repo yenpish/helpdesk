@@ -173,6 +173,21 @@
                         </select>
                     </div>
 
+                    <fieldset class="event-reminder-settings mb-3">
+                        <legend class="fs-6 mb-2">Automatic reminders</legend>
+                        <div class="event-reminder-options">
+                            <label class="event-reminder-option">
+                                <input class="event-reminder-checkbox" type="checkbox" name="reminder_24h" value="1" @checked(old('reminder_24h', $event->reminder_24h))>
+                                <span>24 hours before</span>
+                            </label>
+                            <label class="event-reminder-option">
+                                <input class="event-reminder-checkbox" type="checkbox" name="reminder_1h" value="1" @checked(old('reminder_1h', $event->reminder_1h))>
+                                <span>1 hour before</span>
+                            </label>
+                        </div>
+                        <small class="text-muted">Sent to approved pre-registrants while the event is published.</small>
+                    </fieldset>
+
                     <div class="alert alert-light border">
                         <strong>Session schedule</strong>
                         <div class="text-muted mt-1">
@@ -207,6 +222,34 @@
     </div>
 
     <style>
+        .event-reminder-settings {
+            color: var(--text);
+        }
+
+        .event-reminder-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 24px;
+        }
+
+        .event-reminder-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 28px;
+            margin: 0;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .event-reminder-checkbox {
+            flex: 0 0 16px;
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            accent-color: var(--blue);
+        }
+
         #reschedule-confirmation {
             width: min(460px, calc(100% - 32px));
             padding: 24px;

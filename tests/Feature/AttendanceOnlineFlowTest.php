@@ -35,23 +35,18 @@ it('records an ordinary online attendance submission against its selected sessio
 
     $access = makeAttendanceAccessGrant($event);
     $this->withSession($access['session'])
-        ->withHeader('X-Attendance-Sync', '1')
         ->post(route('attendance.store', ['access' => $access['access']]), [
             'session_id' => $session->id,
             'full_name' => 'Online Attendee',
             'email' => 'online@example.test',
             'phone' => '60125902441',
-            'offline_submission_id' => '86de5837-94c7-488c-b6aa-6361952b2cab',
-            'client_submitted_at' => now()->subYear()->toDateTimeString(),
         ])
         ->assertOk()
         ->assertViewIs('attendance.success');
 
     expect(Attendance::count())->toBe(1)
         ->and(Attendance::sole()->session_id)->toBe($session->id)
-        ->and(Attendance::sole()->email)->toBe('online@example.test')
-        ->and(Attendance::sole()->offline_submission_id)->toBeNull()
-        ->and(Attendance::sole()->client_submitted_at)->toBeNull();
+        ->and(Attendance::sole()->email)->toBe('online@example.test');
 });
 
 it('continues to reject a duplicate check-in for the same session', function () {
@@ -99,7 +94,7 @@ it('rejects online attendance outside the session attendance window', function (
     expect(Attendance::count())->toBe(0);
 });
 
-it('renders the public form without offline queue assets or cache markers', function () {
+it('renders the online attendance form with connection feedback and legacy worker cleanup', function () {
     [$event] = makeOnlineAttendanceFixture();
     $access = makeAttendanceAccessGrant($event);
 
@@ -107,8 +102,11 @@ it('renders the public form without offline queue assets or cache markers', func
         ->get(route('attendance.form', ['access' => $access['access']]))
         ->assertOk()
         ->assertSee('id="attendance-form"', false)
+        ->assertSee('A server connection is required to submit attendance.')
         ->assertSee('attendance-service-worker-cleanup.js')
         ->assertDontSee('attendance-offline-sync.js')
+        ->assertDontSee('indexedDB')
+        ->assertDontSee('localStorage')
         ->assertHeaderMissing('X-Attendance-Offline-Cache');
 });
 

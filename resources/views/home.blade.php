@@ -116,7 +116,9 @@
                                 <strong>Pending pre-registrations</strong>
                                 <span>{{ $pendingPreRegistrations }} pending across {{ $pendingPreRegistrationEvents->count() }} {{ \Illuminate\Support\Str::plural('event', $pendingPreRegistrationEvents->count()) }}</span>
                             </div>
-                            <a class="btn btn-secondary btn-sm" href="{{ route('events.index') }}">View events</a>
+                            @if(auth()->user()->hasPermission('events.manage'))
+                                <a class="btn btn-secondary btn-sm" href="{{ route('events.index') }}">View events</a>
+                            @endif
                         </div>
                     @endif
 

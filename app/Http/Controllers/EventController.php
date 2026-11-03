@@ -7,6 +7,8 @@ use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\EventType;
 use App\Models\Location;
+use App\Support\SessionScheduleConflictChecker;
+use App\Services\EventNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -193,8 +195,6 @@ class EventController extends Controller
         $validated['status'] = 'draft';
         $validated['pin'] = $this->generateEventPin();
 
-        $event = Event::create($validated);
-
         /*
          * Automatically create one Session per calendar day.
          *
@@ -209,8 +209,26 @@ class EventController extends Controller
          */
         $eventStart = Carbon::parse($validated['starts_at']);
         $eventEnd = Carbon::parse($validated['ends_at']);
+        $generatedSchedules = $this->sessionScheduleFor($eventStart, $eventEnd);
 
-        foreach ($this->sessionScheduleFor($eventStart, $eventEnd) as $index => $schedule) {
+        if (filled($validated['location_id'] ?? null)) {
+            $conflictMessage = app(SessionScheduleConflictChecker::class)->conflictMessage(
+                (int) $validated['location_id'],
+                collect($generatedSchedules)->values()->map(fn (array $schedule, int $index) => [
+                    ...$schedule,
+                    'name' => 'Session ' . ($index + 1),
+                    'event_name' => $validated['name'],
+                ])->all()
+            );
+
+            if ($conflictMessage !== null) {
+                return back()->withInput()->withErrors(['starts_at' => $conflictMessage]);
+            }
+        }
+
+        $event = Event::create($validated);
+
+        foreach ($generatedSchedules as $index => $schedule) {
             $event->sessions()->create([
                 'name' => 'Session ' . ($index + 1),
                 'description' => null,
@@ -254,7 +272,23 @@ public function show(Event $event): View
         $event->loadCount('attendances');
         $event->sessions->loadCount('attendances');
 
-        return view('events.show', compact('event'));
+        $notificationBatches = $event->notificationDeliveries()
+            ->latest()
+            ->get()
+            ->groupBy('notification_key')
+            ->take(8)
+            ->map(function ($deliveries, string $key): array {
+                return [
+                    'key' => $key,
+                    'type' => $deliveries->first()->type,
+                    'created_at' => $deliveries->max('created_at'),
+                    'accepted' => $deliveries->where('status', 'accepted')->count(),
+                    'failed' => $deliveries->where('status', 'failed')->count(),
+                    'pending' => $deliveries->where('status', 'pending')->count(),
+                ];
+            });
+
+        return view('events.show', compact('event', 'notificationBatches'));
     }
 
     public function edit(Event $event): View
@@ -292,7 +326,12 @@ public function show(Event $event): View
                 'required',
                 'in:draft,published,cancelled,completed',
             ],
+            'reminder_24h' => ['sometimes', 'boolean'],
+            'reminder_1h' => ['sometimes', 'boolean'],
         ]);
+
+        $validated['reminder_24h'] = $request->boolean('reminder_24h');
+        $validated['reminder_1h'] = $request->boolean('reminder_1h');
 
         if (
             in_array($event->status, ['cancelled', 'completed'], true) &&
@@ -308,6 +347,7 @@ public function show(Event $event): View
 
         $scheduleChanged = $event->starts_at?->format('Y-m-d H:i') !== $newStartsAt->format('Y-m-d H:i')
             || $event->ends_at?->format('Y-m-d H:i') !== $newEndsAt->format('Y-m-d H:i');
+        $locationChanged = (string) $event->location_id !== (string) ($validated['location_id'] ?? '');
 
         if ($scheduleChanged && !$request->boolean('sync_sessions')) {
             return back()->withInput()->withErrors([
@@ -337,6 +377,7 @@ public function show(Event $event): View
          * The original responsible organizer remains attached.
          */
         $validated['updated_by'] = auth()->id();
+        $scheduleConflictMessage = null;
 
         $updated = DB::transaction(function () use (
             $event,
@@ -345,7 +386,9 @@ public function show(Event $event): View
             $oldValues,
             $scheduleChanged,
             $newStartsAt,
-            $newEndsAt
+            $newEndsAt,
+            $locationChanged,
+            &$scheduleConflictMessage
         ): string {
             $sessions = $event->sessions()
                 ->orderBy('starts_at')
@@ -387,6 +430,50 @@ public function show(Event $event): View
                 }
             } else {
                 $sessionsToUpdate = $sessions;
+            }
+
+            if (($scheduleChanged || $locationChanged) && filled($validated['location_id'] ?? null)) {
+                $candidateSchedules = [];
+                $candidateOffset = $scheduleChanged ? $offsetSeconds : 0;
+
+                foreach ($sessionsToUpdate as $session) {
+                    $candidateSchedules[] = [
+                        'name' => $session->name,
+                        'event_name' => $validated['name'],
+                        'starts_at' => $session->starts_at?->copy()->addSeconds($candidateOffset),
+                        'ends_at' => $session->ends_at?->copy()->addSeconds($candidateOffset),
+                    ];
+                }
+
+                if ($scheduleChanged) {
+                    $existingSessionDates = collect($candidateSchedules)
+                        ->map(fn (array $schedule) => $schedule['starts_at']?->toDateString())
+                        ->filter()
+                        ->unique()
+                        ->all();
+
+                    foreach ($this->sessionScheduleFor($newStartsAt, $newEndsAt) as $index => $schedule) {
+                        if (in_array($schedule['starts_at']->toDateString(), $existingSessionDates, true)) {
+                            continue;
+                        }
+
+                        $candidateSchedules[] = [
+                            ...$schedule,
+                            'name' => 'Session ' . ($index + 1),
+                            'event_name' => $validated['name'],
+                        ];
+                    }
+                }
+
+                $scheduleConflictMessage = app(SessionScheduleConflictChecker::class)->conflictMessage(
+                    (int) $validated['location_id'],
+                    $candidateSchedules,
+                    $event->id
+                );
+
+                if ($scheduleConflictMessage !== null) {
+                    return 'schedule_conflict';
+                }
             }
 
             $event->update($validated);
@@ -487,6 +574,22 @@ public function show(Event $event): View
             return back()->withInput()->withErrors([
                 'schedule' => 'The date range cannot be shortened because a session outside the new range has attendance records.',
             ]);
+        }
+
+        if ($updated === 'schedule_conflict') {
+            return back()->withInput()->withErrors([
+                'starts_at' => $scheduleConflictMessage,
+            ]);
+        }
+
+        $event->refresh();
+        $notifications = app(EventNotificationService::class);
+        if ($event->status === 'cancelled' && $oldValues['status'] !== 'cancelled') {
+            $notifications->sendForEvent($event, 'cancelled');
+        } elseif ($event->status === 'published' && $oldValues['status'] !== 'published') {
+            $notifications->sendForEvent($event, 'published');
+        } elseif ($event->status === 'published' && $this->meaningfulEventDetailsChanged($oldValues, $event)) {
+            $notifications->sendForEvent($event, 'updated');
         }
 
         return redirect()
@@ -652,7 +755,7 @@ public function show(Event $event): View
             abort(403);
         }
     }
-    public function publish(Event $event): RedirectResponse
+    public function publish(Event $event, EventNotificationService $notifications): RedirectResponse
     {
         $this->authorizeEvent($event);
 
@@ -672,9 +775,48 @@ public function show(Event $event): View
 
         $event->status = 'published';
         $event->save();
+        $notifications->sendForEvent($event, 'published');
 
         return redirect()
             ->route('events.show', $event)
             ->with('success', 'Event published successfully.');
+    }
+
+    public function retryNotifications(
+        Event $event,
+        string $notificationKey,
+        EventNotificationService $notifications
+    ): RedirectResponse {
+        $this->authorizeEvent($event);
+        abort_unless(preg_match('/^[a-f0-9-]{36,64}$/', $notificationKey) === 1, 404);
+
+        $retried = $notifications->retryFailed($event, $notificationKey);
+
+        return back()->with('success', $retried > 0
+            ? "Retried {$retried} failed notification(s)."
+            : 'There are no failed notifications to retry.');
+    }
+
+    private function meaningfulEventDetailsChanged(array $oldValues, Event $event): bool
+    {
+        foreach (['name', 'description', 'starts_at', 'ends_at', 'event_type_id', 'location_id'] as $field) {
+            $old = $oldValues[$field] ?? null;
+            $new = $event->{$field};
+            if ($old instanceof Carbon) {
+                $old = in_array($field, ['starts_at', 'ends_at'], true)
+                    ? $old->format('Y-m-d H:i')
+                    : $old->format('Y-m-d H:i:s');
+            }
+            if ($new instanceof Carbon) {
+                $new = in_array($field, ['starts_at', 'ends_at'], true)
+                    ? $new->format('Y-m-d H:i')
+                    : $new->format('Y-m-d H:i:s');
+            }
+            if ((string) $old !== (string) $new) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

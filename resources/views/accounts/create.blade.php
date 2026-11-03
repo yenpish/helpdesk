@@ -29,8 +29,9 @@
                     <label for="role">Role</label>
                     <select id="role" name="role" required>
                         <option value="">Select role</option>
-                        <option value="admin" @selected(old('role') === 'admin')>System Admin</option>
-                        <option value="organizer" @selected(old('role') === 'organizer')>Organizer</option>
+                        @foreach($roles as $role)
+                            <option value="{{ $role->slug }}" @selected(old('role') === $role->slug)>{{ $role->name }}</option>
+                        @endforeach
                     </select>
                     @error('role')<div class="field-error">{{ $message }}</div>@enderror
                 </div>

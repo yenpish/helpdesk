@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
+use App\Support\SessionScheduleConflictChecker;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -413,7 +414,7 @@ class EventSessionController extends Controller
         ]);
 
         $oldValues = $eventSession->toArray();
-        $schedule = $this->validatedSessionSchedule($request, $event);
+        $schedule = $this->validatedSessionSchedule($request, $event, $eventSession);
         if ($schedule instanceof RedirectResponse) {
             return $schedule;
         }
@@ -500,7 +501,11 @@ class EventSessionController extends Controller
     }
 
     /** @return array{Carbon, Carbon}|RedirectResponse */
-    private function validatedSessionSchedule(Request $request, Event $event): array|RedirectResponse
+    private function validatedSessionSchedule(
+        Request $request,
+        Event $event,
+        ?EventSession $exceptSession = null
+    ): array|RedirectResponse
     {
         $schedule = $request->validate([
             'starts_at' => ['required_without:session_date', 'date'],
@@ -518,15 +523,40 @@ class EventSessionController extends Controller
             $endsAt = Carbon::parse($schedule['session_date'] . ' ' . $schedule['end_time']);
         }
 
-        if (
-            $event->starts_at === null
-            || $event->ends_at === null
-            || $startsAt->lt($event->starts_at)
-            || $endsAt->gt($event->ends_at)
-        ) {
+        if ($event->starts_at === null || $event->ends_at === null) {
             return back()
                 ->withInput()
-                ->withErrors(['schedule' => 'The session must fall within the parent event schedule.']);
+                ->withErrors(['starts_at' => 'The parent event must have a valid start and end schedule before sessions can be added.']);
+        }
+
+        if ($startsAt->lt($event->starts_at)) {
+            return back()
+                ->withInput()
+                ->withErrors(['starts_at' => 'The session must start at or after the parent event starts.']);
+        }
+
+        if ($endsAt->gt($event->ends_at)) {
+            return back()
+                ->withInput()
+                ->withErrors(['ends_at' => 'The session must end at or before the parent event ends.']);
+        }
+
+        if ($event->location_id !== null) {
+            $conflictMessage = app(SessionScheduleConflictChecker::class)->conflictMessage(
+                (int) $event->location_id,
+                [[
+                    'name' => $request->string('name')->toString() ?: 'This session',
+                    'event_name' => $event->name,
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                ]],
+                null,
+                $exceptSession?->id
+            );
+
+            if ($conflictMessage !== null) {
+                return back()->withInput()->withErrors(['starts_at' => $conflictMessage]);
+            }
         }
 
         return [$startsAt, $endsAt];

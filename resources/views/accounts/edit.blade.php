@@ -10,7 +10,7 @@
             <a href="{{ route('accounts.index') }}" class="btn btn-secondary">Back to accounts</a>
         </header>
         <div class="content-panel">
-            @if(!in_array($user->role, ['admin', 'organizer', 'user'], true))
+            @if(!$user->roleDefinition)
                 <div class="alert alert-light" role="status">
                     This account has a role from the previous system. Assign a current Attendance role before saving.
                 </div>
@@ -34,14 +34,9 @@
                 <div class="field">
                     <label for="role">Role</label>
                     <select id="role" name="role" required>
-                        @if(!in_array($user->role, ['admin', 'organizer', 'user'], true))
-                            <option value="" disabled @selected(old('role', '') === '')>Choose a current Attendance role</option>
-                        @endif
-                        <option value="admin" @selected(old('role', $user->role) === 'admin')>System Admin</option>
-                        <option value="organizer" @selected(old('role', $user->role) === 'organizer')>Organizer</option>
-                        @if($user->role === 'user')
-                            <option value="user" @selected(old('role', $user->role) === 'user')>User</option>
-                        @endif
+                        @foreach($roles as $role)
+                            <option value="{{ $role->slug }}" @selected(old('role', $user->role) === $role->slug)>{{ $role->name }}</option>
+                        @endforeach
                     </select>
                     @error('role')<div class="field-error">{{ $message }}</div>@enderror
                 </div>
@@ -51,6 +46,13 @@
                     <small>Leave blank to keep the current password.</small>
                     @error('password')<div class="field-error">{{ $message }}</div>@enderror
                 </div>
+                @if($canManageInternalRemark)
+                    <div class="field">
+                        <label for="internal_remark">Internal Remark</label>
+                        <textarea id="internal_remark" name="internal_remark" rows="3" maxlength="2000">{{ old('internal_remark', $user->internal_remark) }}</textarea>
+                        @error('internal_remark')<div class="field-error">{{ $message }}</div>@enderror
+                    </div>
+                @endif
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save changes</button>
                     <a href="{{ route('accounts.index') }}" class="btn btn-secondary">Cancel</a>

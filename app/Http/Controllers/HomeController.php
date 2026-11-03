@@ -14,7 +14,7 @@ class HomeController extends Controller
 {
     public function index(Request $request): View
     {
-        if (!auth()->check() || auth()->user()->role === 'user') {
+        if (!auth()->check() || !auth()->user()->hasPermission('dashboard.view')) {
             return view('guest-home');
         }
 
@@ -22,7 +22,7 @@ class HomeController extends Controller
         $recentStart = $now->copy()->subDays(7);
         $user = auth()->user();
         $scopeEvents = static function ($query) use ($user): void {
-            if ($user->role === 'organizer') {
+            if ($user->role !== 'admin') {
                 $query->where('organizer_id', $user->id);
             }
         };

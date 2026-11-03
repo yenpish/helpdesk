@@ -79,7 +79,7 @@ it('keeps an existing session schedule when editing it', function () {
         ->and($session->fresh()->ends_at->toDateTimeString())->toBe('2026-11-06 14:30:00');
 });
 
-it('rejects a session schedule that starts before or ends after the parent event', function (array $schedule) {
+it('rejects a session schedule that starts before or ends after the parent event', function (array $schedule, string $errorField) {
     [$organizer, $event] = makeSessionDefaultsEvent();
 
     $this->actingAs($organizer)
@@ -89,18 +89,18 @@ it('rejects a session schedule that starts before or ends after the parent event
             ...$schedule,
         ])
         ->assertRedirect(route('events.event-sessions.create', $event))
-        ->assertSessionHasErrors('schedule');
+        ->assertSessionHasErrors($errorField);
 
     expect($event->sessions()->count())->toBe(0);
 })->with([
     'starts before the event' => [[
         'starts_at' => '2026-11-05T09:29',
         'ends_at' => '2026-11-05T10:00',
-    ]],
+    ], 'starts_at'],
     'ends after the event' => [[
         'starts_at' => '2026-11-07T16:00',
         'ends_at' => '2026-11-07T16:46',
-    ]],
+    ], 'ends_at'],
 ]);
 
 it('rejects moving an existing session outside its parent event schedule', function () {
@@ -122,7 +122,7 @@ it('rejects moving an existing session outside its parent event schedule', funct
             'ends_at' => '2026-11-07T17:00',
         ])
         ->assertRedirect(route('events.event-sessions.edit', [$event, $session]))
-        ->assertSessionHasErrors('schedule');
+        ->assertSessionHasErrors('ends_at');
 
     expect($session->fresh()->name)->toBe('Existing in-range session')
         ->and($session->fresh()->starts_at->toDateTimeString())->toBe('2026-11-06 10:00:00')

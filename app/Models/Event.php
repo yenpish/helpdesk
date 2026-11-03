@@ -21,11 +21,15 @@ class Event extends Model
         'updated_by',
         'status',
         'pin',
+        'reminder_24h',
+        'reminder_1h',
     ];
 
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'reminder_24h' => 'boolean',
+        'reminder_1h' => 'boolean',
     ];
 
     public function eventType(): BelongsTo
@@ -73,5 +77,15 @@ class Event extends Model
             'id',
             'id'
         );
+    }
+
+    public function feedbackInvitations(): HasMany
+    {
+        return $this->hasMany(FeedbackInvitation::class);
+    }
+
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(EventNotificationDelivery::class);
     }
 }

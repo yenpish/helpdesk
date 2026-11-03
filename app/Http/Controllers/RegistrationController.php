@@ -25,18 +25,9 @@ class RegistrationController extends Controller
         ->orderBy('starts_at')
         ->paginate(10);
 
-    // Events that ended within the last 7 days.
-    $pastEvents = Event::with(['eventType', 'location'])
-        ->whereIn('status', ['published', 'completed'])
-        ->whereNotNull('ends_at')
-        ->where('ends_at', '<=', now())
-        ->where('ends_at', '>=', now()->subDays(7))
-        ->orderByDesc('ends_at')
-        ->get();
-
     return view(
         'registrations.public-index',
-        compact('events', 'pastEvents')
+        compact('events')
     );
 }
 

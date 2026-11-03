@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\FeedbackInvitationMail;
 use App\Models\Event;
 use App\Models\Feedback;
-use Illuminate\Database\QueryException;
+use App\Models\FeedbackInvitation;
+use App\Services\FeedbackInvitationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
 
 class FeedbackController extends Controller
@@ -23,114 +26,97 @@ class FeedbackController extends Controller
             && $event->ends_at->gte(now()->subDays(7));
     }
 
-    /**
-     * Public feedback form. Login is not required.
-     */
-    public function create(Event $event): View
-    {
+    public function sendInvitations(
+        Event $event,
+        FeedbackInvitationService $service
+    ): RedirectResponse {
+        $user = auth()->user();
+
+        abort_unless(
+            $user !== null
+            && (
+                $user->role === 'admin'
+                || (int) $event->organizer_id === (int) $user->id
+            ),
+            403
+        );
+
         abort_unless(
             $this->feedbackWindowOpen($event),
             403,
-            'Feedback is available only within 7 days after the event ends.'
+            'Invitations can only be sent within 7 days after the event ends.'
         );
 
-        return view('feedback.create', compact('event'));
+        $created = $service->generateForEvent(
+            $event,
+            function ($invitation, $token) {
+                Mail::to($invitation->participant_email)->send(
+                    new FeedbackInvitationMail($invitation, $token)
+                );
+            }
+        );
+
+        return back()->with(
+            'success',
+            "{$created} feedback invitation(s) processed. Check your mail configuration for delivery status."
+        );
     }
 
-    /**
-     * Save feedback from a participant.
-     */
-    public function store(
-        Request $request,
-        Event $event
-    ): RedirectResponse {
-        abort_unless(
-            $this->feedbackWindowOpen($event),
-            403,
-            'Feedback is available only within 7 days after the event ends.'
-        );
+    public function invitationCreate(
+        Event $event,
+        string $token
+    ): View {
+        $invitation = FeedbackInvitation::where('token_hash', hash('sha256', $token))
+            ->where('event_id', $event->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->firstOrFail();
 
-        $request->merge([
-            'participant_name' => trim(
-                (string) $request->input('participant_name')
-            ),
-            'participant_email' => strtolower(
-                trim((string) $request->input('participant_email'))
-            ),
-        ]);
+        return view('feedback.create', compact('event', 'invitation', 'token'));
+    }
+
+    public function invitationStore(
+        Request $request,
+        Event $event,
+        string $token
+    ): \Illuminate\Http\Response {
+        $invitation = FeedbackInvitation::where('token_hash', hash('sha256', $token))
+            ->where('event_id', $event->id)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->firstOrFail();
 
         $validated = $request->validate([
-            'participant_name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-            'participant_email' => [
-                'required',
-                'email',
-                'max:255',
-            ],
-            'rating' => [
-                'required',
-                'integer',
-                'min:1',
-                'max:5',
-            ],
-            'comments' => [
-                'nullable',
-                'string',
-                'max:2000',
-            ],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comments' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $email = $validated['participant_email'];
+        DB::transaction(function () use ($invitation, $validated) {
+            $lockedInvitation = FeedbackInvitation::whereKey($invitation->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        // Check case-insensitively so differently capitalized
-        // versions of the same email cannot submit twice.
-        $alreadySubmitted = Feedback::where('event_id', $event->id)
-            ->whereRaw('LOWER(participant_email) = ?', [$email])
-            ->exists();
+            abort_if(
+                $lockedInvitation->used_at !== null
+                || $lockedInvitation->expires_at->lte(now()),
+                403,
+                'This feedback invitation has expired or has already been used.'
+            );
 
-        if ($alreadySubmitted) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'participant_email' =>
-                        'This email has already submitted feedback for this event.',
-                ]);
-        }
-
-        try {
             Feedback::create([
-                'event_id' => $event->id,
-                'participant_name' => $validated['participant_name'],
-                'participant_email' => $email,
+                'event_id' => $lockedInvitation->event_id,
+                'participant_name' => $lockedInvitation->participant_name,
+                'participant_email' => $lockedInvitation->participant_email,
                 'rating' => $validated['rating'],
                 'comments' => $validated['comments'] ?? null,
             ]);
-        } catch (QueryException $e) {
-            // The database unique index also protects against
-            // two duplicate submissions arriving simultaneously.
-            $alreadySubmitted = DB::table('feedback')
-                ->where('event_id', $event->id)
-                ->whereRaw('LOWER(participant_email) = ?', [$email])
-                ->exists();
 
-            if ($alreadySubmitted) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'participant_email' =>
-                            'This email has already submitted feedback for this event.',
-                    ]);
-            }
+            $lockedInvitation->update([
+                'used_at' => now(),
+            ]);
+        });
 
-            throw $e;
-        }
-
-        return redirect()
-            ->to(route('registrations.public-index') . '#past-events')
-            ->with('success', 'Thank you for your feedback!');
+        return response()->view('feedback.thank-you', compact('event'));
     }
 
     /**

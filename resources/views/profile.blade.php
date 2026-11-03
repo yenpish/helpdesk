@@ -39,7 +39,7 @@
         <input
             id="profile-role"
             type="text"
-            value="{{ match(auth()->user()->role) { 'admin' => 'System Admin', 'organizer' => 'Organizer', 'user' => 'User', default => 'Legacy account' } }}"
+            value="{{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}"
             readonly
         >
     </div>

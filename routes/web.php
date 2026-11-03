@@ -11,6 +11,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PublicAttendanceController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\RoleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -91,16 +92,15 @@ Route::post('/attendance/{access}', [
 |--------------------------------------------------------------------------
 | Participants can submit feedback without logging in.
 */
-
-Route::get('/events/{event}/feedback', [
+Route::get('/events/{event}/feedback/invitation/{token}', [
     FeedbackController::class,
-    'create',
-])->name('feedback.create');
+    'invitationCreate',
+])->name('feedback.invitation.show');
 
-Route::post('/events/{event}/feedback', [
+Route::post('/events/{event}/feedback/invitation/{token}', [
     FeedbackController::class,
-    'store',
-])->name('feedback.store');
+    'invitationStore',
+])->name('feedback.invitation.store');
 
 /*
 |--------------------------------------------------------------------------
@@ -113,22 +113,32 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/{event}/attendance/export', [
         EventController::class,
         'exportAttendance',
-    ])->name('events.attendance.export');
+    ])->middleware('permission:events.manage')->name('events.attendance.export');
+
+    Route::post('/events/{event}/notifications/{notificationKey}/retry', [
+        EventController::class,
+        'retryNotifications',
+    ])->middleware('permission:events.manage')->name('events.notifications.retry');
 
     Route::get(
         '/events/{event}/event-sessions/{event_session}/attendance/export',
         [EventSessionController::class, 'exportAttendance']
-    )->name('events.event-sessions.attendance.export');
+    )->middleware('permission:events.manage')->name('events.event-sessions.attendance.export');
 
     Route::get(
         '/events/{event}/event-sessions/{event_session}/live-attendance',
         [EventSessionController::class, 'liveAttendance']
-    )->name('events.event-sessions.live-attendance');
+    )->middleware('permission:events.manage')->name('events.event-sessions.live-attendance');
 
     Route::get(
         '/events/{event}/event-sessions/{event_session}/live-attendance/data',
         [EventSessionController::class, 'liveAttendanceData']
-    )->name('events.event-sessions.live-attendance.data');
+    )->middleware('permission:events.manage')->name('events.event-sessions.live-attendance.data');
+
+    Route::post('/events/{event}/feedback/invitations/send', [
+        FeedbackController::class,
+        'sendInvitations',
+    ])->middleware('permission:events.manage')->name('feedback.invitations.send');
 
     /*
     |--------------------------------------------------------------------------
@@ -141,7 +151,7 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/{event}/feedback/results', [
         FeedbackController::class,
         'index',
-    ])->name('feedback.index');
+    ])->middleware('permission:events.manage')->name('feedback.index');
 
     /*
     |--------------------------------------------------------------------------
@@ -149,12 +159,13 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::resource('events', EventController::class);
+    Route::resource('events', EventController::class)
+        ->middleware('permission:events.manage');
 
     Route::resource(
         'events.event-sessions',
         EventSessionController::class
-    );
+    )->middleware('permission:events.manage');
 
     /*
     |--------------------------------------------------------------------------
@@ -165,12 +176,12 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/{event}/registrations', [
         RegistrationController::class,
         'eventRegistrations',
-    ])->name('events.registrations.index');
+    ])->middleware('permission:events.manage')->name('events.registrations.index');
 
     Route::patch(
         '/events/{event}/registrations/{registration}/status',
         [RegistrationController::class, 'updateStatus']
-    )->name('events.registrations.status');
+    )->middleware('permission:events.manage')->name('events.registrations.status');
 });
 
 /*
@@ -183,7 +194,7 @@ Route::post('/events/{event}/publish', [
     EventController::class,
     'publish',
 ])
-    ->middleware(['auth', 'organizer'])
+    ->middleware(['auth', 'organizer', 'permission:events.publish'])
     ->name('events.publish');
 
 /*
@@ -193,6 +204,11 @@ Route::post('/events/{event}/publish', [
 */
 
 Route::middleware(['auth', 'admin'])->group(function () {
+
+    Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
 
     Route::resource('event-types', EventTypeController::class);
 
