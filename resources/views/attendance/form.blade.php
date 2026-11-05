@@ -375,6 +375,7 @@
                         type="hidden"
                         name="signature"
                         id="signature"
+                        value="{{ old('signature') }}"
                     >
 
                     <div class="attendance-form-actions">
@@ -401,7 +402,7 @@
 
     <details class="attendance-lookup-shortcut" @if (session('pre_registration_found') || session('pre_registration_not_found') || $errors->has('lookup_email') || $errors->has('lookup_phone')) open @endif>
         <summary>
-            Already pre-registered?<span class="lookup-action">Use your pre-registration details</span>
+            Already pre-registered?<span class="lookup-action">Check pre-registration</span>
         </summary>
         <div class="lookup-content">
             <form id="attendance-lookup-form" method="POST" action="{{ route('attendance.store', ['access' => $access]) }}" class="account-form attendance-lookup-form">
@@ -443,18 +444,14 @@
                 @if (session('pre_registration_found'))
                     <h2 id="pre-registration-result-title">Pre-registration found</h2>
                     <p id="pre-registration-result-message">
-                        @if (session('pre_registration_status') === 'pending')
-                            Your pre-registration is still pending approval. Your details have been filled in; please verify them before checking in.
-                        @else
-                            Your details have been filled in. Please verify them before checking in.
-                        @endif
+                        The matching email and phone are copied into the attendance form. Other details are not loaded.
                     </p>
                     <div class="attendance-lookup-modal-actions">
                         <button type="button" class="btn btn-primary btn-sm" data-close-lookup-modal>Continue</button>
                     </div>
                 @else
                     <h2 id="pre-registration-result-title">Pre-registration not found</h2>
-                    <p id="pre-registration-result-message">No matching pre-registration was found for this event. You can enter your attendance details manually.</p>
+                    <p id="pre-registration-result-message">No pre-registration matched both details for this event. You can still enter your attendance information below.</p>
                     <div class="attendance-lookup-modal-actions">
                         <button type="button" class="btn btn-secondary btn-sm" data-close-lookup-modal>Close</button>
                     </div>
@@ -516,6 +513,9 @@
             let drawing = false;
             let hasSignature = false;
             let savedImage = null;
+            let restoreReady = true;
+            let restoredSignature = '';
+            let drawingStarted = false;
 
             function resizeCanvas() {
                 const rect = canvas.getBoundingClientRect();
@@ -559,6 +559,7 @@
 
             function getSubmissionSignature() {
                 if (!hasSignature) return '';
+                if (!restoreReady) return restoredSignature;
 
                 const rect = canvas.getBoundingClientRect();
                 const scale = Math.min(600 / rect.width, 200 / rect.height);
@@ -578,12 +579,32 @@
 
             resizeCanvas();
 
+            restoredSignature = signature.value;
+            if (/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(restoredSignature)) {
+                hasSignature = true;
+                savedImage = restoredSignature;
+                restoreReady = false;
+                const restoredImage = new Image();
+                restoredImage.onload = () => {
+                    if (!drawingStarted) {
+                        const rect = canvas.getBoundingClientRect();
+                        ctx.drawImage(restoredImage, 0, 0, rect.width, rect.height);
+                        signature.value = canvas.toDataURL('image/png');
+                        savedImage = signature.value;
+                    }
+                    restoreReady = true;
+                };
+                restoredImage.onerror = () => { restoreReady = true; };
+                restoredImage.src = restoredSignature;
+            }
+
             window.addEventListener('resize', () => {
                 if (!drawing) resizeCanvas();
             });
 
             canvas.addEventListener('pointerdown', (event) => {
                 event.preventDefault();
+                drawingStarted = true;
                 drawing = true;
                 hasSignature = true;
                 canvas.setPointerCapture(event.pointerId);
@@ -616,6 +637,7 @@
             canvas.addEventListener('pointercancel', stopDrawing);
 
             clearButton.addEventListener('click', () => {
+                drawingStarted = true;
                 ctx.clearRect(
                     0,
                     0,
@@ -625,6 +647,8 @@
 
                 hasSignature = false;
                 savedImage = null;
+                restoredSignature = '';
+                restoreReady = true;
                 signature.value = '';
             });
 

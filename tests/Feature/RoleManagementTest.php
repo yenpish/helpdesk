@@ -2,6 +2,7 @@
 
 use App\Models\Role;
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -25,6 +26,8 @@ it('allows admins to create and rename custom roles with configurable permission
 
     expect($role->permissions)->toBe(['events.manage', 'dashboard.view'])
         ->and($role->is_system)->toBeFalse();
+    expect(AuditLog::where('auditable_type', Role::class)->where('auditable_id', $role->id)->latest('id')->value('action'))
+        ->toBe('created');
 
     $this->actingAs($admin)
         ->put(route('roles.update', $role), [
@@ -35,7 +38,9 @@ it('allows admins to create and rename custom roles with configurable permission
 
     expect($role->fresh()->slug)->toBe('attendance-reviewer')
         ->and($role->fresh()->name)->toBe('Registration Reviewer')
-        ->and($role->fresh()->permissions)->toBe(['events.manage']);
+        ->and($role->fresh()->permissions)->toBe(['events.manage'])
+        ->and(AuditLog::where('auditable_type', Role::class)->where('auditable_id', $role->id)->latest('id')->value('action'))
+        ->toBe('updated');
 });
 
 it('allows admins to delete unassigned custom roles and prevents deleting assigned roles', function () {
@@ -65,7 +70,9 @@ it('allows admins to delete unassigned custom roles and prevents deleting assign
         ->assertRedirect(route('roles.index'));
 
     expect($assignedRole->fresh())->not->toBeNull()
-        ->and($role->fresh())->toBeNull();
+        ->and($role->fresh())->toBeNull()
+        ->and(AuditLog::where('auditable_type', Role::class)->where('auditable_id', $role->id)->latest('id')->value('action'))
+        ->toBe('deleted');
 });
 
 it('assigns custom roles through the existing account create and edit actions', function () {
@@ -163,4 +170,52 @@ it('preserves built-in admin and organizer access and protects the last administ
         ->assertSessionHasErrors('role');
 
     expect($admin->fresh()->role)->toBe('admin');
+});
+
+it('allows administrators to edit Organizer and User permissions without changing built-in identity', function () {
+    $admin = roleAdmin();
+    $organizerRole = Role::where('slug', 'organizer')->firstOrFail();
+    $userRole = Role::where('slug', 'user')->firstOrFail();
+    $assigned = User::factory()->create(['role' => 'organizer']);
+
+    $this->actingAs($admin)
+        ->get(route('roles.index'))
+        ->assertOk()
+        ->assertSee('1 assigned account(s)');
+
+    $this->actingAs($admin)
+        ->put(route('roles.update', $organizerRole), [
+            'name' => 'Changed by request',
+            'permissions' => ['dashboard.view'],
+        ])
+        ->assertRedirect(route('roles.index'));
+
+    expect($organizerRole->fresh()->slug)->toBe('organizer')
+        ->and($organizerRole->fresh()->name)->toBe('Organizer')
+        ->and($organizerRole->fresh()->permissions)->toBe(['dashboard.view'])
+        ->and($assigned->fresh()->hasPermission('events.manage'))->toBeFalse()
+        ->and(AuditLog::where('auditable_type', Role::class)->where('auditable_id', $organizerRole->id)->latest('id')->value('action'))->toBe('updated');
+
+    $this->actingAs($admin)
+        ->put(route('roles.update', $userRole), ['permissions' => ['dashboard.view']])
+        ->assertRedirect(route('roles.index'));
+
+    expect($userRole->fresh()->permissions)->toBe(['dashboard.view']);
+});
+
+it('keeps the System Admin role immutable and rejects other built-in role deletion', function () {
+    $admin = roleAdmin();
+    $adminRole = Role::where('slug', 'admin')->firstOrFail();
+    $organizerRole = Role::where('slug', 'organizer')->firstOrFail();
+    $originalPermissions = $adminRole->permissions;
+
+    $this->actingAs($admin)
+        ->put(route('roles.update', $adminRole), ['permissions' => []])
+        ->assertForbidden();
+    $this->actingAs($admin)
+        ->delete(route('roles.destroy', $organizerRole))
+        ->assertForbidden();
+
+    expect($adminRole->fresh()->permissions)->toBe($originalPermissions)
+        ->and($organizerRole->fresh())->not->toBeNull();
 });

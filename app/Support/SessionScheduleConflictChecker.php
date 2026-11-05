@@ -35,6 +35,8 @@ class SessionScheduleConflictChecker
                 ->where('ends_at', '>', $startsAt)
                 ->when($exceptEventId !== null, fn ($query) => $query->where('event_id', '!=', $exceptEventId))
                 ->when($exceptSessionId !== null, fn ($query) => $query->where('event_sessions.id', '!=', $exceptSessionId))
+                ->orderBy('starts_at')
+                ->orderBy('event_sessions.id')
                 ->first();
 
             if ($conflict) {

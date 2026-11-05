@@ -15,6 +15,7 @@ class FeedbackInvitation extends Model
         'token_hash',
         'expires_at',
         'used_at',
+        'status',
     ];
 
     protected $casts = [

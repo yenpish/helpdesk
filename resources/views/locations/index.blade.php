@@ -25,7 +25,9 @@
         @endif
 
         @if($locations->count())
-            <table class="table">
+            <div class="table-responsive">
+            <table class="table locations-table">
+                <colgroup><col style="width: 23%"><col style="width: 13%"><col style="width: 13%"><col style="width: 15%"><col style="width: 12%"><col style="width: 24%"></colgroup>
                 <thead>
                 <tr>
                     <th>Name</th>
@@ -33,7 +35,7 @@
                     <th>Longitude</th>
                     <th>Radius</th>
                     <th>Events</th>
-                    <th>Actions</th>
+                    <th class="table-actions">Actions</th>
                 </tr>
                 </thead>
 
@@ -64,6 +66,7 @@
                 @endforeach
                 </tbody>
             </table>
+            </div>
 
             @include('components.pagination-row', ['paginator' => $locations, 'ariaLabel' => 'Location pages'])
         @else

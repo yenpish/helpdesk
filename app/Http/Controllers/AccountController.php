@@ -132,6 +132,7 @@ class AccountController extends Controller
             }
 
             $oldValues = $this->accountAuditValues($lockedUser);
+            $oldRemark = $lockedUser->internal_remark;
 
             if ($lockedUser->email !== $data['email']) {
                 $data['email_verified_at'] = null;
@@ -143,6 +144,16 @@ class AccountController extends Controller
             }
             $lockedUser->save();
 
+            $newAuditValues = $this->accountAuditValues($lockedUser->fresh());
+            if ($canSaveInternalRemark && $remarkProvided && $oldRemark !== $lockedUser->internal_remark) {
+                $newAuditValues['internal_remark'] = $lockedUser->internal_remark === null || $lockedUser->internal_remark === ''
+                    ? 'Cleared'
+                    : 'Changed';
+                $oldValues['internal_remark'] = $oldRemark === null || $oldRemark === ''
+                    ? 'No remark'
+                    : 'Existing remark';
+            }
+
             AuditLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'updated',
@@ -152,7 +163,7 @@ class AccountController extends Controller
                     ? 'User account and password updated.'
                     : 'User account updated.',
                 'old_values' => $oldValues,
-                'new_values' => $this->accountAuditValues($lockedUser->fresh()),
+                'new_values' => $newAuditValues,
             ]);
 
             return false;

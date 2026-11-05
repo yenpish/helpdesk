@@ -38,6 +38,7 @@ class HomeController extends Controller
             ->where('ends_at', '>=', $now)
             ->with('event.location')
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->get();
 
         $sessionsStartingSoon = (clone $operationalSessions)
@@ -45,6 +46,7 @@ class HomeController extends Controller
             ->where('starts_at', '<=', $now->copy()->addDay())
             ->with('event.location')
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->get();
 
         $todaySessions = (clone $operationalSessions)
@@ -53,6 +55,7 @@ class HomeController extends Controller
 
         $attendanceTimestamp = 'COALESCE(attendances.clock_in_at, attendances.client_submitted_at, attendances.created_at)';
         $attendanceScope = static fn () => Attendance::query()
+            ->whereHas('session', fn ($query) => $query->whereNull('event_sessions.deleted_at'))
             ->whereHas('session.event', $scopeEvents);
 
         $todayAttendance = $attendanceScope()
@@ -78,6 +81,7 @@ class HomeController extends Controller
             ->with('event.location')
             ->where('ends_at', '>=', $now)
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->take(5)
             ->get();
 

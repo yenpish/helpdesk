@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Event extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'name',
         'description',
@@ -59,7 +62,9 @@ class Event extends Model
 
     public function sessions(): HasMany
     {
-        return $this->hasMany(EventSession::class);
+        return $this->hasMany(EventSession::class)
+            ->orderBy('starts_at')
+            ->orderBy('id');
     }
 
     public function registrations(): HasMany
@@ -82,6 +87,11 @@ class Event extends Model
     public function feedbackInvitations(): HasMany
     {
         return $this->hasMany(FeedbackInvitation::class);
+    }
+
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(Feedback::class);
     }
 
     public function notificationDeliveries(): HasMany

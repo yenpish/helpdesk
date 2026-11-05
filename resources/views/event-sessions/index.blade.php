@@ -38,7 +38,11 @@
 
         @if($event->sessions->count())
             <div class="table-responsive">
-            <table class="table">
+            <table class="table manage-sessions-table">
+                <colgroup>
+                    <col style="width: 14%"><col style="width: 15%"><col style="width: 15%">
+                    <col style="width: 17%"><col style="width: 17%"><col style="width: 6%"><col style="width: 16%">
+                </colgroup>
                 <thead>
                 <tr>
                     <th>Name</th>
@@ -46,7 +50,8 @@
                     <th>Ends</th>
                     <th>Attendance Opens</th>
                     <th>Attendance Closes</th>
-                    <th>Actions</th>
+                    <th>Check-ins</th>
+                    <th class="table-actions">Actions</th>
                 </tr>
                 </thead>
 
@@ -55,28 +60,30 @@
                     <tr>
                         <td>{{ $session->name }}</td>
 
-                        <td>
+                        <td class="table-cell-nowrap">
                             {{ $session->starts_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
 
-                        <td>
+                        <td class="table-cell-nowrap">
                             {{ $session->ends_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
 
-                        <td>
+                        <td class="table-cell-nowrap">
                             {{ $session->attendance_opens_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
 
-                        <td>
+                        <td class="table-cell-nowrap">
                             {{ $session->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
+
+                        <td class="table-cell-nowrap">{{ $session->attendances_count }}</td>
 
                         <td class="table-actions">
                             <a class="btn btn-secondary btn-sm" href="{{ route('events.event-sessions.show', [$event, $session]) }}">View</a>
                             <a class="btn btn-secondary btn-sm" href="{{ route('events.event-sessions.edit', [$event, $session]) }}">Edit</a>
 
                             <form class="inline-form" action="{{ route('events.event-sessions.destroy', [$event, $session]) }}"
-                                  method="POST" onsubmit="return confirm('Delete this session?');">
+                                  method="POST" onsubmit="return confirm('Delete session ' + @js($session->name) + '? Its check-ins will be kept and the session can be restored.');">
                                 @csrf
                                 @method('DELETE')
 

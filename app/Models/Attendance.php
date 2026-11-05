@@ -51,7 +51,7 @@ class Attendance extends Model
 
     public function session(): BelongsTo
     {
-        return $this->belongsTo(EventSession::class, 'session_id');
+        return $this->belongsTo(EventSession::class, 'session_id')->withTrashed();
     }
 
     public function feedbackInvitation(): HasOne

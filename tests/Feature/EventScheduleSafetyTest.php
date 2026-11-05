@@ -1,8 +1,12 @@
 <?php
 
 use App\Models\Attendance;
+use App\Models\EventNotificationDelivery;
 use App\Models\Event;
 use App\Models\EventSession;
+use App\Models\Feedback;
+use App\Models\FeedbackInvitation;
+use App\Models\Registration;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -89,7 +93,7 @@ it('shows a short rescheduling confirmation with explicit actions', function () 
         ->assertSee('Existing sessions shift by the change to the event start time.')
         ->assertSee('Each keeps its own start and end times, duration, and attendance records.')
         ->assertSee('Added event dates receive generated default sessions.')
-        ->assertSee('A session outside the new date range can be removed only if it has no attendance; otherwise, the date change is blocked.')
+        ->assertSee('Sessions outside the new date range are archived with check-in history preserved.')
         ->assertSee('Reschedule Event')
         ->assertSee('Cancel');
 });
@@ -240,7 +244,7 @@ it('removes an empty session that falls outside a shortened event range', functi
         ->and($sessions[0]->fresh()->name)->toBe('Session 1');
 });
 
-it('rejects shortening past an attended session without saving event or session changes', function () {
+it('archives an attended session when shortening the event while preserving its check-ins', function () {
     [$event, $sessions] = makeScheduledEvent('2026-10-06 08:00:00', '2026-10-08 12:59:00', 3);
     $attendance = recordSessionAttendance($sessions[2]);
     $admin = User::factory()->create(['role' => 'admin']);
@@ -253,16 +257,16 @@ it('rejects shortening past an attended session without saving event or session 
             '2026-10-07 12:59:00',
             3
         ))
-        ->assertRedirect(route('events.edit', $event))
-        ->assertSessionHasErrors('schedule');
+        ->assertRedirect(route('events.show', $event));
 
-    expect($event->fresh()->ends_at->toDateTimeString())->toBe('2026-10-08 12:59:00')
-        ->and($sessions[2]->fresh()->starts_at->toDateTimeString())->toBe('2026-10-08 08:00:00')
+    expect($event->fresh()->ends_at->toDateTimeString())->toBe('2026-10-07 12:59:00')
+        ->and(EventSession::withTrashed()->find($sessions[2]->id)->starts_at->toDateTimeString())->toBe('2026-10-08 08:00:00')
+        ->and(EventSession::withTrashed()->find($sessions[2]->id)->trashed())->toBeTrue()
         ->and($attendance->fresh()->session_id)->toBe($sessions[2]->id)
-        ->and($event->fresh()->sessions()->count())->toBe(3);
+        ->and($event->fresh()->sessions()->count())->toBe(2);
 });
 
-it('rejects direct deletion of a session with attendance', function () {
+it('archives a session with attendance and preserves the linked records', function () {
     [$event, $sessions] = makeScheduledEvent();
     $attendance = recordSessionAttendance($sessions[0]);
     $admin = User::factory()->create(['role' => 'admin']);
@@ -270,14 +274,28 @@ it('rejects direct deletion of a session with attendance', function () {
     $this->actingAs($admin)
         ->from(route('events.event-sessions.show', [$event, $sessions[0]]))
         ->delete(route('events.event-sessions.destroy', [$event, $sessions[0]]))
-        ->assertRedirect(route('events.event-sessions.show', [$event, $sessions[0]]))
-        ->assertSessionHasErrors('session');
+        ->assertRedirect(route('events.show', $event))
+        ->assertSessionHas('success');
 
-    expect($sessions[0]->fresh())->not->toBeNull()
+    expect(EventSession::find($sessions[0]->id))->toBeNull()
+        ->and(EventSession::withTrashed()->find($sessions[0]->id)->trashed())->toBeTrue()
         ->and($attendance->fresh()->session_id)->toBe($sessions[0]->id);
 });
 
-it('allows direct deletion of a session without attendance', function () {
+it('shows check-in context and identifies the session before deletion', function () {
+    [$event, $sessions] = makeScheduledEvent();
+    recordSessionAttendance($sessions[0]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->get(route('events.event-sessions.index', $event))
+        ->assertOk()
+        ->assertSee('Check-ins')
+        ->assertSee('Session 1')
+        ->assertSee('Delete session ', false);
+});
+
+it('archives a session without attendance', function () {
     [$event, $sessions] = makeScheduledEvent();
     $admin = User::factory()->create(['role' => 'admin']);
 
@@ -285,10 +303,45 @@ it('allows direct deletion of a session without attendance', function () {
         ->delete(route('events.event-sessions.destroy', [$event, $sessions[0]]))
         ->assertRedirect(route('events.show', $event));
 
-    expect(EventSession::find($sessions[0]->id))->toBeNull();
+    expect(EventSession::find($sessions[0]->id))->toBeNull()
+        ->and(EventSession::withTrashed()->find($sessions[0]->id))->not->toBeNull();
 });
 
-it('rejects deleting an event when any of its sessions has attendance', function () {
+it('prevents an organizer from deleting a session belonging to another organizer', function () {
+    [$event, $sessions] = makeScheduledEvent();
+    $owner = User::factory()->create(['role' => 'organizer']);
+    $event->update(['organizer_id' => $owner->id]);
+    $otherOrganizer = User::factory()->create(['role' => 'organizer']);
+
+    $this->actingAs($otherOrganizer)
+        ->delete(route('events.event-sessions.destroy', [$event, $sessions[0]]))
+        ->assertForbidden();
+
+    expect($sessions[0]->fresh())->not->toBeNull();
+});
+
+it('allows archiving the final session without deleting event pre-registrations', function () {
+    [$event, $sessions] = makeScheduledEvent(sessionDays: 1);
+    Registration::create([
+        'event_id' => $event->id,
+        'guest_name' => 'Registered Attendee',
+        'guest_email' => 'registered@example.test',
+        'guest_phone' => '60123456789',
+        'status' => 'approved',
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->from(route('events.event-sessions.index', $event))
+        ->delete(route('events.event-sessions.destroy', [$event, $sessions[0]]))
+        ->assertRedirect(route('events.show', $event))
+        ->assertSessionHas('success');
+
+    expect($event->fresh()->sessions()->count())->toBe(0)
+        ->and($event->registrations()->count())->toBe(1);
+});
+
+it('archives a populated event while retaining its sessions and attendance', function () {
     [$event, $sessions] = makeScheduledEvent();
     $attendance = recordSessionAttendance($sessions[1]);
     $admin = User::factory()->create(['role' => 'admin']);
@@ -297,15 +350,16 @@ it('rejects deleting an event when any of its sessions has attendance', function
         ->from(route('events.index'))
         ->delete(route('events.destroy', $event))
         ->assertRedirect(route('events.index'))
-        ->assertSessionHasErrors('event');
+        ->assertSessionHas('success');
 
-    expect($event->fresh())->not->toBeNull()
+    expect(Event::find($event->id))->toBeNull()
+        ->and(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
         ->and($sessions[0]->fresh())->not->toBeNull()
         ->and($sessions[1]->fresh())->not->toBeNull()
         ->and($attendance->fresh()->session_id)->toBe($sessions[1]->id);
 });
 
-it('allows deleting an event when no session has attendance', function () {
+it('archives an event without attendance and keeps its sessions until recovery or safe cleanup', function () {
     [$event, $sessions] = makeScheduledEvent();
     $admin = User::factory()->create(['role' => 'admin']);
 
@@ -314,7 +368,119 @@ it('allows deleting an event when no session has attendance', function () {
         ->assertRedirect(route('events.index'));
 
     expect(Event::find($event->id))->toBeNull()
-        ->and(EventSession::whereIn('id', $sessions->pluck('id'))->count())->toBe(0);
+        ->and(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
+        ->and(EventSession::whereIn('id', $sessions->pluck('id'))->count())->toBe(2);
+});
+
+it('archives events with pre-registrations without deleting them', function () {
+    [$event] = makeScheduledEvent();
+    Registration::create([
+        'event_id' => $event->id,
+        'guest_name' => 'Registered Attendee',
+        'guest_email' => 'registered@example.test',
+        'guest_phone' => '60123456789',
+        'status' => 'pending',
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->from(route('events.index'))
+        ->delete(route('events.destroy', $event))
+        ->assertRedirect(route('events.index'))
+        ->assertSessionHas('success');
+
+    expect(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
+        ->and($event->registrations()->count())->toBe(1);
+});
+
+it('archives events with feedback responses without deleting them', function () {
+    [$event] = makeScheduledEvent();
+    Feedback::create([
+        'event_id' => $event->id,
+        'participant_name' => 'Feedback Participant',
+        'participant_email' => 'feedback@example.test',
+        'rating' => 5,
+        'comments' => 'Keep this response.',
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->from(route('events.index'))
+        ->delete(route('events.destroy', $event))
+        ->assertRedirect(route('events.index'))
+        ->assertSessionHas('success');
+
+    expect(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
+        ->and(Feedback::where('event_id', $event->id)->count())->toBe(1);
+});
+
+it('archives events with notification history without deleting it', function () {
+    [$event] = makeScheduledEvent();
+    EventNotificationDelivery::create([
+        'event_id' => $event->id,
+        'type' => 'published',
+        'notification_key' => 'history-key',
+        'recipient_email' => 'participant@example.test',
+        'status' => 'accepted',
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->from(route('events.index'))
+        ->delete(route('events.destroy', $event))
+        ->assertRedirect(route('events.index'))
+        ->assertSessionHas('success');
+
+    expect(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
+        ->and(EventNotificationDelivery::where('event_id', $event->id)->count())->toBe(1);
+});
+
+it('archives events while retaining attendance and feedback invitations', function () {
+    [$event, $sessions] = makeScheduledEvent();
+    $attendance = recordSessionAttendance($sessions[1]);
+    FeedbackInvitation::create([
+        'event_id' => $event->id,
+        'attendance_id' => $attendance->id,
+        'participant_name' => 'Test Attendee',
+        'participant_email' => 'attendee@example.test',
+        'token_hash' => hash('sha256', 'retained-invitation-token'),
+        'expires_at' => now()->addDay(),
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->from(route('events.index'))
+        ->delete(route('events.destroy', $event))
+        ->assertRedirect(route('events.index'))
+        ->assertSessionHas('success');
+
+    expect(Event::withTrashed()->find($event->id)->trashed())->toBeTrue()
+        ->and($attendance->fresh())->not->toBeNull()
+        ->and(FeedbackInvitation::where('event_id', $event->id)->count())->toBe(1);
+});
+
+it('prevents an organizer from deleting another organizer event', function () {
+    [$event] = makeScheduledEvent();
+    $owner = User::factory()->create(['role' => 'organizer']);
+    $event->update(['organizer_id' => $owner->id]);
+    $otherOrganizer = User::factory()->create(['role' => 'organizer']);
+
+    $this->actingAs($otherOrganizer)
+        ->delete(route('events.destroy', $event))
+        ->assertForbidden();
+
+    expect(Event::find($event->id))->not->toBeNull();
+});
+
+it('shows an explicit confirmation before saving event cancellation', function () {
+    [$event] = makeScheduledEvent();
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->get(route('events.edit', $event))
+        ->assertOk()
+        ->assertSee('id="cancellation-confirmation"', false)
+        ->assertSee('send cancellation notices to registered participants');
 });
 
 it('prevents marking an event completed before its scheduled end', function () {
@@ -335,4 +501,18 @@ it('prevents marking an event completed before its scheduled end', function () {
         ->assertSessionHasErrors('status');
 
     expect($event->fresh()->status)->toBe('published');
+});
+
+it('does not offer Completed while the event is still scheduled to run', function () {
+    [$event] = makeScheduledEvent();
+    $event->update([
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDays(2),
+    ]);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($admin)
+        ->get(route('events.edit', $event))
+        ->assertOk()
+        ->assertDontSee('<option value="completed"', false);
 });

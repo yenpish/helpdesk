@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\Attendance;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Registration;
@@ -19,6 +20,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Illuminate\Validation\ValidationException;
+use App\Support\MalaysianPhoneNumber;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventSessionController extends Controller
@@ -26,7 +29,7 @@ class EventSessionController extends Controller
     public function index(Event $event): View
     {
         $this->authorizeEvent($event);
-        $event->load('sessions');
+        $event->load(['sessions' => fn ($query) => $query->withCount('attendances')]);
 
         return view('event-sessions.index', compact('event'));
     }
@@ -81,10 +84,12 @@ class EventSessionController extends Controller
             ->with('success', 'Session created successfully.');
     }
 
-    public function show(Request $request, Event $event, EventSession $eventSession): View
+    public function show(Request $request, Event $event, EventSession $eventSession): View|JsonResponse
     {
         $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
+
+        $attendanceRefresh = $request->expectsJson() && $request->boolean('attendance_refresh');
 
         $eventSession->load([
             'event',
@@ -95,7 +100,7 @@ class EventSessionController extends Controller
 
         $attendanceUrl = null;
         $attendanceQrSvg = null;
-        if (
+        if (!$attendanceRefresh &&
             in_array($event->status, ['published', 'completed'], true)
             && $eventSession->attendance_opens_at !== null
             && $eventSession->attendance_closes_at !== null
@@ -121,69 +126,50 @@ class EventSessionController extends Controller
             ->latest('registered_at')
             ->get();
 
-        $attendanceEmails = $eventSession->attendances
-            ->filter(fn ($attendance) => filled($attendance->email))
-            ->keyBy(fn ($attendance) => strtolower(trim($attendance->email)));
-        $registeredEmails = collect();
-        $registrationAttendanceRows = $registrations->map(function ($registration) use ($attendanceEmails, $eventSession, $registeredEmails) {
-            $email = strtolower(trim($registration->guest_email ?? $registration->user?->email ?? ''));
-            if ($email !== '') {
-                $registeredEmails->put($email, true);
+        $registrationByEmail = [];
+        foreach ($registrations as $registration) {
+            foreach ([$registration->guest_email, $registration->user?->email] as $email) {
+                $email = strtolower(trim($email ?? ''));
+                if ($email !== '' && !isset($registrationByEmail[$email])) {
+                    $registrationByEmail[$email] = $registration;
+                }
             }
+        }
 
-            $attendance = $email !== '' ? $attendanceEmails->get($email) : null;
-            return [
-                'name' => $registration->guest_name ?? $registration->user?->name,
-                'email' => $email,
-                'phone' => $attendance?->phone ?? $registration->guest_phone,
-                'organisation' => $registration->organisation ?? $attendance?->unit,
-                'registration_status' => ucfirst($registration->status),
-                'attendance_status' => $attendance ? 'Attended' : 'Not attended',
-                'attended_at' => $attendance?->created_at,
-                'signature' => $attendance?->signature,
-            ];
-        });
-
-        $unregisteredAttendanceRows = $eventSession->attendances
-            ->filter(function ($attendance) use ($registeredEmails) {
+        // Pre-registration is event-level, so only actual check-ins belong in
+        // this session report. No session reservation exists to identify no-shows.
+        $registrationAttendanceRows = $eventSession->attendances
+            ->sortByDesc(fn ($attendance) => $attendance->clock_in_at ?? $attendance->created_at)
+            ->map(function ($attendance) use ($registrationByEmail) {
                 $email = strtolower(trim($attendance->email ?? ''));
+                $registration = $email !== '' ? ($registrationByEmail[$email] ?? null) : null;
 
-                return $email === '' || !$registeredEmails->has($email);
+                return [
+                    'id' => $attendance->id,
+                    'name' => $attendance->full_name,
+                    'email' => $attendance->email,
+                    'phone' => $attendance->phone,
+                    'position' => $attendance->position,
+                    'organisation' => $attendance->unit,
+                    'registration_status' => $registration ? ucfirst($registration->status) : 'Not pre-registered',
+                    'attended_at' => $attendance->clock_in_at ?? $attendance->created_at,
+                    'signature' => $attendance->signature,
+                ];
             })
-            ->map(fn ($attendance) => [
-                'name' => $attendance->full_name,
-                'email' => $attendance->email,
-                'phone' => $attendance->phone,
-                'organisation' => $attendance->unit,
-                'registration_status' => 'Not pre-registered',
-                'attendance_status' => 'Attended',
-                'attended_at' => $attendance->created_at,
-                'signature' => $attendance->signature,
-            ]);
-
-        $registrationAttendanceRows = $registrationAttendanceRows
-            ->concat($unregisteredAttendanceRows)
             ->values();
 
         $registeredCount = $registrations->count();
-        $attendedRegisteredCount = $registrationAttendanceRows
-            ->filter(fn (array $row) => $row['registration_status'] !== 'Not pre-registered'
-                && $row['attendance_status'] === 'Attended')
-            ->pluck('email')
-            ->filter()
-            ->unique()
+        $attendedCount = $registrationAttendanceRows->count();
+        $preRegisteredAttendedCount = $registrationAttendanceRows
+            ->filter(fn (array $row) => $row['registration_status'] !== 'Not pre-registered')
             ->count();
-        $notAttendedCount = max(0, $registeredCount - $attendedRegisteredCount);
-        $attendedCount = $attendedRegisteredCount;
-        $attendanceRate = $registeredCount > 0
-            ? round(($attendedRegisteredCount / $registeredCount) * 100)
-            : 0;
+        $notPreRegisteredCount = $attendedCount - $preRegisteredAttendedCount;
 
         $search = trim((string) $request->query('search', ''));
         $statusFilter = (string) $request->query('status', '');
         $validStatusFilters = [
             'pre_registered', 'not_pre_registered', 'pending', 'approved', 'cancelled',
-            'rejected', 'attended', 'not_attended',
+            'rejected',
         ];
         if (!in_array($statusFilter, $validStatusFilters, true)) {
             $statusFilter = '';
@@ -210,9 +196,6 @@ class EventSessionController extends Controller
                 'approved' => strtolower($row['registration_status']) === 'approved',
                 'cancelled' => strtolower($row['registration_status']) === 'cancelled',
                 'rejected' => strtolower($row['registration_status']) === 'rejected',
-                'attended' => $row['attendance_status'] === 'Attended',
-                'not_attended' => $row['registration_status'] !== 'Not pre-registered'
-                    && $row['attendance_status'] === 'Not attended',
                 default => true,
             };
         })->values();
@@ -226,9 +209,26 @@ class EventSessionController extends Controller
             $currentPage,
             [
                 'path' => LengthAwarePaginator::resolveCurrentPath(),
-                'query' => $request->query(),
+                'query' => $request->except('attendance_refresh'),
             ]
         );
+
+        if ($attendanceRefresh) {
+            return response()->json([
+                'html' => view('event-sessions.partials.attendance-table-content', [
+                    'event' => $event,
+                    'eventSession' => $eventSession,
+                    'registrationAttendanceRows' => $registrationAttendanceRows,
+                    'search' => $search,
+                    'statusFilter' => $statusFilter,
+                ])->render(),
+                'counts' => [
+                    'attended' => $attendedCount,
+                    'pre_registered' => $preRegisteredAttendedCount,
+                    'not_pre_registered' => $notPreRegisteredCount,
+                ],
+            ])->header('Cache-Control', 'private, no-store');
+        }
 
         return view('event-sessions.show', compact(
             'event',
@@ -238,114 +238,104 @@ class EventSessionController extends Controller
             'registrationAttendanceRows',
             'registeredCount',
             'attendedCount',
-            'notAttendedCount',
-            'attendanceRate',
+            'preRegisteredAttendedCount',
+            'notPreRegisteredCount',
             'search',
             'statusFilter'
         ));
     }
 
-    public function liveAttendance(Event $event, EventSession $eventSession): View
-    {
+    public function updateAttendanceDetails(
+        Request $request,
+        Event $event,
+        EventSession $eventSession,
+        Attendance $attendance
+    ): RedirectResponse {
         $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
+        abort_unless((int) $attendance->session_id === (int) $eventSession->id, 404);
 
-        $data = $this->liveAttendancePayload($event, $eventSession);
-
-        return view('event-sessions.live-attendance', [
-            'event' => $event,
-            'eventSession' => $eventSession,
-            'liveData' => $data,
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:50', 'regex:/^\\+?[0-9().\\s-]+$/'],
+            'position' => ['nullable', 'string', 'max:255'],
+            'unit' => ['nullable', 'string', 'max:255'],
         ]);
-    }
 
-    public function liveAttendanceData(Request $request, Event $event, EventSession $eventSession): JsonResponse
-    {
-        $this->authorizeEvent($event);
-        abort_unless($eventSession->event_id === $event->id, 404);
+        $email = strtolower(trim($validated['email']));
+        $phone = MalaysianPhoneNumber::canonicalize($validated['phone']);
+        if (strlen($phone) < 7 || strlen($phone) > 15) {
+            throw ValidationException::withMessages([
+                'phone' => 'Enter a phone number containing 7 to 15 digits.',
+            ]);
+        }
 
-        return response()
-            ->json($this->liveAttendancePayload($event, $eventSession))
-            ->header('Cache-Control', 'private, no-store');
-    }
+        DB::transaction(function () use ($event, $eventSession, $attendance, $validated, $email, $phone): void {
+            Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
+            $record = Attendance::query()
+                ->where('session_id', $eventSession->id)
+                ->whereKey($attendance->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-    private function liveAttendancePayload(Event $event, EventSession $eventSession): array
-    {
-        $registrations = Registration::with('user:id,name,email')
-            ->where('event_id', $event->id)
-            ->latest('registered_at')
-            ->get();
+            $emailExists = Attendance::query()
+                ->where('session_id', $eventSession->id)
+                ->where('id', '!=', $record->id)
+                ->whereRaw('LOWER(email) = ?', [$email])
+                ->exists();
 
-        $registrationByEmail = [];
-        foreach ($registrations as $registration) {
-            foreach ([$registration->guest_email, $registration->user?->email] as $email) {
-                $email = strtolower(trim($email ?? ''));
-                if ($email !== '' && !isset($registrationByEmail[$email])) {
-                    $registrationByEmail[$email] = $registration;
-                }
+            $eventAttendances = $event->sessions()
+                ->with('attendances:id,session_id,phone,email')
+                ->get()
+                ->flatMap(fn (EventSession $session) => $session->attendances)
+                ->reject(fn (Attendance $candidate) => (int) $candidate->id === (int) $record->id)
+                ->filter(fn (Attendance $candidate) => MalaysianPhoneNumber::canonicalize($candidate->phone ?? '') === $phone);
+
+            $phoneUsedByDifferentEmail = $eventAttendances->contains(
+                fn (Attendance $candidate) => strtolower(trim($candidate->email ?? '')) !== $email
+            );
+            $phoneUsedInThisSession = $eventAttendances->contains(
+                fn (Attendance $candidate) => (int) $candidate->session_id === (int) $eventSession->id
+            );
+            $duplicateErrors = [];
+            if ($emailExists) {
+                $duplicateErrors['email'] = 'This email is already used for this session.';
             }
-        }
-
-        $attendanceEmails = $eventSession->attendances()->get(['email']);
-        $attendedRegistrationIds = [];
-        $notPreRegisteredCount = 0;
-        foreach ($attendanceEmails as $attendance) {
-            $email = strtolower(trim($attendance->email ?? ''));
-            $registration = $email !== '' ? ($registrationByEmail[$email] ?? null) : null;
-            if ($registration) {
-                $attendedRegistrationIds[$registration->id] = true;
-            } else {
-                $notPreRegisteredCount++;
+            if ($phoneUsedByDifferentEmail || $phoneUsedInThisSession) {
+                $duplicateErrors['phone'] = $phoneUsedByDifferentEmail
+                    ? 'This phone number is already linked to a different email for this event.'
+                    : 'This phone number has already been used for this session.';
             }
-        }
+            if ($duplicateErrors !== []) {
+                throw ValidationException::withMessages($duplicateErrors);
+            }
 
-        $recentCheckIns = $eventSession->attendances()
-            ->orderByRaw('COALESCE(clock_in_at, created_at) DESC')
-            ->orderByDesc('id')
-            ->limit(30)
-            ->get()
-            ->map(function ($attendance) use ($registrationByEmail) {
-                $email = strtolower(trim($attendance->email ?? ''));
+            $record->forceFill([
+                'full_name' => trim($validated['full_name']),
+                'email' => $email,
+                'phone' => $phone,
+                'position' => isset($validated['position']) ? trim($validated['position']) : null,
+                'unit' => isset($validated['unit']) ? trim($validated['unit']) : null,
+            ]);
+            $changedFields = array_keys($record->getDirty());
+            if ($changedFields === []) {
+                return;
+            }
+            sort($changedFields);
 
-                return [
-                    'name' => $attendance->full_name,
-                    'organisation' => $attendance->unit,
-                    'checked_in_at' => ($attendance->clock_in_at ?? $attendance->created_at)?->format('d M Y, h:i A'),
-                    'pre_registered' => $email !== '' && isset($registrationByEmail[$email]),
-                ];
-            });
+            $record->save();
+            AuditLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'updated',
+                'auditable_type' => Attendance::class,
+                'auditable_id' => $record->id,
+                'description' => 'Attendance details corrected.',
+                'new_values' => ['fields_changed' => $changedFields],
+            ]);
+        });
 
-        $now = now();
-        if (!$eventSession->starts_at || !$eventSession->ends_at) {
-            $sessionStatus = 'Schedule unavailable';
-        } elseif ($now->lt($eventSession->starts_at)) {
-            $sessionStatus = 'Upcoming';
-        } elseif ($now->lte($eventSession->ends_at)) {
-            $sessionStatus = 'In progress';
-        } else {
-            $sessionStatus = 'Ended';
-        }
-
-        if (!in_array($event->status, ['published', 'completed'], true)) {
-            $attendanceAvailability = 'Unavailable';
-        } elseif (!$eventSession->attendance_opens_at || !$eventSession->attendance_closes_at) {
-            $attendanceAvailability = 'Unavailable';
-        } elseif ($now->lt($eventSession->attendance_opens_at)) {
-            $attendanceAvailability = 'Opens ' . $eventSession->attendance_opens_at->format('d M Y, h:i A');
-        } elseif ($now->gt($eventSession->attendance_closes_at)) {
-            $attendanceAvailability = 'Closed';
-        } else {
-            $attendanceAvailability = 'Open';
-        }
-
-        return [
-            'session_status' => $sessionStatus,
-            'attendance_availability' => $attendanceAvailability,
-            'checked_in' => $attendanceEmails->count(),
-            'pre_registered_checked_in' => count($attendedRegistrationIds),
-            'not_pre_registered' => $notPreRegisteredCount,
-            'check_ins' => $recentCheckIns->values(),
-        ];
+        return back()->with('success', 'Attendance details updated.');
     }
 
     public function exportAttendance(Event $event, EventSession $eventSession): StreamedResponse
@@ -455,16 +445,13 @@ class EventSessionController extends Controller
         $this->authorizeEvent($event);
         abort_unless($eventSession->event_id === $event->id, 404);
 
-        $deleted = DB::transaction(function () use ($eventSession): bool {
+        DB::transaction(function () use ($event, $eventSession): void {
+            $lockedEvent = Event::whereKey($event->id)
+                ->lockForUpdate()
+                ->firstOrFail();
             $session = EventSession::whereKey($eventSession->id)
                 ->lockForUpdate()
                 ->firstOrFail();
-            $hasAttendance = $session->attendances()->exists();
-
-            if ($hasAttendance) {
-                return false;
-            }
-
             AuditLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'deleted',
@@ -475,19 +462,11 @@ class EventSessionController extends Controller
             ]);
 
             $session->delete();
-
-            return true;
         });
-
-        if (!$deleted) {
-            return back()->withErrors([
-                'session' => 'This session cannot be deleted because attendance records exist.',
-            ]);
-        }
 
         return redirect()
             ->route('events.show', $event)
-            ->with('success', 'Session deleted successfully.');
+            ->with('success', 'Session deleted. Its check-ins are preserved and available if you restore it.');
     }
 
     private function authorizeEvent(Event $event): void

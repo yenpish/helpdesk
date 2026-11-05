@@ -15,11 +15,18 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\RateLimiter;
 use JsonException;
 
 
 class PublicAttendanceController extends Controller
 {
+    private const INVALID_PIN_ATTEMPT_KEY = 'attendance-pin:invalid-attempts';
+    private const INVALID_PIN_LOCKOUT_KEY = 'attendance-pin:invalid-lockout';
+    private const INVALID_PIN_ATTEMPT_LIMIT = 30;
+    private const INVALID_PIN_WINDOW_SECONDS = 60;
+    private const INVALID_PIN_LOCKOUT_SECONDS = 60;
+
     public function enterPin(): View
     {
         return view('attendance.pin');
@@ -41,6 +48,18 @@ class PublicAttendanceController extends Controller
         $event = Event::where('pin', $pin)->first();
 
         if (!$event) {
+            if (RateLimiter::tooManyAttempts(self::INVALID_PIN_LOCKOUT_KEY, 1)) {
+                abort(429, 'Too many invalid Attendance PIN attempts. Please wait and try again.');
+            }
+
+            RateLimiter::hit(self::INVALID_PIN_ATTEMPT_KEY, self::INVALID_PIN_WINDOW_SECONDS);
+
+            if (RateLimiter::tooManyAttempts(self::INVALID_PIN_ATTEMPT_KEY, self::INVALID_PIN_ATTEMPT_LIMIT)) {
+                RateLimiter::hit(self::INVALID_PIN_LOCKOUT_KEY, self::INVALID_PIN_LOCKOUT_SECONDS);
+
+                abort(429, 'Too many invalid Attendance PIN attempts. Please wait and try again.');
+            }
+
             return back()->withErrors([
                 'pin' => 'Invalid Attendance PIN.',
             ]);
@@ -79,6 +98,7 @@ class PublicAttendanceController extends Controller
 
         $sessions = $event->sessions()
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->get();
 
         if ($boundSession !== null) {
@@ -377,7 +397,8 @@ class PublicAttendanceController extends Controller
             ]);
         }
 
-        $registration = Registration::with('user')
+        $registration = Registration::query()
+            ->select(['id', 'event_id', 'guest_email', 'guest_phone'])
             ->where('event_id', $event->id)
             ->whereIn('status', ['approved', 'pending'])
             ->whereNotNull('guest_phone')
@@ -393,35 +414,20 @@ class PublicAttendanceController extends Controller
             );
 
         if ($registration) {
-            $registrationEmail = strtolower(trim(
-                $registration->guest_email ?? $registration->user?->email ?? ''
-            ));
-
-            if ($registrationEmail !== $email) {
-                $registrationEmail = strtolower(trim($registration->user?->email ?? ''));
-            }
-
-            $details = [
-                'full_name' => $registration->guest_name ?? $registration->user?->name ?? '',
-                'email' => $registrationEmail,
-                'phone' => MalaysianPhoneNumber::canonicalize($registration->guest_phone ?? ''),
-                'position' => $registration->position ?? '',
-                'unit' => $registration->organisation ?? '',
-            ];
-
             if ($request->expectsJson()) {
-                return response()->json([
-                    'status' => 'found',
-                    'registration_status' => $registration->status,
-                    'details' => $details,
-                ]);
+                return response()->json(['status' => 'found']);
             }
 
             return redirect()
                 ->route('attendance.form', ['access' => $access])
-                ->withInput($details)
-                ->with('pre_registration_found', true)
-                ->with('pre_registration_status', $registration->status);
+                ->withInput([
+                    'lookup_email' => $validated['lookup_email'],
+                    'lookup_phone' => $validated['lookup_phone'],
+                    // These are attendee-supplied values, not data returned from the registration.
+                    'email' => $email,
+                    'phone' => $phoneDigits,
+                ])
+                ->with('pre_registration_found', true);
         }
 
         if ($request->expectsJson()) {
@@ -450,7 +456,7 @@ class PublicAttendanceController extends Controller
     private function eventAllowsAttendance(Event $event): bool
     {
         if ($event->status === 'published') {
-            return true;
+            return $event->sessions()->exists();
         }
 
         if ($event->status !== 'completed') {

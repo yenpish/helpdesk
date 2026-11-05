@@ -80,16 +80,22 @@ class EventController extends Controller
                 'Attendance Status', 'Registered At', 'Attended At',
             ]);
 
-            $sessions = $event->sessions()->orderBy('starts_at')->get();
             $registrations = $event->registrations()->with('user')->orderBy('registered_at')->get();
             $attendances = $event->attendances()
                 ->with('session')
+                ->orderBy('event_sessions.starts_at')
+                ->orderBy('event_sessions.id')
                 ->orderBy('attendances.created_at')
                 ->get();
-            $attendanceGroups = $attendances->groupBy(fn ($attendance) =>
-                $attendance->session_id . '|' . strtolower(trim($attendance->email ?? ''))
-            );
-            $matchedAttendanceIds = [];
+            $registrationByEmail = [];
+            foreach ($registrations as $registration) {
+                foreach ([$registration->guest_email, $registration->user?->email] as $email) {
+                    $email = strtolower(trim($email ?? ''));
+                    if ($email !== '' && !isset($registrationByEmail[$email])) {
+                        $registrationByEmail[$email] = $registration;
+                    }
+                }
+            }
 
             $writeRow = function (array $row) use ($output) {
                 fputcsv($output, array_map(function ($value) {
@@ -99,57 +105,41 @@ class EventController extends Controller
                 }, $row));
             };
 
+            // Registrations apply to the whole Event; do not repeat them under
+            // every Session or imply that a missing session check-in is a no-show.
             foreach ($registrations as $registration) {
-                $email = strtolower(trim($registration->guest_email ?? $registration->user?->email ?? ''));
-                $registrationName = $registration->guest_name ?? $registration->user?->name;
-                $sessionsToReport = $sessions->isNotEmpty() ? $sessions : collect([null]);
-
-                foreach ($sessionsToReport as $session) {
-                    $matches = $session && $email !== ''
-                        ? $attendanceGroups->get($session->id . '|' . $email, collect())
-                        : collect();
-                    $attendanceRecords = $matches->isNotEmpty() ? $matches : collect([null]);
-
-                    foreach ($attendanceRecords as $attendance) {
-                        if ($attendance) {
-                            $matchedAttendanceIds[$attendance->id] = true;
-                        }
-
-                        $writeRow([
-                            $event->name,
-                            $session?->name,
-                            $session?->starts_at?->format('Y-m-d H:i:s'),
-                            $registrationName,
-                            $email,
-                            $attendance?->phone ?? $registration->guest_phone,
-                            $attendance?->position ?? $registration->position,
-                            $registration->organisation ?? $attendance?->unit,
-                            ucfirst($registration->status),
-                            $attendance ? 'Attended' : 'Not attended',
-                            $registration->registered_at?->format('Y-m-d H:i:s'),
-                            $attendance?->created_at?->format('Y-m-d H:i:s'),
-                        ]);
-                    }
-                }
+                $writeRow([
+                    $event->name,
+                    '',
+                    '',
+                    $registration->guest_name ?? $registration->user?->name,
+                    strtolower(trim($registration->guest_email ?? $registration->user?->email ?? '')),
+                    $registration->guest_phone,
+                    $registration->position,
+                    $registration->organisation,
+                    ucfirst($registration->status),
+                    'Not tracked at event level',
+                    $registration->registered_at?->format('Y-m-d H:i:s'),
+                    '',
+                ]);
             }
 
             foreach ($attendances as $attendance) {
-                if (isset($matchedAttendanceIds[$attendance->id])) {
-                    continue;
-                }
+                $email = strtolower(trim($attendance->email ?? ''));
+                $registration = $email !== '' ? ($registrationByEmail[$email] ?? null) : null;
 
                 $writeRow([
                     $event->name,
                     $attendance->session?->name,
                     $attendance->session?->starts_at?->format('Y-m-d H:i:s'),
-                    $attendance->full_name,
+                    $attendance->full_name ?? $registration?->guest_name ?? $registration?->user?->name,
                     $attendance->email,
                     $attendance->phone,
                     $attendance->position,
-                    $attendance->unit,
-                    'Not pre-registered',
+                    $registration?->organisation ?? $attendance->unit,
+                    $registration ? ucfirst($registration->status) : 'Not pre-registered',
                     'Attended',
-                    null,
+                    $registration?->registered_at?->format('Y-m-d H:i:s'),
                     $attendance->created_at?->format('Y-m-d H:i:s'),
                 ]);
             }
@@ -288,7 +278,16 @@ public function show(Event $event): View
                 ];
             });
 
-        return view('events.show', compact('event', 'notificationBatches'));
+        $feedbackInvitationSummary = $event->feedbackInvitations()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return view('events.show', compact(
+            'event',
+            'notificationBatches',
+            'feedbackInvitationSummary'
+        ));
     }
 
     public function edit(Event $event): View
@@ -418,10 +417,6 @@ public function show(Event $event): View
                         $shiftedStart->toDateString() > $lastEventDate
                     );
 
-                    if ($outsideRange && $session->attendances_count > 0) {
-                        return 'attendance_conflict';
-                    }
-
                     if ($outsideRange) {
                         $sessionsToRemove->push($session);
                     } else {
@@ -546,7 +541,7 @@ public function show(Event $event): View
                         'action' => 'deleted',
                         'auditable_type' => EventSession::class,
                         'auditable_id' => $session->id,
-                        'description' => 'Empty session removed outside the updated event date range.',
+                        'description' => 'Session archived outside the updated event date range.',
                         'old_values' => $session->toArray(),
                     ]);
                     $session->delete();
@@ -567,12 +562,6 @@ public function show(Event $event): View
         if ($updated === 'sessions_changed') {
             return back()->withInput()->withErrors([
                 'schedule' => 'The session list changed while this form was open. Reload the event and confirm the new session changes.',
-            ]);
-        }
-
-        if ($updated === 'attendance_conflict') {
-            return back()->withInput()->withErrors([
-                'schedule' => 'The date range cannot be shortened because a session outside the new range has attendance records.',
             ]);
         }
 
@@ -601,22 +590,10 @@ public function show(Event $event): View
     {
         $this->authorizeEvent($event);
 
-        $deleted = DB::transaction(function () use ($event): bool {
+        DB::transaction(function () use ($event): void {
             $lockedEvent = Event::whereKey($event->id)
                 ->lockForUpdate()
                 ->firstOrFail();
-            $sessions = $lockedEvent->sessions()
-                ->select('event_sessions.id')
-                ->withCount('attendances')
-                ->lockForUpdate()
-                ->get();
-
-            foreach ($sessions as $session) {
-                if ((int) $session->attendances_count > 0) {
-                    return false;
-                }
-            }
-
             $oldValues = $lockedEvent->toArray();
             $this->createAuditLog(
                 'deleted',
@@ -626,19 +603,11 @@ public function show(Event $event): View
             );
 
             $lockedEvent->delete();
-
-            return true;
         });
-
-        if (!$deleted) {
-            return back()->withErrors([
-                'event' => 'This event cannot be deleted because attendance records exist in one or more sessions.',
-            ]);
-        }
 
         return redirect()
             ->route('events.index')
-            ->with('success', 'Event deleted successfully.');
+            ->with('success', 'Event deleted. You can restore it from Deleted events.');
     }
 
     private function generateEventPin(): string
@@ -773,8 +742,12 @@ public function show(Event $event): View
                 ]);
         }
 
-        $event->status = 'published';
-        $event->save();
+        $oldStatus = $event->status;
+        DB::transaction(function () use ($event, $oldStatus): void {
+            $event->status = 'published';
+            $event->save();
+            $this->createAuditLog('published', $event, 'Event published.', ['status' => $oldStatus], ['status' => 'published']);
+        });
         $notifications->sendForEvent($event, 'published');
 
         return redirect()
@@ -791,6 +764,9 @@ public function show(Event $event): View
         abort_unless(preg_match('/^[a-f0-9-]{36,64}$/', $notificationKey) === 1, 404);
 
         $retried = $notifications->retryFailed($event, $notificationKey);
+        $this->createAuditLog('retried', $event, 'Event notifications retried.', null, [
+            'attempted' => $retried,
+        ]);
 
         return back()->with('success', $retried > 0
             ? "Retried {$retried} failed notification(s)."

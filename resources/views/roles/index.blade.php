@@ -56,7 +56,26 @@
                     </div>
 
                     @if($role->is_system)
-                        <p class="role-system-note mb-0">Built-in access is protected to preserve existing system capabilities.</p>
+                        @if($role->slug === 'admin')
+                            <p class="role-system-note mb-0">System Admin permissions and identity are protected.</p>
+                        @else
+                            <form id="role-update-{{ $role->id }}" method="POST" action="{{ route('roles.update', $role) }}" class="account-form role-edit-form">
+                                @csrf
+                                @method('PUT')
+                                <fieldset class="field role-permissions role-permissions-edit">
+                                    <legend>Permissions</legend>
+                                    @foreach($permissions as $permission => $label)
+                                        <label class="role-permission-option">
+                                            <input type="checkbox" name="permissions[]" value="{{ $permission }}" @checked(in_array($permission, $role->permissions ?? [], true))>
+                                            {{ $label }}
+                                        </label>
+                                    @endforeach
+                                </fieldset>
+                            </form>
+                            <div class="role-card-actions">
+                                <button type="submit" form="role-update-{{ $role->id }}" class="btn btn-primary">Save permissions</button>
+                            </div>
+                        @endif
                     @else
                         <form id="role-update-{{ $role->id }}" method="POST" action="{{ route('roles.update', $role) }}" class="account-form role-edit-form">
                             @csrf

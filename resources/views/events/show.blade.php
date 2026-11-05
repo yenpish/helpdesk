@@ -40,6 +40,23 @@
                         </form>
                     @endif
 
+                    @if (($feedbackInvitationSummary['failed'] ?? 0) > 0
+                        && $event->ends_at !== null
+                        && $event->ends_at->lte(now())
+                        && $event->ends_at->gte(now()->subDays(7)))
+                        <form
+                            method="POST"
+                            action="{{ route('feedback.invitations.retry-failed', $event) }}"
+                            class="d-inline"
+                            onsubmit="return confirm('Retry failed feedback invitations?');"
+                        >
+                            @csrf
+                            <button type="submit" class="btn btn-outline-primary">
+                                Retry Failed ({{ $feedbackInvitationSummary['failed'] }})
+                            </button>
+                        </form>
+                    @endif
+
                     <a
                         href="{{ route('feedback.index', $event) }}"
                         class="btn btn-outline-secondary"
@@ -69,10 +86,25 @@
             <div><dt>Attendance records</dt><dd>{{ $event->attendances_count }}</dd></div>
         </dl>
 
+        @if (($feedbackInvitationSummary ?? collect())->isNotEmpty())
+            <section class="small text-muted mb-3" aria-label="Feedback invitation status">
+                <span class="me-3">Feedback invitations</span>
+                @if (($feedbackInvitationSummary['accepted'] ?? 0) > 0)
+                    <span class="me-3">{{ $feedbackInvitationSummary['accepted'] }} sent</span>
+                @endif
+                @if (($feedbackInvitationSummary['failed'] ?? 0) > 0)
+                    <span class="me-3">{{ $feedbackInvitationSummary['failed'] }} failed</span>
+                @endif
+                @if (($feedbackInvitationSummary['pending'] ?? 0) > 0)
+                    <span class="me-3">{{ $feedbackInvitationSummary['pending'] }} pending</span>
+                @endif
+            </section>
+        @endif
+
         <section class="card mb-4" aria-labelledby="event-notifications-heading">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span id="event-notifications-heading">Email notifications</span>
-                <small class="text-muted">Transport acceptance does not confirm delivery to the recipient’s inbox.</small>
+                <small class="text-muted">Email sending status</small>
             </div>
             <div class="card-body py-2">
                 @forelse($notificationBatches as $batch)
@@ -90,7 +122,7 @@
                         <div class="d-flex align-items-center gap-3 flex-wrap">
                             <small class="d-flex flex-wrap gap-3">
                                 @if ($batch['accepted'] > 0)
-                                    <span>{{ $batch['accepted'] }} Transport accepted</span>
+                                    <span>{{ $batch['accepted'] }} Sent</span>
                                 @endif
                                 @if ($batch['failed'] > 0)
                                     <span>{{ $batch['failed'] }} Failed</span>
@@ -209,7 +241,11 @@
 
                     <div class="table-responsive">
 
-                        <table class="table table-hover mb-0">
+                        <table class="table table-hover mb-0 event-detail-sessions-table">
+                            <colgroup>
+                                <col style="width: 22%"><col style="width: 18%"><col style="width: 18%">
+                                <col style="width: 20%"><col style="width: 10%"><col style="width: 12%">
+                            </colgroup>
 
                             <thead>
                             <tr>
@@ -217,8 +253,8 @@
                                 <th>Starts</th>
                                 <th>Ends</th>
                                 <th>Attendance Window</th>
-                                <th>Attendees</th>
-                                <th>Actions</th>
+                                <th>Check-ins</th>
+                                <th class="table-actions">Actions</th>
                             </tr>
                             </thead>
 
@@ -230,15 +266,15 @@
 
                                     <td>{{ $session->name }}</td>
 
-                                    <td>
+                                    <td class="table-cell-nowrap">
                                         {{ $session->starts_at?->format('d M Y, h:i A') ?? '—' }}
                                     </td>
 
-                                    <td>
+                                    <td class="table-cell-nowrap">
                                         {{ $session->ends_at?->format('d M Y, h:i A') ?? '—' }}
                                     </td>
 
-                                    <td>
+                                    <td class="table-cell-nowrap">
                                         {{ $session->attendance_opens_at?->format('h:i A') ?? '—' }}
                                         -
                                         {{ $session->attendance_closes_at?->format('h:i A') ?? '—' }}

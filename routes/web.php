@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventSessionController;
+use App\Http\Controllers\DeletedItemsController;
 use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HomeController;
@@ -84,7 +85,7 @@ Route::get('/attendance/{access}', [
 Route::post('/attendance/{access}', [
     PublicAttendanceController::class,
     'store',
-])->name('attendance.store');
+])->middleware('throttle:attendance-submit')->name('attendance.store');
 
 /*
 |--------------------------------------------------------------------------
@@ -125,20 +126,15 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         [EventSessionController::class, 'exportAttendance']
     )->middleware('permission:events.manage')->name('events.event-sessions.attendance.export');
 
-    Route::get(
-        '/events/{event}/event-sessions/{event_session}/live-attendance',
-        [EventSessionController::class, 'liveAttendance']
-    )->middleware('permission:events.manage')->name('events.event-sessions.live-attendance');
-
-    Route::get(
-        '/events/{event}/event-sessions/{event_session}/live-attendance/data',
-        [EventSessionController::class, 'liveAttendanceData']
-    )->middleware('permission:events.manage')->name('events.event-sessions.live-attendance.data');
-
     Route::post('/events/{event}/feedback/invitations/send', [
         FeedbackController::class,
         'sendInvitations',
     ])->middleware('permission:events.manage')->name('feedback.invitations.send');
+
+    Route::post('/events/{event}/feedback/invitations/retry-failed', [
+        FeedbackController::class,
+        'retryFailedInvitations',
+    ])->middleware('permission:events.manage')->name('feedback.invitations.retry-failed');
 
     /*
     |--------------------------------------------------------------------------
@@ -159,6 +155,17 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
+    Route::get('/events/deleted', [DeletedItemsController::class, 'index'])
+        ->name('events.deleted');
+    Route::post('/events/deleted/{eventId}/restore', [DeletedItemsController::class, 'restoreEvent'])
+        ->whereNumber('eventId')->name('events.deleted.restore');
+    Route::delete('/events/deleted/{eventId}/permanent', [DeletedItemsController::class, 'permanentlyDeleteEvent'])
+        ->whereNumber('eventId')->name('events.deleted.permanent');
+    Route::post('/events/deleted/sessions/{sessionId}/restore', [DeletedItemsController::class, 'restoreSession'])
+        ->whereNumber('sessionId')->name('events.deleted.sessions.restore');
+    Route::delete('/events/deleted/sessions/{sessionId}/permanent', [DeletedItemsController::class, 'permanentlyDeleteSession'])
+        ->whereNumber('sessionId')->name('events.deleted.sessions.permanent');
+
     Route::resource('events', EventController::class)
         ->middleware('permission:events.manage');
 
@@ -166,6 +173,11 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         'events.event-sessions',
         EventSessionController::class
     )->middleware('permission:events.manage');
+
+    Route::patch(
+        '/events/{event}/event-sessions/{event_session}/attendance/{attendance}',
+        [EventSessionController::class, 'updateAttendanceDetails']
+    )->middleware('permission:events.manage')->name('events.event-sessions.attendance.update');
 
     /*
     |--------------------------------------------------------------------------
@@ -182,6 +194,11 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         '/events/{event}/registrations/{registration}/status',
         [RegistrationController::class, 'updateStatus']
     )->middleware('permission:events.manage')->name('events.registrations.status');
+
+    Route::patch(
+        '/events/{event}/registrations/{registration}/details',
+        [RegistrationController::class, 'updateDetails']
+    )->middleware('permission:events.manage')->name('events.registrations.details');
 });
 
 /*

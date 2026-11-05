@@ -10,6 +10,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+function makePhoneRequirementsSession(Event $event): EventSession
+{
+    return EventSession::create([
+        'event_id' => $event->id,
+        'name' => 'Registration session',
+        'starts_at' => $event->starts_at,
+        'ends_at' => $event->starts_at->copy()->addHour(),
+        'attendance_opens_at' => $event->starts_at,
+        'attendance_closes_at' => $event->starts_at->copy()->addHour(),
+    ]);
+}
+
 it('requires a valid phone number for event registration', function () {
     $event = Event::create([
         'name' => 'Phone required event',
@@ -18,6 +30,7 @@ it('requires a valid phone number for event registration', function () {
         'status' => 'published',
         'pin' => 'ABCD',
     ]);
+    makePhoneRequirementsSession($event);
 
     $this->from(route('registrations.create', $event))
         ->post(route('registrations.store', $event), [
@@ -39,6 +52,7 @@ it('rejects a duplicate phone number within the same event after normalizing pun
         'status' => 'published',
         'pin' => 'EFGH',
     ]);
+    makePhoneRequirementsSession($event);
 
     Registration::create([
         'event_id' => $event->id,
@@ -69,6 +83,7 @@ it('keeps event registration email duplicate protection', function () {
         'status' => 'published',
         'pin' => 'ABEF',
     ]);
+    makePhoneRequirementsSession($event);
     Registration::create([
         'event_id' => $event->id,
         'guest_name' => 'Existing Attendee',
@@ -105,6 +120,8 @@ it('allows the same phone number to register for different events', function () 
         'status' => 'published',
         'pin' => 'NPQR',
     ]);
+    makePhoneRequirementsSession($firstEvent);
+    makePhoneRequirementsSession($secondEvent);
 
     Registration::create([
         'event_id' => $firstEvent->id,
@@ -230,7 +247,7 @@ it('keeps email duplicate protection and allows the same attendee at another ses
     expect(Attendance::whereIn('session_id', $sessions->pluck('id'))->count())->toBe(2);
 });
 
-it('shows registrations and session attendance together in one session report', function () {
+it('reports actual session check-ins separately from event-level pre-registrations', function () {
     $organizer = User::factory()->create(['role' => 'organizer']);
     $event = Event::create([
         'name' => 'Unified report event',
@@ -293,22 +310,25 @@ it('shows registrations and session attendance together in one session report', 
     $this->actingAs($organizer)
         ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
-        ->assertSee('Pre-registration &amp; Attendance', false)
-        ->assertSee('Registered Person')
+        ->assertSee('Session check-ins')
+        ->assertSee('Event pre-registrations: <span data-attendance-count="registered">3</span>', false)
+        ->assertSee('<dt>Check-ins</dt><dd data-attendance-count="attended">2</dd>', false)
+        ->assertSee('<dt>Pre-registered</dt><dd data-attendance-count="pre_registered">1</dd>', false)
+        ->assertSee('<dt>Other attendees</dt><dd data-attendance-count="not_pre_registered">1</dd>', false)
+        ->assertDontSee('Registered Person')
         ->assertSee('Pre-registration')
-        ->assertSee('Attendance')
         ->assertSee('Pending')
-        ->assertSee('Not attended')
         ->assertSee('Attended Person')
         ->assertSee('Attended')
-        ->assertSee('Approved No Show')
-        ->assertSee('Approved')
+        ->assertDontSee('Approved No Show')
         ->assertSee('Walk In')
         ->assertSee('Not pre-registered')
         ->assertSee('Manage Pre-registrations')
         ->assertSee('Export Session CSV')
         ->assertDontSee('Unregistered Attendance')
-        ->assertDontSee('Session outcome');
+        ->assertDontSee('Session outcome')
+        ->assertDontSee('Attendance Rate')
+        ->assertDontSee('Not attended');
 
     $eventDetails = $this->get(route('events.show', $event))
         ->assertOk()
@@ -529,8 +549,9 @@ it('exports session attendance for an event without signatures or geolocation', 
         ->toContain('Attendance Status')
         ->toContain('Registered No Show')
         ->toContain('Pending')
-        ->toContain('Not attended')
+        ->toContain('Not tracked at event level')
         ->toContain('Not pre-registered')
+        ->not->toContain('Not attended')
         ->not->toContain('private-signature-value')
         ->not->toContain('3.1234567')
         ->not->toContain('101.1234567');

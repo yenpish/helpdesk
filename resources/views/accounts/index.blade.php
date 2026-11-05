@@ -24,8 +24,9 @@
 
         @if($users->count())
             <div class="table-responsive">
-                <table class="table">
-                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+                <table class="table accounts-table">
+                    <colgroup><col style="width: 18%"><col style="width: 28%"><col style="width: 22%"><col style="width: 18%"><col style="width: 14%"></colgroup>
+                    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th><th class="actions-cell">Actions</th></tr></thead>
                     <tbody>
                     @foreach($users as $user)
                         <tr>

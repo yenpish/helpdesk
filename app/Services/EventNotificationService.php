@@ -77,6 +77,7 @@ class EventNotificationService
                 });
             })
             ->orderBy('starts_at')
+            ->orderBy('id')
             ->get()
             ->each(function (Event $event) use (&$sent): void {
                 foreach ([24, 1] as $hours) {

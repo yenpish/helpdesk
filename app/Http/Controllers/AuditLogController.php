@@ -142,6 +142,10 @@ class AuditLogController extends Controller
             };
         }
 
+        if (preg_match('/(?:^|_)email$/i', (string) $key) === 1) {
+            return 'Address hidden';
+        }
+
         if (is_string($value) && str_ends_with((string) $key, '_at')) {
             try {
                 return Carbon::parse($value)->format('d M Y, h:i A');

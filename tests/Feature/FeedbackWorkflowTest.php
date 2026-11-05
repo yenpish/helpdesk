@@ -3,11 +3,13 @@
 
 use App\Mail\FeedbackInvitationMail;
 use App\Models\Attendance;
+use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Models\User;
+use App\Services\FeedbackInvitationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 
@@ -90,16 +92,28 @@ it('sends one invitation per unique attendance email', function () {
         ->assertRedirect()
         ->assertSessionHas(
             'success',
-            '1 feedback invitation(s) processed. Check your mail configuration for delivery status.'
+            'Feedback emails: 1 sent.'
         );
 
     expect(FeedbackInvitation::where('event_id', $event->id)->count())
         ->toBe(1);
 
-    Mail::assertSent(FeedbackInvitationMail::class, 1);
+    $actionLog = AuditLog::where('auditable_type', Event::class)
+        ->where('auditable_id', $event->id)
+        ->where('action', 'sent')
+        ->sole();
+    expect($actionLog->user_id)->toBe($organizer->id)
+        ->and($actionLog->description)->toBe('Feedback invitations sent.')
+        ->and($actionLog->getRawOriginal('new_values'))->not->toContain('participant@example.test');
+
+    Mail::assertSent(FeedbackInvitationMail::class, function (FeedbackInvitationMail $mail) use ($event) {
+        $invitation = FeedbackInvitation::where('event_id', $event->id)->sole();
+
+        return $invitation->token_hash === hash('sha256', $mail->token);
+    });
 });
 
-it('reissues unused invitations without creating duplicates', function () {
+it('leaves valid unused invitations unchanged on repeated sends', function () {
     Mail::fake();
 
     $organizer = User::factory()->create(['role' => 'organizer']);
@@ -111,15 +125,120 @@ it('reissues unused invitations without creating duplicates', function () {
         ->assertRedirect();
 
     $original = FeedbackInvitation::where('event_id', $event->id)->first();
+    $originalHash = $original->token_hash;
+    $originalExpiry = $original->expires_at->toDateTimeString();
     $this->actingAs($organizer)
         ->post(route('feedback.invitations.send', $event))
         ->assertRedirect()
         ->assertSessionHas('success');
 
     expect(FeedbackInvitation::where('event_id', $event->id)->count())->toBe(1)
-        ->and($original->fresh()->token_hash)->not->toBe($original->token_hash);
+        ->and($original->fresh()->token_hash)->toBe($originalHash)
+        ->and($original->fresh()->expires_at->toDateTimeString())->toBe($originalExpiry)
+        ->and($original->fresh()->status)->toBe('accepted');
+
+    Mail::assertSent(FeedbackInvitationMail::class, 1);
+});
+
+it('updates the existing invitation safely when the attendance email changes', function () {
+    Mail::fake();
+    $this->travelTo(now()->startOfSecond());
+
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    $event = makeFeedbackTestEvent($organizer);
+    $attendance = makeFeedbackTestAttendance($event, 'old@example.test');
+
+    $this->actingAs($organizer)->post(route('feedback.invitations.send', $event))->assertRedirect();
+    $invitation = FeedbackInvitation::sole();
+    $oldHash = $invitation->token_hash;
+
+    $attendance->update(['email' => 'new@example.test']);
+    $this->actingAs($organizer)->post(route('feedback.invitations.send', $event))->assertRedirect();
+
+    expect(FeedbackInvitation::where('event_id', $event->id)->count())->toBe(1)
+        ->and($invitation->fresh()->id)->toBe($invitation->id)
+        ->and($invitation->fresh()->participant_email)->toBe('new@example.test')
+        ->and($invitation->fresh()->token_hash)->not->toBe($oldHash)
+        ->and($invitation->fresh()->expires_at->toDateTimeString())->toBe(now()->addDays(7)->toDateTimeString());
 
     Mail::assertSent(FeedbackInvitationMail::class, 2);
+    Mail::assertSent(FeedbackInvitationMail::class, fn ($mail) => $mail->hasTo('new@example.test'));
+});
+
+it('continues the batch and records individual transport failures', function () {
+    $event = makeFeedbackTestEvent();
+    makeFeedbackTestAttendance($event, 'failure@example.test');
+    makeFeedbackTestAttendance($event, 'success@example.test');
+
+    $summary = app(FeedbackInvitationService::class)->sendForEvent(
+        $event,
+        function ($invitation) {
+            if ($invitation->participant_email === 'failure@example.test') {
+                throw new RuntimeException('Transport unavailable');
+            }
+        }
+    );
+
+    expect($summary)->toBe(['accepted' => 1, 'failed' => 1, 'skipped' => 0])
+        ->and(FeedbackInvitation::where('status', 'failed')->count())->toBe(1)
+        ->and(FeedbackInvitation::where('status', 'accepted')->count())->toBe(1);
+});
+
+it('retries failed invitations without duplicating rows and restricts retries to the event owner', function () {
+    Mail::fake();
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    $otherOrganizer = User::factory()->create(['role' => 'organizer']);
+    $event = makeFeedbackTestEvent($organizer);
+    $attendance = makeFeedbackTestAttendance($event, 'retry@example.test');
+    $invitation = makeFeedbackTestInvitation($event, $attendance, 'failed-original-token');
+    $invitation->update(['status' => 'failed']);
+    $oldHash = $invitation->token_hash;
+
+    $this->actingAs($organizer)
+        ->post(route('feedback.invitations.send', $event))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Feedback emails: 1 left unchanged.');
+    Mail::assertNothingSent();
+
+    $this->actingAs($otherOrganizer)
+        ->post(route('feedback.invitations.retry-failed', $event))
+        ->assertForbidden();
+
+    $this->actingAs($organizer)
+        ->post(route('feedback.invitations.retry-failed', $event))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Feedback emails: 1 sent.');
+
+    expect(FeedbackInvitation::where('event_id', $event->id)->count())->toBe(1)
+        ->and($invitation->fresh()->status)->toBe('accepted')
+        ->and($invitation->fresh()->token_hash)->not->toBe($oldHash);
+
+    Mail::assertSent(FeedbackInvitationMail::class, 1);
+});
+
+it('does not resend or replace a consumed invitation', function () {
+    Mail::fake();
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    $event = makeFeedbackTestEvent($organizer);
+    $attendance = makeFeedbackTestAttendance($event, 'used@example.test');
+    $invitation = makeFeedbackTestInvitation($event, $attendance, 'consumed-token');
+    $invitation->update(['used_at' => now()]);
+    Feedback::create([
+        'event_id' => $event->id,
+        'participant_name' => $invitation->participant_name,
+        'participant_email' => $invitation->participant_email,
+        'rating' => 5,
+    ]);
+    $oldHash = $invitation->token_hash;
+    $oldExpiry = $invitation->expires_at->toDateTimeString();
+
+    $this->actingAs($organizer)->post(route('feedback.invitations.send', $event))->assertRedirect();
+
+    expect($invitation->fresh()->token_hash)->toBe($oldHash)
+        ->and($invitation->fresh()->expires_at->toDateTimeString())->toBe($oldExpiry)
+        ->and($invitation->fresh()->used_at)->not->toBeNull()
+        ->and(Feedback::count())->toBe(1);
+    Mail::assertNothingSent();
 });
 
 it('displays a valid invitation form without editable identity fields', function () {

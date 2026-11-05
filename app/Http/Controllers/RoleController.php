@@ -36,33 +36,68 @@ class RoleController extends Controller
             ])->withInput();
         }
 
-        Role::create([
-            'slug' => $slug,
-            'name' => $data['name'],
-            'permissions' => $data['permissions'] ?? [],
-            'is_system' => false,
-        ]);
+        DB::transaction(function () use ($slug, $data): void {
+            $role = Role::create([
+                'slug' => $slug,
+                'name' => $data['name'],
+                'permissions' => $data['permissions'] ?? [],
+                'is_system' => false,
+            ]);
+
+            $this->auditRole('created', $role, 'Role created.', null, [
+                'name' => $role->name,
+                'permissions' => $role->permissions ?? [],
+            ]);
+        });
 
         return redirect()->route('roles.index')->with('success', 'Role created.');
     }
 
     public function update(Request $request, Role $role): RedirectResponse
     {
-        abort_if($role->is_system, 403);
+        abort_if($role->slug === 'admin', 403);
+
+        if ($role->is_system || in_array($role->slug, ['organizer', 'user'], true)) {
+            abort_unless(in_array($role->slug, ['organizer', 'user'], true), 403);
+            $data = $this->validatedPermissions($request);
+            DB::transaction(function () use ($role, $data): void {
+                $lockedRole = Role::whereKey($role->id)->lockForUpdate()->firstOrFail();
+                $oldPermissions = $lockedRole->permissions ?? [];
+                $lockedRole->update(['permissions' => $data['permissions'] ?? []]);
+
+                $this->auditRole(
+                    'updated',
+                    $lockedRole,
+                    'Built-in role permissions updated.',
+                    ['permissions' => $oldPermissions],
+                    ['permissions' => $lockedRole->permissions ?? []]
+                );
+            });
+
+            return redirect()->route('roles.index')->with('success', 'Role permissions updated.');
+        }
 
         $data = $this->validatedRole($request, $role);
+        $oldValues = ['name' => $role->name, 'permissions' => $role->permissions ?? []];
 
-        $role->update([
-            'name' => $data['name'],
-            'permissions' => $data['permissions'] ?? [],
-        ]);
+        DB::transaction(function () use ($role, $data, $oldValues): void {
+            $lockedRole = Role::whereKey($role->id)->lockForUpdate()->firstOrFail();
+            $lockedRole->update([
+                'name' => $data['name'],
+                'permissions' => $data['permissions'] ?? [],
+            ]);
+            $this->auditRole('updated', $lockedRole, 'Role updated.', $oldValues, [
+                'name' => $lockedRole->name,
+                'permissions' => $lockedRole->permissions ?? [],
+            ]);
+        });
 
         return redirect()->route('roles.index')->with('success', 'Role updated.');
     }
 
     public function destroy(Role $role): RedirectResponse
     {
-        abort_if($role->is_system, 403);
+        abort_if($role->is_system || in_array($role->slug, ['admin', 'organizer', 'user'], true), 403);
 
         $deleted = DB::transaction(function () use ($role): bool {
             $lockedRole = Role::whereKey($role->id)->lockForUpdate()->firstOrFail();
@@ -71,6 +106,10 @@ class RoleController extends Controller
                 return false;
             }
 
+            $this->auditRole('deleted', $lockedRole, 'Role deleted.', [
+                'name' => $lockedRole->name,
+                'permissions' => $lockedRole->permissions ?? [],
+            ], null);
             $lockedRole->delete();
 
             return true;
@@ -99,15 +138,46 @@ class RoleController extends Controller
             'permissions.*' => ['string', Rule::in(array_keys(Role::availablePermissions()))],
         ]);
 
+        $this->validatePermissionDependencies($data['permissions'] ?? []);
+
+        return $data;
+    }
+
+    private function validatedPermissions(Request $request): array
+    {
+        $data = $request->validate([
+            'permissions' => ['sometimes', 'array'],
+            'permissions.*' => ['string', Rule::in(array_keys(Role::availablePermissions()))],
+        ]);
+
+        $this->validatePermissionDependencies($data['permissions'] ?? []);
+
+        return $data;
+    }
+
+    private function validatePermissionDependencies(array $permissions): void
+    {
         if (
-            in_array('events.publish', $data['permissions'] ?? [], true)
-            && ! in_array('events.manage', $data['permissions'] ?? [], true)
+            in_array('events.publish', $permissions, true)
+            && ! in_array('events.manage', $permissions, true)
         ) {
             throw ValidationException::withMessages([
                 'permissions' => 'Event publishing requires event management permission.',
             ]);
         }
 
-        return $data;
+    }
+
+    private function auditRole(string $action, Role $role, string $description, ?array $oldValues, ?array $newValues): void
+    {
+        \App\Models\AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'auditable_type' => Role::class,
+            'auditable_id' => $role->id,
+            'description' => $description,
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+        ]);
     }
 }

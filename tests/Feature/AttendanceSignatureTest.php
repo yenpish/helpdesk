@@ -63,6 +63,32 @@ it('persists the submitted PNG signature on a normal online attendance record', 
     expect(Attendance::sole()->signature)->toBe($signature);
 });
 
+it('restores a submitted signature when attendance validation redirects back to the form', function () {
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    [$event, $session] = makeSignatureTestSession($organizer);
+    $signature = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a2YAAAAASUVORK5CYII=';
+    $access = makeAttendanceAccessGrant($event);
+    $formUrl = route('attendance.form', ['access' => $access['access']]);
+
+    $this->withSession($access['session'])
+        ->from($formUrl)
+        ->post(route('attendance.store', ['access' => $access['access']]), [
+            'session_id' => $session->id,
+            'full_name' => '',
+            'email' => 'signed@example.test',
+            'phone' => '60125902441',
+            'signature' => $signature,
+        ])
+        ->assertRedirect($formUrl)
+        ->assertSessionHasErrors('full_name');
+
+    $this->get($formUrl)
+        ->assertOk()
+        ->assertSee('id="signature"', false)
+        ->assertSee('value="' . $signature . '"', false)
+        ->assertSee('restoredImage.onload', false);
+});
+
 it('allows an admin and the owning organizer to view the saved signature action', function () {
     $organizer = User::factory()->create(['role' => 'organizer']);
     $admin = User::factory()->create(['role' => 'admin']);

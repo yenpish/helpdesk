@@ -90,7 +90,7 @@ it('generates an SVG QR code from the exact encrypted session URL', function () 
     $html = $response->getContent();
     $sessionInfoPosition = strpos($html, 'Session Information');
     $qrSectionPosition = strpos($html, 'id="attendance-qr-heading"');
-    $attendancePosition = strpos($html, 'Pre-registration &amp; Attendance');
+    $attendancePosition = strpos($html, 'Session check-ins');
     preg_match('/<img[^>]+src="data:image\/svg\+xml;base64,([^"]+)"[^>]+data-qr-content="([^"]+)"/s', $html, $matches);
     preg_match_all('/data-copy-attendance-link="([^"]+)"/', $html, $copyLinkMatches);
 

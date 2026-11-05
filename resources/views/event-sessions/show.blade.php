@@ -12,6 +12,33 @@
             color: var(--text);
         }
 
+        .attendance-refresh-status {
+            display: inline-block;
+            min-width: 9ch;
+            text-align: right;
+            line-height: 1.2;
+        }
+
+        .session-checkins-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+        }
+
+        .session-checkins-header-title {
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .session-checkins-header-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
         .attendance-signature-dialog::backdrop {
             background: rgb(15 23 42 / 55%);
         }
@@ -30,7 +57,6 @@
         }
 
         .attendance-signature-action-cell {
-            width: 1%;
             padding-inline: .25rem !important;
             text-align: center;
             white-space: nowrap !important;
@@ -57,6 +83,51 @@
 
         .attendance-signature-icon-button svg { width: 21px; height: 21px; }
         .attendance-signature-missing { color: var(--muted); }
+
+        .attendance-row-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .attendance-edit-dialog {
+            width: min(560px, calc(100vw - 32px));
+            max-width: 560px;
+            max-height: calc(100vh - 32px);
+            padding: 0;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        .attendance-edit-dialog::backdrop { background: rgb(15 23 42 / 55%); }
+        .attendance-edit-dialog-header,
+        .attendance-edit-dialog-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+        }
+        .attendance-edit-dialog-header {
+            border-bottom: 1px solid var(--line);
+            background: var(--surface-raised);
+        }
+        .attendance-edit-dialog-header h2 { margin: 0; line-height: 1.2; }
+        .attendance-edit-dialog-body { padding: 16px 18px; }
+        .attendance-edit-dialog-fields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px 16px;
+        }
+        .attendance-edit-dialog-fields label { margin-bottom: 5px; }
+        .attendance-edit-dialog-fields .form-control { min-width: 0; }
+        .attendance-edit-dialog-footer {
+            justify-content: flex-end;
+            border-top: 1px solid var(--line);
+        }
 
         .attendance-qr-utility {
             display: flex;
@@ -121,6 +192,8 @@
                 align-items: flex-start;
                 flex-direction: column;
             }
+
+            .attendance-edit-dialog-fields { grid-template-columns: 1fr; }
         }
     </style>
     <div class="container">
@@ -130,7 +203,6 @@
                 <p>Session for {{ $event->name }}</p>
             </div>
             <div class="d-flex gap-2 flex-wrap header-actions">
-                <a href="{{ route('events.event-sessions.live-attendance', [$event, $eventSession]) }}" class="btn btn-primary">Live Attendance</a>
                 <a href="{{ route('events.event-sessions.edit', [$event, $eventSession]) }}" class="btn btn-secondary">Edit</a>
                 <a href="{{ route('events.event-sessions.index', $event) }}" class="btn btn-secondary">Back to Sessions</a>
                 <a href="{{ route('events.show', $event) }}" class="btn btn-secondary">Back to Event</a>
@@ -233,19 +305,27 @@
         @endif
 
         <section class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <span>Pre-registration &amp; Attendance</span>
-                <div class="d-flex gap-2 flex-wrap">
+            <div class="card-header session-checkins-header">
+                <span class="session-checkins-header-title">Session check-ins</span>
+                <div class="session-checkins-header-actions">
+                    <span class="small text-muted attendance-refresh-status" role="status" aria-live="polite" data-attendance-refresh-status></span>
+                    <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        data-attendance-refresh
+                        data-auto-refresh="{{ $eventSession->starts_at && $eventSession->ends_at && now()->between($eventSession->starts_at, $eventSession->ends_at) ? 'true' : 'false' }}"
+                        data-session-end="{{ $eventSession->ends_at?->timestamp ?? 0 }}"
+                    >Refresh</button>
                     <a href="{{ route('events.event-sessions.attendance.export', [$event, $eventSession]) }}" class="btn btn-secondary btn-sm">Export Session CSV</a>
                     <a href="{{ route('events.registrations.index', $event) }}" class="btn btn-secondary btn-sm">Manage Pre-registrations</a>
                 </div>
             </div>
             <div class="card-body p-3">
-                <dl class="session-attendance-summary mb-3" aria-label="Session attendance summary">
-                    <div><dt>Pre-registered</dt><dd>{{ $registeredCount }}</dd></div>
-                    <div><dt>Attended</dt><dd>{{ $attendedCount }}</dd></div>
-                    <div><dt>Not attended</dt><dd>{{ $notAttendedCount }}</dd></div>
-                    <div><dt>Attendance Rate</dt><dd>{{ $attendanceRate }}%</dd></div>
+                <p class="small text-muted mb-2">Event pre-registrations: <span data-attendance-count="registered">{{ $registeredCount }}</span></p>
+                <dl class="session-attendance-summary mb-3" aria-label="Session check-ins">
+                    <div><dt>Check-ins</dt><dd data-attendance-count="attended">{{ $attendedCount }}</dd></div>
+                    <div><dt>Pre-registered</dt><dd data-attendance-count="pre_registered">{{ $preRegisteredAttendedCount }}</dd></div>
+                    <div><dt>Other attendees</dt><dd data-attendance-count="not_pre_registered">{{ $notPreRegisteredCount }}</dd></div>
                 </dl>
                 <form method="GET" action="{{ route('events.event-sessions.show', [$event, $eventSession]) }}" class="events-filter-form session-attendance-filters mb-3">
                     <div class="events-search-field">
@@ -260,23 +340,17 @@
                         >
                     </div>
                     <div class="events-sort-field">
-                        <label for="session-attendance-status" class="form-label">Status</label>
+                        <label for="session-attendance-status" class="form-label">Pre-registration</label>
                         <select id="session-attendance-status" name="status" class="form-select">
-                            <option value="" @selected($statusFilter === '')>All statuses</option>
+                            <option value="" @selected($statusFilter === '')>All check-ins</option>
                             <optgroup label="Pre-registration">
                                 <option value="pre_registered" @selected($statusFilter === 'pre_registered')>Pre-registered</option>
                                 <option value="not_pre_registered" @selected($statusFilter === 'not_pre_registered')>Not pre-registered</option>
                             </optgroup>
-                            <optgroup label="Approval">
-                                <option value="pending" @selected($statusFilter === 'pending')>Pending</option>
-                                <option value="approved" @selected($statusFilter === 'approved')>Approved</option>
-                                <option value="rejected" @selected($statusFilter === 'rejected')>Rejected</option>
-                                <option value="cancelled" @selected($statusFilter === 'cancelled')>Cancelled</option>
-                            </optgroup>
-                            <optgroup label="Attendance">
-                                <option value="attended" @selected($statusFilter === 'attended')>Attended</option>
-                                <option value="not_attended" @selected($statusFilter === 'not_attended')>Not attended</option>
-                            </optgroup>
+                            <option value="pending" @selected($statusFilter === 'pending')>Pending pre-registration</option>
+                            <option value="approved" @selected($statusFilter === 'approved')>Approved pre-registration</option>
+                            <option value="rejected" @selected($statusFilter === 'rejected')>Rejected pre-registration</option>
+                            <option value="cancelled" @selected($statusFilter === 'cancelled')>Cancelled pre-registration</option>
                         </select>
                     </div>
                     <div class="events-filter-action session-attendance-filter-actions">
@@ -287,78 +361,13 @@
                     </div>
                 </form>
 
-                @if($registrationAttendanceRows->count() > 0)
-                    <div class="table-responsive registration-attendance-table-wrap">
-                        <table class="table table-hover mb-0 registration-attendance-table">
-                            <colgroup>
-                                <col style="width: 12%">
-                                <col style="width: 19%">
-                                <col style="width: 11%">
-                                <col style="width: 15%">
-                                <col style="width: 23%">
-                                <col style="width: 16%">
-                                <col style="width: 4%">
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Organisation</th>
-                                    <th>
-                                        <span class="d-block mb-1">Status</span>
-                                        <span class="registration-attendance-status-headings" aria-hidden="true">
-                                            <span>Pre-registration</span>
-                                            <span>Attendance</span>
-                                        </span>
-                                    </th>
-                                    <th>Attended At</th>
-                                    <th class="attendance-signature-action-cell" aria-label="Signature"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($registrationAttendanceRows as $row)
-                                    <tr>
-                                        <td>{{ $row['name'] ?: '—' }}</td>
-                                        <td>{{ $row['email'] ?: '—' }}</td>
-                                        <td>{{ $row['phone'] ?: '—' }}</td>
-                                        <td>{{ $row['organisation'] ?: '—' }}</td>
-                                        <td>
-                                            <div class="registration-attendance-status-values">
-                                                <span>{{ $row['registration_status'] }}</span>
-                                                <span class="{{ $row['attendance_status'] === 'Attended' ? 'text-success' : 'text-muted' }}">{{ $row['attendance_status'] }}</span>
-                                            </div>
-                                        </td>
-                                        <td>{{ $row['attended_at']?->format('d M Y, h:i A') ?? '—' }}</td>
-                                        <td class="attendance-signature-action-cell">
-                                            @if(!empty($row['signature']))
-                                                <button
-                                                    type="button"
-                                                    class="attendance-signature-icon-button"
-                                                    data-view-signature
-                                                    data-signature="{{ $row['signature'] }}"
-                                                    aria-label="View signature"
-                                                    title="View signature"
-                                                >
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                                                        <path d="M2.5 16.5c1.7-2.6 3-5.1 4.2-5.1 1.5 0 .3 5.8 1.7 5.8 1.2 0 3.1-5.8 4.5-5.8 1.2 0-.2 5.8 1.1 5.8 1.1 0 2.7-3.4 4-3.4.8 0 .8 1.8 1.8 1.8.7 0 1.3-.5 1.8-1.1M2.5 20c5.8-1.3 12.4-2.1 19-2.2" />
-                                                    </svg>
-                                                </button>
-                                            @else
-                                                <span class="attendance-signature-missing" aria-label="No signature recorded" title="No signature recorded">—</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    @include('components.pagination-row', ['paginator' => $registrationAttendanceRows, 'ariaLabel' => 'Attendee results pages'])
-                @elseif($search !== '' || $statusFilter !== '')
-                    <p class="text-muted mb-0">No records match this search or status.</p>
-                @else
-                    <p class="text-muted mb-0">No pre-registrations or attendance records yet.</p>
-                @endif
+                <div id="session-attendance-content" aria-live="polite">
+                    @include('event-sessions.partials.attendance-table-content', [
+                        'registrationAttendanceRows' => $registrationAttendanceRows,
+                        'search' => $search,
+                        'statusFilter' => $statusFilter,
+                    ])
+                </div>
 
                 <dialog id="attendance-signature-dialog" class="attendance-signature-dialog" aria-labelledby="attendance-signature-title">
                     <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
@@ -368,13 +377,143 @@
                     <p id="attendance-signature-empty" class="text-muted mb-0" hidden>No signature recorded</p>
                     <img id="attendance-signature-image" class="attendance-signature-image" alt="Saved attendee signature" hidden>
                 </dialog>
+
+                <dialog
+                    id="attendance-edit-dialog"
+                    class="attendance-edit-dialog"
+                    aria-labelledby="attendance-edit-title"
+                    @if($errors->any() && old('attendance_id')) open @endif
+                >
+                    <form
+                        id="attendance-edit-form"
+                        method="POST"
+                        action="{{ old('attendance_id') ? route('events.event-sessions.attendance.update', [$event, $eventSession, old('attendance_id')]) : '' }}"
+                    >
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="attendance_id" value="{{ old('attendance_id') }}">
+                        <div class="attendance-edit-dialog-header">
+                            <h2 id="attendance-edit-title" class="h5">Edit attendance details</h2>
+                            <button type="button" class="btn btn-secondary btn-sm" data-close-attendance-edit>Cancel</button>
+                        </div>
+                        <div class="attendance-edit-dialog-body">
+                            <div class="attendance-edit-dialog-fields">
+                                <div>
+                                    <label for="attendance-edit-name">Full name</label>
+                                    <input id="attendance-edit-name" name="full_name" class="form-control" required maxlength="255" value="{{ old('full_name') }}">
+                                    @error('full_name')<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                                <div>
+                                    <label for="attendance-edit-email">Email</label>
+                                    <input id="attendance-edit-email" type="email" name="email" class="form-control" required maxlength="255" value="{{ old('email') }}">
+                                    @error('email')<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                                <div>
+                                    <label for="attendance-edit-phone">Phone</label>
+                                    <input id="attendance-edit-phone" type="tel" name="phone" class="form-control" required maxlength="50" value="{{ old('phone') }}">
+                                    @error('phone')<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                                <div>
+                                    <label for="attendance-edit-position">Position</label>
+                                    <input id="attendance-edit-position" name="position" class="form-control" maxlength="255" value="{{ old('position') }}">
+                                    @error('position')<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                                <div>
+                                    <label for="attendance-edit-organisation">Organisation</label>
+                                    <input id="attendance-edit-organisation" name="unit" class="form-control" maxlength="255" value="{{ old('unit') }}">
+                                    @error('unit')<small class="text-danger">{{ $message }}</small>@enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="attendance-edit-dialog-footer">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </dialog>
             </div>
         </section>
     </div>
 
     <script>
         (() => {
+            const refreshButton = document.querySelector('[data-attendance-refresh]');
+            const refreshStatus = document.querySelector('[data-attendance-refresh-status]');
+            let refreshInFlight = false;
+
+            const filtersChangedSinceApply = () => {
+                const params = new URLSearchParams(window.location.search);
+                const search = document.getElementById('session-attendance-search')?.value.trim() || '';
+                const status = document.getElementById('session-attendance-status')?.value || '';
+                return search !== (params.get('search') || '') || status !== (params.get('status') || '');
+            };
+
+            const refreshAttendance = async (manual = false) => {
+                if (!refreshButton || refreshInFlight || document.hidden) return;
+                if (filtersChangedSinceApply()) {
+                    if (manual && refreshStatus) refreshStatus.textContent = 'Apply filters first';
+                    return;
+                }
+
+                refreshInFlight = true;
+                refreshButton.disabled = true;
+                const pageUrl = window.location.href;
+
+                try {
+                    const url = new URL(pageUrl);
+                    url.searchParams.set('attendance_refresh', '1');
+                    const response = await fetch(url, {
+                        headers: { Accept: 'application/json' },
+                        cache: 'no-store',
+                    });
+                    if (!response.ok) throw new Error('Refresh failed');
+                    const data = await response.json();
+
+                    if (window.location.href !== pageUrl || filtersChangedSinceApply()) return;
+
+                    document.getElementById('session-attendance-content').innerHTML = data.html;
+                    Object.entries(data.counts).forEach(([key, value]) => {
+                        const count = document.querySelector(`[data-attendance-count="${key}"]`);
+                        if (count) count.textContent = value;
+                    });
+                    if (manual && refreshStatus) refreshStatus.textContent = 'Updated';
+                } catch (error) {
+                    if (manual && refreshStatus) refreshStatus.textContent = 'Refresh failed';
+                } finally {
+                    refreshInFlight = false;
+                    refreshButton.disabled = false;
+                }
+            };
+
+            refreshButton?.addEventListener('click', () => refreshAttendance(true));
+            if (refreshButton?.dataset.autoRefresh === 'true') {
+                window.setInterval(() => {
+                    const sessionEnd = Number(refreshButton.dataset.sessionEnd || 0);
+                    if (sessionEnd > 0 && Date.now() / 1000 <= sessionEnd) refreshAttendance();
+                }, 15000);
+            }
+
             const copyButtons = document.querySelectorAll('[data-copy-attendance-link]');
+
+            const editDialog = document.getElementById('attendance-edit-dialog');
+            const editForm = document.getElementById('attendance-edit-form');
+            document.addEventListener('click', event => {
+                const button = event.target.closest('[data-edit-attendance]');
+                if (!button || !editDialog || !editForm) return;
+
+                editForm.action = button.dataset.editAction;
+                editForm.elements.namedItem('attendance_id').value = button.dataset.attendanceId;
+                editForm.elements.namedItem('full_name').value = button.dataset.fullName || '';
+                editForm.elements.namedItem('email').value = button.dataset.email || '';
+                editForm.elements.namedItem('phone').value = button.dataset.phone || '';
+                editForm.elements.namedItem('position').value = button.dataset.position || '';
+                editForm.elements.namedItem('unit').value = button.dataset.unit || '';
+                editDialog.showModal();
+            });
+            document.querySelector('[data-close-attendance-edit]')?.addEventListener('click', () => editDialog?.close());
+            if (editDialog?.hasAttribute('open')) {
+                editDialog.removeAttribute('open');
+                editDialog.showModal();
+            }
 
             const copyWithFallback = async text => {
                 if (window.isSecureContext && navigator.clipboard?.writeText) {
@@ -429,23 +568,23 @@
             const emptyMessage = document.getElementById('attendance-signature-empty');
             if (!dialog || !image || !emptyMessage) return;
 
-            document.querySelectorAll('[data-view-signature]').forEach(button => {
-                button.addEventListener('click', () => {
-                    const signature = button.dataset.signature || '';
-                    const isPngDataUrl = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signature);
+            document.addEventListener('click', event => {
+                const button = event.target.closest('[data-view-signature]');
+                if (!button) return;
 
-                    if (isPngDataUrl) {
-                        image.src = signature;
-                        image.hidden = false;
-                        emptyMessage.hidden = true;
-                    } else {
-                        image.removeAttribute('src');
-                        image.hidden = true;
-                        emptyMessage.hidden = false;
-                    }
+                const signature = button.dataset.signature || '';
+                const isPngDataUrl = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signature);
+                if (isPngDataUrl) {
+                    image.src = signature;
+                    image.hidden = false;
+                    emptyMessage.hidden = true;
+                } else {
+                    image.removeAttribute('src');
+                    image.hidden = true;
+                    emptyMessage.hidden = false;
+                }
 
-                    dialog.showModal();
-                });
+                dialog.showModal();
             });
 
             dialog.querySelector('[data-close-signature]')?.addEventListener('click', () => dialog.close());

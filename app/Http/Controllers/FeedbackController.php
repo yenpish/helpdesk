@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\FeedbackInvitationMail;
 use App\Models\Event;
+use App\Models\AuditLog;
 use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Services\FeedbackInvitationService;
@@ -30,6 +31,57 @@ class FeedbackController extends Controller
         Event $event,
         FeedbackInvitationService $service
     ): RedirectResponse {
+        $this->authorizeEventAccess($event);
+
+        abort_unless(
+            $this->feedbackWindowOpen($event),
+            403,
+            'Invitations can only be sent within 7 days after the event ends.'
+        );
+
+        $summary = $service->sendForEvent(
+            $event,
+            function ($invitation, $token) {
+                Mail::to($invitation->participant_email)->send(
+                    new FeedbackInvitationMail($invitation, $token)
+                );
+            }
+        );
+        $this->auditInvitationAction($event, 'sent', $summary);
+
+        return back()->with(
+            'success',
+            $this->invitationSummaryMessage($summary, 'send')
+        );
+    }
+
+    public function retryFailedInvitations(
+        Event $event,
+        FeedbackInvitationService $service
+    ): RedirectResponse {
+        $this->authorizeEventAccess($event);
+
+        abort_unless(
+            $this->feedbackWindowOpen($event),
+            403,
+            'Invitations can only be retried within 7 days after the event ends.'
+        );
+
+        $summary = $service->retryFailed(
+            $event,
+            function ($invitation, $token) {
+                Mail::to($invitation->participant_email)->send(
+                    new FeedbackInvitationMail($invitation, $token)
+                );
+            }
+        );
+        $this->auditInvitationAction($event, 'retried', $summary);
+
+        return back()->with('success', $this->invitationSummaryMessage($summary, 'retry'));
+    }
+
+    private function authorizeEventAccess(Event $event): void
+    {
         $user = auth()->user();
 
         abort_unless(
@@ -40,26 +92,49 @@ class FeedbackController extends Controller
             ),
             403
         );
+    }
 
-        abort_unless(
-            $this->feedbackWindowOpen($event),
-            403,
-            'Invitations can only be sent within 7 days after the event ends.'
-        );
+    /** @param array{accepted:int,failed:int,skipped:int} $summary */
+    private function invitationSummaryMessage(array $summary, string $action): string
+    {
+        $parts = [];
+        if ($summary['accepted'] > 0) {
+            $parts[] = $summary['accepted'].' sent';
+        }
+        if ($summary['failed'] > 0) {
+            $parts[] = $summary['failed'].' failed';
+        }
+        if ($summary['skipped'] > 0) {
+            $parts[] = $summary['skipped'].' left unchanged';
+        }
 
-        $created = $service->generateForEvent(
-            $event,
-            function ($invitation, $token) {
-                Mail::to($invitation->participant_email)->send(
-                    new FeedbackInvitationMail($invitation, $token)
-                );
-            }
-        );
+        if ($parts === []) {
+            return $action === 'retry'
+                ? 'There are no failed invitations to retry.'
+                : 'No new invitations were needed; valid invitations were left unchanged.';
+        }
 
-        return back()->with(
-            'success',
-            "{$created} feedback invitation(s) processed. Check your mail configuration for delivery status."
-        );
+        return 'Feedback emails: '.implode(', ', $parts).'.';
+    }
+
+    /** One action-level audit record; never include recipients, tokens or transport errors. */
+    private function auditInvitationAction(Event $event, string $action, array $summary): void
+    {
+        AuditLog::create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'auditable_type' => Event::class,
+            'auditable_id' => $event->id,
+            'description' => $action === 'sent'
+                ? 'Feedback invitations sent.'
+                : 'Failed feedback invitations retried.',
+            'old_values' => null,
+            'new_values' => [
+                'accepted' => $summary['accepted'],
+                'failed' => $summary['failed'],
+                'skipped' => $summary['skipped'],
+            ],
+        ]);
     }
 
     public function invitationCreate(
@@ -124,16 +199,7 @@ class FeedbackController extends Controller
      */
     public function index(Event $event): View
     {
-        $user = auth()->user();
-
-        abort_unless(
-            $user !== null
-            && (
-                $user->role === 'admin'
-                || (int) $event->organizer_id === (int) $user->id
-            ),
-            403
-        );
+        $this->authorizeEventAccess($event);
 
         $baseQuery = Feedback::where('event_id', $event->id);
 

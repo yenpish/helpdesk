@@ -354,7 +354,9 @@
             color: #555;
             font-size: 12px;
             font-weight: 600;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: normal;
+            line-height: 1.25;
         }
 
         tbody tr:hover {
@@ -1101,16 +1103,17 @@
         .status-control { display: flex; align-items: center; gap: 8px; min-width: 210px; }
         .status-control select { width: auto; min-width: 125px; flex: 1 1 auto; }
         .status-control button { flex: 0 0 auto; }
-        .actions-cell { min-width: 210px; white-space: nowrap; text-align: right; }
+        .actions-cell { white-space: nowrap; text-align: center; vertical-align: middle; }
         .inline-form { display: inline; }
-        .table-actions { white-space: nowrap; text-align: right; vertical-align: middle; }
-        .table td.actions-cell, .table td.table-actions { white-space: nowrap; text-align: right; vertical-align: middle; }
-        .table-actions .btn, .actions-cell .btn { margin: 0 0 0 4px; }
+        .table-actions { white-space: nowrap; text-align: center; vertical-align: middle; }
+        .table th.actions-cell, .table th.table-actions { text-align: center; white-space: nowrap; vertical-align: middle; }
+        .table td.actions-cell, .table td.table-actions { white-space: nowrap; text-align: center; vertical-align: middle; }
+        .table-actions .btn, .actions-cell .btn { margin: 0 2px; }
         .table-actions .inline-form { display: inline-block; margin: 0; vertical-align: middle; }
         .btn-sm { min-height: 30px; padding: 6px 9px; font-size: 12px; }
         .events-page .page-header { margin-bottom: 24px; }
         .events-page .create-event-button { background: var(--blue) !important; border-color: var(--blue) !important; color: #fff !important; }
-        .events-page .events-table th { background: var(--table-head) !important; color: var(--muted) !important; }
+        .events-page .events-table th { background: var(--table-head) !important; color: var(--muted) !important; white-space: normal; }
         .events-page .events-table td { border-color: var(--line) !important; color: var(--text) !important; }
         .events-page .events-table-wrapper { background: var(--surface) !important; }
         .app-sidebar { width: 220px; }
@@ -1118,31 +1121,12 @@
         .app-content { padding: 30px clamp(20px, 2.4vw, 38px); }
         .events-page .events-table { width: 100%; min-width: 960px; table-layout: fixed; }
         .events-page .events-table th, .events-page .events-table td { padding: 12px 10px; overflow-wrap: anywhere; }
-        .events-page .events-table th:nth-child(1), .events-page .events-table td:nth-child(1) { width: 21%; }
-        .events-page .events-table th:nth-child(2), .events-page .events-table td:nth-child(2) { width: 10%; }
-        .events-page .events-table th:nth-child(3), .events-page .events-table td:nth-child(3) { width: 14%; }
-        .events-page .events-table th:nth-child(4), .events-page .events-table td:nth-child(4) { width: 12%; }
-        .events-page .events-table th:nth-child(5), .events-page .events-table td:nth-child(5) { width: 7%; }
-        .events-page .events-table th:nth-child(6), .events-page .events-table td:nth-child(6) { width: 10%; }
-        .events-page .events-table th:nth-child(7), .events-page .events-table td:nth-child(7) { width: 10%; }
-        .events-page .events-table th:nth-child(8), .events-page .events-table td:nth-child(8) { width: 16%; }
-        .events-page .actions-cell { min-width: 160px; white-space: nowrap; }
-        .events-page .events-table td:nth-child(2), .events-page .events-table td:nth-child(5),
-        .events-page .events-table td:nth-child(6), .events-page .events-table td:nth-child(7) { white-space: nowrap; }
+        .events-page .actions-cell { white-space: nowrap; }
         .events-page .event-name { min-width: 0; }
         .events-page .actions-cell .btn-sm { padding-inline: 7px; }
         .registrations-table { width: 100%; table-layout: fixed; }
         .registrations-table th, .registrations-table td { overflow-wrap: anywhere; }
-        .registrations-table th:nth-child(1), .registrations-table td:nth-child(1) { width: 10%; }
-        .registrations-table th:nth-child(2), .registrations-table td:nth-child(2) { width: 15%; }
-        .registrations-table th:nth-child(3), .registrations-table td:nth-child(3) { width: 10%; }
-        .registrations-table th:nth-child(4), .registrations-table td:nth-child(4) { width: 13%; }
-        .registrations-table th:nth-child(5), .registrations-table td:nth-child(5) { width: 9%; }
-        .registrations-table th:nth-child(6), .registrations-table td:nth-child(6) { width: 12%; }
-        .registrations-table th:nth-child(7), .registrations-table td:nth-child(7) { width: 7%; }
-        .registrations-table th:nth-child(8), .registrations-table td:nth-child(8) { width: 24%; }
-        .registrations-table td:nth-child(3) { white-space: nowrap; }
-        .registrations-table .status-control { width: 100%; min-width: 0; gap: 6px; }
+        .registrations-table .status-control { width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; justify-content: center; }
         .registrations-table .status-control select { min-width: 120px; }
         .registrations-table .status-control button { min-width: 42px; }
         .events-page .event-action, .events-page .event-actions .btn { margin-left: 3px; }
@@ -1221,6 +1205,32 @@
         .registration-attendance-table th { padding: .55rem; }
 
         .registration-attendance-table-wrap { overflow-x: auto; }
+        .table-cell-nowrap { white-space: nowrap; }
+        .event-detail-sessions-table, .manage-sessions-table,
+        .accounts-table, .event-types-table, .locations-table,
+        .deleted-events-table, .deleted-sessions-table { width: 100%; table-layout: fixed; }
+        .manage-sessions-table { min-width: 1120px; }
+        .deleted-events-table { min-width: 920px; }
+        .deleted-sessions-table { min-width: 1000px; }
+        .event-detail-sessions-table th, .event-detail-sessions-table td,
+        .manage-sessions-table th, .manage-sessions-table td,
+        .accounts-table th, .accounts-table td,
+        .event-types-table th, .event-types-table td,
+        .locations-table th, .locations-table td,
+        .deleted-events-table th, .deleted-events-table td,
+        .deleted-sessions-table th, .deleted-sessions-table td { overflow-wrap: anywhere; }
+        .accounts-table td:nth-child(4), .deleted-events-table td:nth-child(2),
+        .deleted-sessions-table td:nth-child(3) { white-space: nowrap; }
+        @media (max-width: 1200px) {
+            .registration-attendance-table { min-width: 1100px; }
+            .registrations-table { min-width: 1080px; }
+        }
+        @media (max-width: 760px) {
+            .event-detail-sessions-table { min-width: 960px; }
+            .accounts-table { min-width: 820px; }
+            .event-types-table { min-width: 760px; }
+            .locations-table { min-width: 900px; }
+        }
 
         .session-attendance-summary {
             display: flex;

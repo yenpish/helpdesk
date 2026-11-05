@@ -4,13 +4,28 @@
 @section('section', 'Event management')
 
 @section('content')
+    <style>
+        .events-page .btn.events-deleted-button {
+            background: color-mix(in srgb, var(--blue) 8%, var(--surface)) !important;
+            border-color: var(--blue) !important;
+            color: var(--blue) !important;
+        }
+
+        .events-page .btn.events-deleted-button:hover {
+            background: color-mix(in srgb, var(--blue) 14%, var(--surface)) !important;
+        }
+    </style>
+
     <div class="container events-page">
         <header class="page-header">
             <div class="page-heading">
                 <h1>Events</h1>
                 <p>Manage events, sessions, and pre-registrations.</p>
             </div>
-            <a href="{{ route('events.create') }}" class="btn btn-primary">Create event</a>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ route('events.deleted') }}" class="btn btn-outline-primary events-deleted-button">Deleted</a>
+                <a href="{{ route('events.create') }}" class="btn btn-primary">Create event</a>
+            </div>
         </header>
 
         @if(session('success'))
@@ -62,14 +77,18 @@
         @if($events->count())
             <div class="table-responsive events-table-responsive">
                 <table class="table events-table">
+                    <colgroup>
+                        <col style="width: 23%"><col style="width: 10%"><col style="width: 12%"><col style="width: 10%">
+                        <col style="width: 6%"><col style="width: 12%"><col style="width: 10%"><col style="width: 17%">
+                    </colgroup>
                     <thead>
                     <tr>
                         <th>Event</th>
                         <th>Date</th>
                         <th>Location</th>
                         <th>Organizer</th>
-                        <th>Attendees</th>
-                        <th>Pre-registrations</th>
+                        <th>Check-ins</th>
+                        <th>Pre-<wbr>registrations</th>
                         <th>Status</th>
                         <th class="actions-cell">Actions</th>
                     </tr>
@@ -86,16 +105,16 @@
                                     <div class="event-description">{{ \Illuminate\Support\Str::limit($event->description, 70) }}</div>
                                 @endif
                             </td>
-                            <td>{{ $event->starts_at?->format('d M Y') ?? '—' }}</td>
+                            <td class="table-cell-nowrap">{{ $event->starts_at?->format('d M Y') ?? '—' }}</td>
                             <td>{{ $event->location?->name ?? '—' }}</td>
                             <td>{{ $event->organizer?->name ?? '—' }}</td>
-                            <td>{{ $event->attendees_count }}</td>
-                            <td>{{ $event->registrations_count }}</td>
-                            <td><span class="event-status {{ $event->status }}">{{ ucfirst($event->status) }}</span></td>
+                            <td class="table-cell-nowrap">{{ $event->attendees_count }}</td>
+                            <td class="table-cell-nowrap">{{ $event->registrations_count }}</td>
+                            <td class="table-cell-nowrap"><span class="event-status {{ $event->status }}">{{ ucfirst($event->status) }}</span></td>
                             <td class="actions-cell">
                                 <a href="{{ route('events.show', $event) }}" class="btn btn-secondary btn-sm">View</a>
                                 <a href="{{ route('events.edit', $event) }}" class="btn btn-secondary btn-sm">Edit</a>
-                                <form action="{{ route('events.destroy', $event) }}" method="POST" class="inline-form" onsubmit="return confirm('Delete this event? This action cannot be undone.');">
+                                <form action="{{ route('events.destroy', $event) }}" method="POST" class="inline-form" onsubmit="return confirm('Delete event ' + @js($event->name) + '? It can be restored from Deleted events.');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>

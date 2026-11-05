@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Event;
+use App\Models\AuditLog;
 use App\Models\EventNotificationDelivery;
 use App\Models\Registration;
 use App\Models\User;
@@ -60,7 +61,7 @@ it('shows notification outcomes and reminder settings without exposing recipient
     $this->actingAs($organizer)
         ->get(route('events.show', $event))
         ->assertOk()
-        ->assertSee('Transport accepted')
+        ->assertSee('Sent')
         ->assertDontSee('private-participant@example.test')
         ->assertDontSee('Retry failed')
         ->assertDontSee('@if($batch', false);
@@ -90,7 +91,7 @@ it('shows notification outcomes and reminder settings without exposing recipient
 
     $this->get(route('events.show', $event))
         ->assertOk()
-        ->assertSee('Transport accepted')
+        ->assertSee('Sent')
         ->assertSee('Failed')
         ->assertSee('Pending')
         ->assertSee('Retry failed')
@@ -286,5 +287,7 @@ it('restricts notification retry to admins and the event owner', function () {
     $this->actingAs($owner)
         ->post(route('events.notifications.retry', [$event, $key]))
         ->assertRedirect();
-    expect(EventNotificationDelivery::sole()->status)->toBe('accepted');
+    expect(EventNotificationDelivery::sole()->status)->toBe('accepted')
+        ->and(AuditLog::where('auditable_type', Event::class)->where('auditable_id', $event->id)->where('action', 'retried')->count())->toBe(1)
+        ->and(AuditLog::where('auditable_type', Event::class)->where('auditable_id', $event->id)->where('action', 'retried')->value('user_id'))->toBe($owner->id);
 });

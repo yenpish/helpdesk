@@ -31,16 +31,21 @@ function makeLiveAttendanceAccessFixture(User $organizer): array
     return [$event, $session];
 }
 
-it('allows an admin to view and poll Live Attendance', function () {
+it('allows an admin to refresh the Session Details attendee table without a full page reload', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     $organizer = User::factory()->create(['role' => 'organizer']);
     [$event, $session] = makeLiveAttendanceAccessFixture($organizer);
 
     $this->actingAs($admin)
-        ->get(route('events.event-sessions.live-attendance', [$event, $session]))
+        ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
-        ->assertSee('Live Attendance')
-        ->assertSee('window.setInterval(refresh, 5000)', false);
+        ->assertSee('data-attendance-refresh', false)
+        ->assertSee('data-attendance-refresh-status', false)
+        ->assertDontSee('Up to date')
+        ->assertSee('refreshAttendance(true)', false)
+        ->assertSee("manual && refreshStatus", false)
+        ->assertSee('setInterval(() =>', false)
+        ->assertSee('15000', false);
 
     Attendance::create([
         'full_name' => 'Just Checked In',
@@ -51,37 +56,57 @@ it('allows an admin to view and poll Live Attendance', function () {
         'clock_in_at' => now(),
     ]);
 
-    $this->actingAs($admin)
-        ->getJson(route('events.event-sessions.live-attendance.data', [$event, $session]))
+    $initial = $this->actingAs($admin)
+        ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
-        ->assertJsonPath('checked_in', 1)
-        ->assertJsonPath('check_ins.0.name', 'Just Checked In');
+        ->assertSee('class="attendance-signature-action-cell">Actions', false)
+        ->assertSee('data-edit-attendance', false)
+        ->assertDontSee('attendance-name-edit', false);
+    expect(preg_match(
+        '/<td class="attendance-signature-action-cell">\s*<div class="attendance-row-actions">\s*<button[^>]*data-edit-attendance/s',
+        $initial->getContent()
+    ))->toBe(1);
+
+    $response = $this->actingAs($admin)
+        ->getJson(route('events.event-sessions.show', [$event, $session]) . '?attendance_refresh=1')
+        ->assertOk()
+        ->assertJsonPath('counts.attended', 1);
+
+    expect($response->json('html'))
+        ->toContain('Just Checked In')
+        ->toContain('class="attendance-signature-action-cell">Actions')
+        ->toContain('data-edit-attendance')
+        ->toContain('attendance-row-actions');
+    expect($initial->getContent())
+        ->toContain('data-edit-attendance')
+        ->toContain('attendance-row-actions');
 });
 
-it('allows the owning organizer to view Live Attendance', function () {
+it('allows the owning organizer to refresh the same Session Details table', function () {
     $organizer = User::factory()->create(['role' => 'organizer']);
     [$event, $session] = makeLiveAttendanceAccessFixture($organizer);
 
     $this->actingAs($organizer)
-        ->get(route('events.event-sessions.live-attendance', [$event, $session]))
-        ->assertOk();
+        ->get(route('events.event-sessions.show', [$event, $session]))
+        ->assertOk()
+        ->assertSee('Session check-ins');
 
     $this->actingAs($organizer)
-        ->getJson(route('events.event-sessions.live-attendance.data', [$event, $session]))
+        ->getJson(route('events.event-sessions.show', [$event, $session]) . '?attendance_refresh=1')
         ->assertOk()
-        ->assertJsonPath('checked_in', 0);
+        ->assertJsonPath('counts.attended', 0);
 });
 
-it('denies another organizer access to Live Attendance and its data endpoint', function () {
+it('denies another organizer access to Session Details and its refresh data', function () {
     $owner = User::factory()->create(['role' => 'organizer']);
     $otherOrganizer = User::factory()->create(['role' => 'organizer']);
     [$event, $session] = makeLiveAttendanceAccessFixture($owner);
 
     $this->actingAs($otherOrganizer)
-        ->get(route('events.event-sessions.live-attendance', [$event, $session]))
+        ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertForbidden();
 
     $this->actingAs($otherOrganizer)
-        ->getJson(route('events.event-sessions.live-attendance.data', [$event, $session]))
+        ->getJson(route('events.event-sessions.show', [$event, $session]) . '?attendance_refresh=1')
         ->assertForbidden();
 });

@@ -28,6 +28,7 @@
                     action="{{ route('events.update', $event) }}"
                     data-original-start="{{ $event->starts_at?->format('Y-m-d\TH:i') }}"
                     data-original-end="{{ $event->ends_at?->format('Y-m-d\TH:i') }}"
+                    data-original-status="{{ $event->status }}"
                 >
                     @csrf
                     @method('PUT')
@@ -167,9 +168,11 @@
                                 Cancelled
                             </option>
 
-                            <option value="completed" @selected(old('status', $event->status) === 'completed')>
-                                Completed
-                            </option>
+                            @if($event->ends_at && !$event->ends_at->isFuture())
+                                <option value="completed" @selected(old('status', $event->status) === 'completed')>
+                                    Completed
+                                </option>
+                            @endif
                         </select>
                     </div>
 
@@ -191,7 +194,7 @@
                     <div class="alert alert-light border">
                         <strong>Session schedule</strong>
                         <div class="text-muted mt-1">
-                            Changing event dates moves existing sessions with them. Added dates get sessions; removed dates can be removed only when their sessions have no attendance.
+                            Changing event dates moves existing sessions with them. Added dates get sessions; removed dates are archived with check-in history preserved.
                         </div>
                     </div>
 
@@ -211,10 +214,18 @@
                 <dialog id="reschedule-confirmation" aria-labelledby="reschedule-title">
                     <h2 id="reschedule-title">Reschedule sessions?</h2>
                     <p>Existing sessions shift by the change to the event start time. Each keeps its own start and end times, duration, and attendance records.</p>
-                    <p>Added event dates receive generated default sessions. A session outside the new date range can be removed only if it has no attendance; otherwise, the date change is blocked.</p>
+                    <p>Added event dates receive generated default sessions. Sessions outside the new date range are archived with check-in history preserved.</p>
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" id="cancel-reschedule">Cancel</button>
                         <button type="button" class="btn btn-primary" id="confirm-reschedule">Reschedule Event</button>
+                    </div>
+                </dialog>
+                <dialog id="cancellation-confirmation" aria-labelledby="cancellation-title">
+                    <h2 id="cancellation-title">Cancel this event?</h2>
+                    <p>Saving this change will cancel the event and send cancellation notices to registered participants.</p>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" id="cancel-cancellation">Keep Event</button>
+                        <button type="button" class="btn btn-danger" id="confirm-cancellation">Cancel Event</button>
                     </div>
                 </dialog>
             </div>
@@ -271,23 +282,56 @@
         #reschedule-confirmation p {
             margin-bottom: 20px;
         }
+
+        #cancellation-confirmation {
+            width: min(460px, calc(100% - 32px));
+            padding: 24px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: var(--text);
+            background: var(--surface);
+        }
+
+        #cancellation-confirmation::backdrop {
+            background: rgb(15 23 42 / 45%);
+        }
+
+        #cancellation-confirmation h2 {
+            margin: 0 0 12px;
+            font-size: 20px;
+        }
+
+        #cancellation-confirmation p {
+            margin-bottom: 20px;
+        }
     </style>
 
     <script>
         const eventEditForm = document.getElementById('event-edit-form');
 
         if (eventEditForm) {
+            let cancellationConfirmed = false;
+
             eventEditForm.addEventListener('submit', (event) => {
                 const startsAt = document.getElementById('starts_at').value;
                 const endsAt = document.getElementById('ends_at').value;
                 const datesChanged = startsAt !== eventEditForm.dataset.originalStart
                     || endsAt !== eventEditForm.dataset.originalEnd;
 
-                if (!datesChanged) return;
-                if (document.getElementById('sync-sessions').value === '1') return;
+                if (datesChanged && document.getElementById('sync-sessions').value !== '1') {
+                    event.preventDefault();
+                    document.getElementById('reschedule-confirmation').showModal();
+                    return;
+                }
 
-                event.preventDefault();
-                document.getElementById('reschedule-confirmation').showModal();
+                const selectedStatus = document.getElementById('status').value;
+                const isNewCancellation = selectedStatus === 'cancelled'
+                    && eventEditForm.dataset.originalStatus !== 'cancelled';
+
+                if (isNewCancellation && !cancellationConfirmed) {
+                    event.preventDefault();
+                    document.getElementById('cancellation-confirmation').showModal();
+                }
             });
 
             document.getElementById('cancel-reschedule').addEventListener('click', () => {
@@ -297,6 +341,16 @@
             document.getElementById('confirm-reschedule').addEventListener('click', () => {
                 document.getElementById('sync-sessions').value = '1';
                 document.getElementById('reschedule-confirmation').close();
+                eventEditForm.requestSubmit();
+            });
+
+            document.getElementById('cancel-cancellation').addEventListener('click', () => {
+                document.getElementById('cancellation-confirmation').close();
+            });
+
+            document.getElementById('confirm-cancellation').addEventListener('click', () => {
+                cancellationConfirmed = true;
+                document.getElementById('cancellation-confirmation').close();
                 eventEditForm.requestSubmit();
             });
         }

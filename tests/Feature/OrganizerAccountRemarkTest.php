@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -47,6 +48,16 @@ it('allows admins to add, edit, and clear an organizer internal remark', functio
     ]))->assertRedirect(route('accounts.index'));
 
     expect($organizer->fresh()->internal_remark)->toBeNull();
+
+    $remarkAudit = AuditLog::where('auditable_type', User::class)
+        ->where('auditable_id', $organizer->id)
+        ->latest('id')
+        ->firstOrFail();
+    expect($remarkAudit->getRawOriginal('old_values'))
+        ->not->toContain('Use the updated room setup plan.')
+        ->and($remarkAudit->getRawOriginal('new_values'))
+        ->not->toContain('Use the updated room setup plan.')
+        ->toContain('Cleared');
 });
 
 it('rejects internal remarks longer than 2000 characters', function () {

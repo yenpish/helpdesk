@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Event;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -30,6 +31,8 @@ it('allows an organizer to publish their own draft event', function () {
         ->assertSessionHas('success', 'Event published successfully.');
 
     expect($event->fresh()->status)->toBe('published');
+    expect(AuditLog::where('auditable_type', Event::class)->where('auditable_id', $event->id)->latest('id')->value('action'))
+        ->toBe('published');
 });
 
 it('forbids an organizer from publishing another organizer event', function () {
@@ -55,6 +58,8 @@ it('allows an admin to publish another organizer event', function () {
         ->assertSessionHas('success', 'Event published successfully.');
 
     expect($event->fresh()->status)->toBe('published');
+    expect(AuditLog::where('auditable_type', Event::class)->where('auditable_id', $event->id)->latest('id')->value('user_id'))
+        ->toBe($admin->id);
 });
 
 it('keeps publishing an already-published event idempotent', function () {

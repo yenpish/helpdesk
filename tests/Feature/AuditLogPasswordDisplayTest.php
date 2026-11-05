@@ -18,7 +18,7 @@ it('shows that a password changed without exposing its value or hash', function 
         'description' => 'User account and password updated.',
         'old_values' => [
             'name' => $target->name,
-            'email' => $target->email,
+            'email' => 'previous-private@example.test',
             'role' => 'organizer',
             'password' => 'old-password-hash-must-not-display',
         ],
@@ -27,8 +27,19 @@ it('shows that a password changed without exposing its value or hash', function 
             'email' => $target->email,
             'role' => 'organizer',
             'password' => 'new-password-hash-must-not-display',
+            'pin' => 'JTSN',
+            'nested' => ['access_token' => 'plaintext-token-must-not-persist'],
         ],
     ]);
+
+    $stored = AuditLog::latest('id')->firstOrFail();
+    expect($stored->getRawOriginal('old_values'))
+        ->not->toContain('old-password-hash-must-not-display')
+        ->and($stored->getRawOriginal('new_values'))
+        ->not->toContain('new-password-hash-must-not-display')
+        ->not->toContain('JTSN')
+        ->not->toContain('plaintext-token-must-not-persist')
+        ->toContain($target->email);
 
     $this->actingAs($admin)
         ->get(route('audit-logs.index'))
@@ -36,6 +47,9 @@ it('shows that a password changed without exposing its value or hash', function 
         ->assertSee('View changes')
         ->assertSee('Password')
         ->assertSee('Changed (value hidden)')
+        ->assertSee('Address hidden')
         ->assertDontSee('old-password-hash-must-not-display')
-        ->assertDontSee('new-password-hash-must-not-display');
+        ->assertDontSee('new-password-hash-must-not-display')
+        ->assertDontSee($target->email)
+        ->assertDontSee('previous-private@example.test');
 });
