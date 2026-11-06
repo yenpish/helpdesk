@@ -335,7 +335,36 @@ class EventSessionController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Attendance details updated.');
+        return redirect()
+            ->route('events.event-sessions.show', [$event, $eventSession] + $this->attendanceReturnParameters($request))
+            ->with('success', 'Attendance details updated.');
+    }
+
+    public function editAttendanceDetails(Request $request, Event $event, EventSession $eventSession, Attendance $attendance): View
+    {
+        $this->authorizeEvent($event);
+        abort_unless((int) $eventSession->event_id === (int) $event->id, 404);
+        abort_unless((int) $attendance->session_id === (int) $eventSession->id, 404);
+
+        $returnParameters = $this->attendanceReturnParameters($request);
+
+        return view('event-sessions.attendance-edit', compact('event', 'eventSession', 'attendance', 'returnParameters'));
+    }
+
+    private function attendanceReturnParameters(Request $request): array
+    {
+        $search = $request->input('_return_search', $request->query('search', ''));
+        $search = is_string($search) ? trim(substr($search, 0, 100)) : '';
+        $status = $request->input('_return_status', $request->query('status', ''));
+        $allowedStatuses = ['pre_registered', 'not_pre_registered', 'pending', 'approved', 'cancelled', 'rejected'];
+        $status = is_string($status) && in_array($status, $allowedStatuses, true) ? $status : '';
+        $page = filter_var($request->input('_return_page', $request->query('page')), FILTER_VALIDATE_INT);
+
+        return array_filter([
+            'search' => $search !== '' ? $search : null,
+            'status' => $status !== '' ? $status : null,
+            'page' => $page !== false && $page > 1 ? $page : null,
+        ], fn ($value) => $value !== null);
     }
 
     public function exportAttendance(Event $event, EventSession $eventSession): StreamedResponse

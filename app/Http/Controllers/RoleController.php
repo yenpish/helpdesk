@@ -14,15 +14,32 @@ use Illuminate\View\View;
 
 class RoleController extends Controller
 {
+    public function create(): View
+    {
+        $permissions = Role::availablePermissions();
+
+        return view('roles.create', compact('permissions'));
+    }
+
+    public function edit(Role $role): View
+    {
+        abort_if($role->slug === 'admin', 403);
+        abort_if($role->is_system && ! in_array($role->slug, ['organizer', 'user'], true), 403);
+
+        $permissions = Role::availablePermissions();
+        $role->loadCount('users');
+
+        return view('roles.edit', compact('role', 'permissions'));
+    }
+
     public function index(): View
     {
         $roles = Role::withCount('users')
             ->orderByDesc('is_system')
             ->orderBy('name')
             ->get();
-        $permissions = Role::availablePermissions();
 
-        return view('roles.index', compact('roles', 'permissions'));
+        return view('roles.index', compact('roles'));
     }
 
     public function store(Request $request): RedirectResponse

@@ -20,12 +20,6 @@
             vertical-align: top;
         }
 
-        .audit-table th:nth-child(1) { width: 15%; }
-        .audit-table th:nth-child(2) { width: 13%; }
-        .audit-table th:nth-child(3) { width: 10%; }
-        .audit-table th:nth-child(4) { width: 19%; }
-        .audit-table th:nth-child(5) { width: 43%; }
-
         .audit-timestamp span {
             display: block;
         }
@@ -123,6 +117,10 @@
         @if($auditLogs->count())
             <div class="table-responsive audit-table-wrap">
                 <table class="table audit-table">
+                    <colgroup>
+                        <col style="width: 14%"><col style="width: 12%"><col style="width: 15%">
+                        <col style="width: 17%"><col style="width: 42%">
+                    </colgroup>
                     <thead>
                     <tr>
                         <th>Date / time</th>

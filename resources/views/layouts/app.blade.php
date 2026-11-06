@@ -59,201 +59,219 @@
         .app-shell {
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
         }
 
-        .app-sidebar {
-            position: fixed;
-            inset: 0 auto 0 0;
-            width: 238px;
-            background: #222;
-            color: #ddd;
-            display: flex;
-            flex-direction: column;
+        .app-navigation {
+            position: sticky;
+            top: 0;
             z-index: 100;
+            display: flex;
+            min-height: 58px;
+            align-items: center;
+            gap: 22px;
+            padding: 0 clamp(16px, 3vw, 38px);
+            background: var(--topbar, #20252A);
+            border-bottom: 1px solid var(--line, #D6DADF);
+            color: var(--topbar-text, #F3F5F7);
         }
 
         .app-brand {
-            display: block;
-            padding: 22px 22px 21px;
-            border-bottom: 1px solid #383838;
-            color: #fff;
+            flex: 0 0 auto;
+            color: var(--topbar-text, #F3F5F7);
             text-decoration: none;
-            font-size: 17px;
+            font-size: 15px;
             font-weight: 600;
-            letter-spacing: -0.1px;
+            letter-spacing: -0.15px;
         }
 
         .app-brand:hover {
-            color: #fff;
+            color: var(--topbar-text, #F3F5F7);
         }
 
-        .sidebar-content {
-            flex: 1;
-            padding: 18px 12px;
-            overflow-y: auto;
+        .primary-navigation {
+            display: flex;
+            flex: 1 1 auto;
+            align-items: center;
+            gap: 4px;
+            min-width: 0;
         }
 
-        .sidebar-section {
-            margin-bottom: 24px;
-        }
-
-        .sidebar-label {
-            padding: 0 10px;
-            margin-bottom: 7px;
-            color: #888;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.7px;
-        }
-
-        .sidebar-link {
-            display: block;
-            padding: 10px 10px;
-            margin-bottom: 2px;
-            border-radius: 3px;
-            color: #ccc;
-            text-decoration: none;
-            line-height: 1.3;
-        }
-
-        .sidebar-link:hover {
-            background: #303030;
-            color: #fff;
-        }
-
-        .sidebar-link.active {
-            background: #3a3a3a;
-            color: #fff;
-        }
-
-        .sidebar-footer {
-            border-top: 1px solid var(--line);
-            padding: 12px;
-        }
-
-        .profile-menu {
-            position: relative;
-        }
-
-        .profile-menu summary {
-            display: block;
-            padding: 10px;
-            color: #ccc;
-            cursor: pointer;
-            list-style: none;
-            border-radius: 3px;
-        }
-
-        .profile-menu summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .profile-menu summary:hover,
-        .profile-menu[open] summary {
-            background: #303030;
-            color: #fff;
-        }
-
-        .profile-summary-name {
-            display: block;
-            margin-bottom: 3px;
-            color: #fff;
+        .nav-link,
+        .nav-group > summary,
+        .mobile-navigation-toggle,
+        .account-menu > summary {
+            display: inline-flex;
+            min-height: 40px;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 8px 11px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--topbar-text, #F3F5F7);
+            font: inherit;
             font-size: 13px;
+            line-height: 1.2;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
         }
 
-        .profile-summary-role {
-            display: block;
-            color: #999;
-            font-size: 12px;
+        .nav-link:hover,
+        .nav-group > summary:hover,
+        .nav-group[open] > summary,
+        .mobile-navigation-toggle:hover,
+        .account-menu > summary:hover,
+        .account-menu[open] > summary {
+            background: var(--sidebar-raised, #343A40);
+            color: var(--topbar-text, #F3F5F7);
         }
 
-        .profile-dropdown {
+        .nav-link[aria-current="page"],
+        .nav-group.is-active > summary,
+        .account-menu.is-active > summary {
+            box-shadow: inset 0 -2px var(--blue, #2563EB);
+        }
+
+        .nav-link:focus-visible,
+        .nav-group > summary:focus-visible,
+        .mobile-navigation-toggle:focus-visible,
+        .account-menu > summary:focus-visible,
+        .nav-dropdown a:focus-visible,
+        .account-dropdown a:focus-visible,
+        .account-dropdown button:focus-visible {
+            outline: 2px solid var(--blue, #2563EB);
+            outline-offset: 2px;
+        }
+
+        .nav-link:focus-visible,
+        .nav-group > summary:focus-visible,
+        .mobile-navigation-toggle:focus-visible,
+        .account-menu > summary:focus-visible { position: relative; z-index: 1; }
+
+        .nav-group,
+        .account-menu { position: relative; flex: 0 0 auto; }
+
+        .nav-group > summary,
+        .account-menu > summary { list-style: none; }
+
+        .nav-group > summary::-webkit-details-marker,
+        .account-menu > summary::-webkit-details-marker { display: none; }
+
+        .nav-group > summary::after,
+        .account-menu > summary::after {
+            width: 6px;
+            height: 6px;
+            border-right: 1.5px solid currentColor;
+            border-bottom: 1.5px solid currentColor;
+            content: "";
+            transform: translateY(-2px) rotate(45deg);
+        }
+
+        .nav-dropdown,
+        .account-dropdown {
             position: absolute;
-            left: calc(100% + 8px);
-            bottom: 0;
-            width: 240px;
-            padding: 6px;
-            background: #fff;
-            border: 1px solid #d5d5d5;
-            box-shadow: 0 5px 18px rgba(0, 0, 0, 0.16);
-            z-index: 200;
+            top: calc(100% + 5px);
+            left: 0;
+            z-index: 120;
+            min-width: 210px;
+            padding: 5px;
+            border: 1px solid var(--line, #D6DADF);
+            border-radius: 7px;
+            background: var(--surface, #fff);
+            box-shadow: 0 8px 22px rgb(0 0 0 / 16%);
         }
 
-        .profile-details {
-            padding: 10px 12px 12px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .profile-name,
-        .profile-email,
-        .profile-role {
-            display: block;
-        }
-
-        .profile-name {
-            margin-bottom: 4px;
-            color: #222;
-            font-size: 14px;
-        }
-
-        .profile-email,
-        .profile-role {
-            color: #666;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-
-        .profile-dropdown form {
-            margin: 0;
-        }
-
-        .profile-action {
-            display: block;
+        .nav-dropdown a,
+        .account-dropdown a,
+        .account-dropdown button {
+            display: flex;
             width: 100%;
-            padding: 9px 12px;
+            min-height: 40px;
+            align-items: center;
+            padding: 9px 11px;
             border: 0;
-            background: #fff;
-            color: #222;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text, #1F2933);
+            font: inherit;
+            font-size: 13px;
             text-align: left;
             text-decoration: none;
-            font-size: 13px;
             cursor: pointer;
         }
 
-        .profile-action:hover {
-            background: #f1f2f3;
+        .nav-dropdown a:hover,
+        .account-dropdown a:hover,
+        .account-dropdown button:hover,
+        .nav-dropdown a[aria-current="page"] {
+            background: var(--surface-raised, #F0F1F2);
+            color: var(--text, #1F2933);
         }
+
+        .nav-dropdown a[aria-current="page"] { box-shadow: inset 2px 0 var(--blue, #2563EB); }
+
+        .app-account-area { display: flex; flex: 0 0 auto; align-items: center; margin-left: auto; }
+        .account-menu > summary { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+        .account-dropdown { right: 0; left: auto; width: 230px; }
+        .account-details { padding: 9px 11px 10px; border-bottom: 1px solid var(--line, #D6DADF); }
+        .account-details strong,
+        .account-details span { display: block; overflow-wrap: anywhere; }
+        .account-details strong { color: var(--text, #1F2933); font-size: 13px; }
+        .account-details span { margin-top: 3px; color: var(--muted, #66717D); font-size: 12px; }
+        .account-dropdown form { margin: 0; }
+        .mobile-navigation-toggle { display: none; flex: 0 0 auto; }
 
         .app-main {
-            width: calc(100% - 238px);
-            min-height: 100vh;
-            margin-left: 238px;
-        }
-
-        .app-topbar {
-            min-height: 58px;
-            padding: 0 34px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .topbar-title {
-            color: #555;
-            font-size: 13px;
-        }
-
-        .topbar-user {
-            color: #666;
-            font-size: 13px;
+            width: 100%;
+            min-width: 0;
+            min-height: calc(100vh - 58px);
+            margin: 0;
         }
 
         .app-content {
             width: 100%;
-            padding: 34px;
+            padding: 30px clamp(18px, 3vw, 42px);
+        }
+
+        @media (max-width: 900px) {
+            .app-navigation { gap: 12px; }
+            .primary-navigation { gap: 0; }
+            .nav-link, .nav-group > summary, .account-menu > summary { padding-inline: 8px; }
+            .app-content { padding: 24px clamp(18px, 3vw, 32px); }
+        }
+
+        @media (max-width: 760px) {
+            .app-navigation { min-height: 54px; flex-wrap: wrap; gap: 4px 10px; padding-block: 7px; }
+            .app-brand { flex: 1 1 auto; }
+            .mobile-navigation-toggle { display: inline-flex; }
+            .primary-navigation {
+                display: none;
+                order: 4;
+                flex: 1 0 100%;
+                align-items: stretch;
+                flex-direction: column;
+                gap: 3px;
+                padding: 7px 0 3px;
+                border-top: 1px solid var(--line, #D6DADF);
+            }
+            .app-navigation.mobile-open .primary-navigation { display: flex; }
+            .nav-link, .nav-group > summary { width: 100%; justify-content: flex-start; padding-inline: 10px; }
+            .nav-group > summary::after { margin-left: auto; }
+            .nav-dropdown { position: static; min-width: 0; margin: 2px 0 4px; box-shadow: none; }
+            .app-account-area { margin-left: 0; }
+            .account-menu > summary { min-height: 40px; max-width: 140px; }
+            .account-dropdown { right: 0; }
+            .app-content { padding: 20px 16px; }
+        }
+
+        @media (max-width: 420px) {
+            .app-navigation { gap: 4px; padding-inline: 10px; }
+            .app-brand { font-size: 14px; }
+            .account-menu > summary { max-width: 105px; padding-inline: 7px; }
+            .mobile-navigation-toggle { padding-inline: 9px; }
         }
 
         /* ---------------------------------------------------------
@@ -779,21 +797,22 @@
             color: #222;
         }
 
+        /* Public pages keep their existing simple brand/login header. */
+        .app-topbar {
+            min-height: 58px;
+            padding: 0 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+        }
+
         /* ---------------------------------------------------------
            Responsive fallback
         --------------------------------------------------------- */
 
         @media (max-width: 900px) {
-            .app-sidebar {
-                position: static;
-                width: 210px;
-            }
-
-            .app-main {
-                width: calc(100% - 210px);
-                margin-left: 0;
-            }
-
             .app-topbar {
                 padding: 0 22px;
             }
@@ -808,24 +827,6 @@
         }
 
         @media (max-width: 700px) {
-            .app-shell {
-                display: block;
-            }
-
-            .app-sidebar {
-                position: static;
-                width: 100%;
-            }
-
-            .sidebar-content {
-                max-height: none;
-            }
-
-            .app-main {
-                width: 100%;
-                margin-left: 0;
-            }
-
             .app-topbar {
                 min-height: 50px;
                 padding: 0 16px;
@@ -856,11 +857,6 @@
                 flex-direction: column;
             }
 
-            .profile-dropdown {
-                position: static;
-                width: 100%;
-                margin-top: 6px;
-            }
         }
 
         /* Shared attendance application styles. */
@@ -884,57 +880,25 @@
         }
 
         body { background: var(--canvas); color: var(--text); }
-        .app-sidebar { background: var(--sidebar); color: var(--text); border-right: 1px solid var(--line); }
-        .app-brand { color: #F3F5F7; border-color: var(--line); }
-        .sidebar-label, .profile-summary-role { color: #AEB9C4; }
-        .sidebar-link { color: #D6DEE6; border-radius: 5px; }
-        .sidebar-link:hover, .sidebar-link.active { background: var(--sidebar-raised); color: #FFFFFF; }
-        .sidebar-link.active { box-shadow: inset 2px 0 var(--blue); }
-        .sidebar-footer {
-            border-color: var(--line);
-            padding: 12px;
-        }
-
-        .profile-menu {
-            border-radius: 8px;
-        }
-
-        .profile-menu > summary {
-            color: var(--text);
-            padding: 10px 12px;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            cursor: pointer;
-            list-style: none;
-            transition: background-color 0.18s ease, border-color 0.18s ease;
-        }
-
-        .profile-menu > summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .profile-menu > summary:hover,
-        .profile-menu[open] > summary {
+        .app-navigation { background: var(--topbar); border-color: var(--line); }
+        .app-brand { color: var(--topbar-text); }
+        .nav-link, .nav-group > summary, .mobile-navigation-toggle, .account-menu > summary { color: var(--topbar-text); }
+        .nav-link:hover, .nav-group > summary:hover, .nav-group[open] > summary,
+        .mobile-navigation-toggle:hover, .account-menu > summary:hover, .account-menu[open] > summary {
             background: var(--sidebar-raised);
-            border-color: var(--line);
+            color: var(--topbar-text);
         }
-
-        .profile-menu > summary:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-        }
-        .profile-menu summary:hover, .profile-menu[open] summary { background: var(--surface); }
-        .profile-dropdown, .profile-action { background: var(--surface); border-color: var(--line); color: var(--text); }
-        .profile-details { border-color: var(--line); }
-        .profile-name, .profile-action { color: var(--text); }
-        .profile-email, .profile-role { color: var(--muted); }
-        .profile-action:hover { background: var(--surface-raised); }
-        .profile-action.active { box-shadow: inset 2px 0 var(--blue); }
+        .nav-dropdown, .account-dropdown { background: var(--surface); border-color: var(--line); }
+        .nav-dropdown a, .account-dropdown a, .account-dropdown button { color: var(--text); }
+        .nav-dropdown a:hover, .account-dropdown a:hover, .account-dropdown button:hover,
+        .nav-dropdown a[aria-current="page"] { background: var(--surface-raised); color: var(--text); }
+        .account-details { border-color: var(--line); }
+        .account-details strong { color: var(--text); }
+        .account-details span { color: var(--muted); }
         .app-topbar { background: var(--topbar); border-color: #35404B; }
-        .topbar-title, .topbar-user { color: #CCD2D8; }
         .app-topbar a { color: #E7EDF2; }
         .app-topbar a:hover { color: #fff; }
-        .app-content { padding: 36px clamp(20px, 3.2vw, 52px); }
+        .app-content { padding: 30px clamp(18px, 3vw, 42px); }
         h1, h2, h3, h4, strong { color: var(--text); }
         p, .text-muted, small, .subtitle { color: var(--muted) !important; }
         a { color: var(--blue); }
@@ -1116,18 +1080,17 @@
         .events-page .events-table th { background: var(--table-head) !important; color: var(--muted) !important; white-space: normal; }
         .events-page .events-table td { border-color: var(--line) !important; color: var(--text) !important; }
         .events-page .events-table-wrapper { background: var(--surface) !important; }
-        .app-sidebar { width: 220px; }
-        .app-main { width: calc(100% - 220px); margin-left: 220px; }
-        .app-content { padding: 30px clamp(20px, 2.4vw, 38px); }
-        .events-page .events-table { width: 100%; min-width: 960px; table-layout: fixed; }
-        .events-page .events-table th, .events-page .events-table td { padding: 12px 10px; overflow-wrap: anywhere; }
+        .app-main { width: 100%; margin-left: 0; }
+        .app-content { padding: 30px clamp(18px, 3vw, 42px); }
+        .events-page .events-table { width: 100%; table-layout: fixed; }
+        .events-page .events-table th, .events-page .events-table td { padding: 12px 10px; overflow-wrap: break-word; word-break: normal; }
         .events-page .actions-cell { white-space: nowrap; }
         .events-page .event-name { min-width: 0; }
         .events-page .actions-cell .btn-sm { padding-inline: 7px; }
+        @media (max-width: 760px) { .events-page .events-table { min-width: 1080px; } }
         .registrations-table { width: 100%; table-layout: fixed; }
-        .registrations-table th, .registrations-table td { overflow-wrap: anywhere; }
-        .registrations-table .status-control { width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; justify-content: center; }
-        .registrations-table .status-control select { min-width: 120px; }
+        .registrations-table .status-control { width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+        .registrations-table .status-control select { min-width: 108px; }
         .registrations-table .status-control button { min-width: 42px; }
         .events-page .event-action, .events-page .event-actions .btn { margin-left: 3px; }
         .events-page .event-actions .inline-form { margin: 0; }
@@ -1144,11 +1107,17 @@
             margin-inline: 0;
         }
         .account-form { max-width: 680px; margin-inline: auto; }
-        .profile-menu summary:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+        a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
         button:not(.profile-action):not(.session-actions-menu button) { background: var(--blue); color: #fff; font-weight: 600; }
         button:not(.profile-action):not(.session-actions-menu button):hover { background: var(--blue-hover); }
+        .app-navigation .mobile-navigation-toggle,
+        .app-navigation .account-dropdown button { background: transparent !important; }
+        .app-navigation .mobile-navigation-toggle { color: var(--topbar-text) !important; font-weight: 500 !important; }
+        .app-navigation .account-dropdown button { color: var(--text) !important; font-weight: 400 !important; }
+        .app-navigation .mobile-navigation-toggle:hover { background: var(--sidebar-raised) !important; }
+        .app-navigation .account-dropdown button:hover { background: var(--surface-raised) !important; }
+        .nav-current-context { color: var(--muted); font-size: 11px; font-weight: 400; }
 
-        .app-sidebar a:focus-visible { outline-color: var(--blue); }
         .public-login-link { color: #CCD2D8; text-decoration: none; }
         .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; }
         @media (max-width: 600px) { .attendance-form-actions { flex-wrap: wrap; } }
@@ -1188,48 +1157,69 @@
         .audit-values { width: min(760px, 65vw); max-width: 100%; margin-top: 10px; }
         .audit-changes-table { table-layout: fixed; }
 
-        .registration-attendance-table {
-            width: 100%;
-            table-layout: fixed;
-            font-size: .875rem;
-        }
-
-        .registration-attendance-table th,
-        .registration-attendance-table td {
-            white-space: normal;
-            overflow-wrap: anywhere;
-            vertical-align: middle;
-            padding: .5rem .55rem;
-        }
-
-        .registration-attendance-table th { padding: .55rem; }
-
-        .registration-attendance-table-wrap { overflow-x: auto; }
+        /* Shared table rules stay structural; widths and exceptional wrapping are scoped by table. */
         .table-cell-nowrap { white-space: nowrap; }
-        .event-detail-sessions-table, .manage-sessions-table,
-        .accounts-table, .event-types-table, .locations-table,
-        .deleted-events-table, .deleted-sessions-table { width: 100%; table-layout: fixed; }
-        .manage-sessions-table { min-width: 1120px; }
-        .deleted-events-table { min-width: 920px; }
-        .deleted-sessions-table { min-width: 1000px; }
+        .table-numeric { text-align: center !important; font-variant-numeric: tabular-nums; }
+        .table > thead > tr > th.table-actions,
+        .table > tbody > tr > td.table-actions,
+        .table > thead > tr > th.attendance-signature-action-cell,
+        .table > tbody > tr > td.attendance-signature-action-cell {
+            text-align: center !important;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .event-detail-sessions-table,
+        .manage-sessions-table,
+        .accounts-table,
+        .registrations-table,
+        .registration-attendance-table,
+        .audit-table,
+        .feedback-results-table { width: 100%; table-layout: fixed; }
+        .locations-table, .event-types-table,
+        .deleted-events-table, .deleted-sessions-table { width: 100%; table-layout: auto; }
+
         .event-detail-sessions-table th, .event-detail-sessions-table td,
         .manage-sessions-table th, .manage-sessions-table td,
         .accounts-table th, .accounts-table td,
-        .event-types-table th, .event-types-table td,
+        .registrations-table th, .registrations-table td,
+        .registration-attendance-table th, .registration-attendance-table td,
         .locations-table th, .locations-table td,
+        .event-types-table th, .event-types-table td,
         .deleted-events-table th, .deleted-events-table td,
-        .deleted-sessions-table th, .deleted-sessions-table td { overflow-wrap: anywhere; }
-        .accounts-table td:nth-child(4), .deleted-events-table td:nth-child(2),
-        .deleted-sessions-table td:nth-child(3) { white-space: nowrap; }
+        .deleted-sessions-table th, .deleted-sessions-table td,
+        .audit-table th, .audit-table td,
+        .feedback-results-table th, .feedback-results-table td {
+            overflow-wrap: break-word;
+            word-break: normal;
+        }
+        .registration-attendance-table { font-size: .875rem; }
+        .registration-attendance-table th, .registration-attendance-table td { padding: .5rem .55rem; vertical-align: middle; }
+        .registration-attendance-table th { padding: .55rem; }
+        .registration-attendance-table-wrap { overflow-x: auto; }
+        .locations-table th.table-numeric, .locations-table td.table-numeric,
+        .event-types-table th.table-numeric, .event-types-table td.table-numeric { width: 1%; white-space: nowrap; }
+        .locations-table .table-actions, .event-types-table .table-actions { width: 1%; }
+        .deleted-events-table .table-actions, .deleted-sessions-table .table-actions { width: 1%; white-space: nowrap; }
+        .accounts-table .table-cell-nowrap,
+        .deleted-events-table .table-cell-nowrap,
+        .deleted-sessions-table .table-cell-nowrap { white-space: nowrap; }
+        .audit-table td:last-child { overflow-wrap: anywhere; }
+
         @media (max-width: 1200px) {
-            .registration-attendance-table { min-width: 1100px; }
-            .registrations-table { min-width: 1080px; }
+            .registrations-table { min-width: 1160px; }
+        }
+        @media (max-width: 1100px) {
+            .registration-attendance-table { min-width: 1050px; }
+            .manage-sessions-table { min-width: 1040px; }
         }
         @media (max-width: 760px) {
-            .event-detail-sessions-table { min-width: 960px; }
-            .accounts-table { min-width: 820px; }
-            .event-types-table { min-width: 760px; }
-            .locations-table { min-width: 900px; }
+            .event-detail-sessions-table { min-width: 900px; }
+            .accounts-table { min-width: 760px; }
+            .locations-table { min-width: 850px; }
+            .event-types-table { min-width: 680px; }
+            .deleted-events-table { min-width: 880px; }
+            .deleted-sessions-table { min-width: 960px; }
+            .feedback-results-table { min-width: 850px; }
         }
 
         .session-attendance-summary {
@@ -1392,14 +1382,7 @@
         .public-pagination-ellipsis { padding: 0 3px; }
         form[onsubmit*="Delete"] button { border: 1px solid #E2B5B3 !important; background: #FAEEEE !important; color: #9B3533 !important; }
 
-        @media (max-width: 900px) {
-            .app-sidebar { position: static; width: 210px; }
-            .app-main { width: calc(100% - 210px); margin-left: 0; }
-        }
-
         @media (max-width: 700px) {
-            .app-sidebar { position: static; width: 100%; }
-            .app-main { width: 100%; margin-left: 0; }
             .app-content { padding: 22px 16px; }
             .container > .d-flex { align-items: flex-start; flex-direction: column; }
             .d-flex.gap-2 { flex-wrap: wrap; }
@@ -1482,87 +1465,26 @@
         }
 
         body, .app-shell, .app-main, .app-content { background: var(--canvas) !important; color: var(--text); }
-        .app-sidebar { background: var(--sidebar) !important; color: var(--text); border-color: var(--line); }
-        .app-brand, .app-brand:hover { color: var(--sidebar-text); border-color: var(--line); }
-        .sidebar-label, .profile-summary-role { color: var(--sidebar-muted); }
-        .sidebar-link { color: var(--sidebar-text); }
-        .sidebar-link:hover, .sidebar-link.active { background: var(--sidebar-raised); color: var(--sidebar-active-text); }
-        .app-topbar { background: var(--topbar) !important; border-color: var(--line); }
-        .topbar-title,
-        .topbar-profile-menu > summary {
-            font-size: 13px;
-            font-weight: 400;
-        }
-
-        .topbar-title {
-            color: var(--topbar-text);
-        }
-
-        .topbar-profile-menu > summary {
-            color: var(--topbar-text);
-        }
-        .profile-menu summary { color: var(--text); }
-        .topbar-profile-menu {
-            position: relative;
-        }
-
-        .topbar-profile-menu > summary {
-            display: block;
-            padding: 7px 12px;
-            border: 1px solid transparent;
-            border-radius: 7px;
-            color: var(--topbar-text);
-            cursor: pointer;
-            list-style: none;
-        }
-
-        .topbar-profile-menu > summary::-webkit-details-marker {
-            display: none;
-        }
-
-        .topbar-profile-menu > summary:hover,
-        .topbar-profile-menu[open] > summary {
-            background: var(--sidebar-raised);
-            border-color: var(--line);
-        }
-
-        .topbar-profile-menu .profile-summary-name {
-            margin: 0;
-            color: var(--topbar-text);
-        }
-
-        .topbar-profile-menu .profile-summary-role {
-            color: var(--topbar-muted);
-        }
-
-        .topbar-profile-menu .profile-dropdown {
-            top: calc(100% + 8px);
-            right: 0;
-            bottom: auto;
-            left: auto;
-            width: 240px;
-        }
-        .profile-menu summary:hover, .profile-menu[open] summary { background: var(--sidebar-raised); }
-
-        /* Position the bottom-left account menu above its trigger. */
-        .profile-menu:not(.topbar-profile-menu) .profile-dropdown {
-            left: 0;
-            right: auto;
-            bottom: calc(100% + 8px);
-        }
+        .app-navigation { background: var(--topbar) !important; border-color: var(--line) !important; }
+        .app-brand, .nav-link, .nav-group > summary, .mobile-navigation-toggle, .account-menu > summary { color: var(--topbar-text); }
+        .nav-dropdown, .account-dropdown { background: var(--surface) !important; color: var(--text); border-color: var(--line) !important; }
+        .nav-dropdown a, .account-dropdown a, .account-dropdown button { color: var(--text); }
+        .account-details { border-color: var(--line); }
+        .account-details strong { color: var(--text); }
+        .account-details span { color: var(--muted); }
 
         .card, .card-body, .content-panel, .panel, .dashboard-list, .dashboard-list-item,
         .table-container, .table-responsive, .events-table-wrapper, .events-empty, .event-info > div,
         .stat, .attendee-details, .empty-state, .public-event-card, .event-summary-row,
         .guest-home, .session-information-card, .attendance-lookup-modal-content,
         .modal-content, .modal-header, .modal-body, .modal-footer, .dropdown-menu,
-        .list-group-item, .profile-dropdown, .profile-action, .session-actions-menu,
+        .list-group-item, .session-actions-menu,
         .session-actions-menu a, .session-actions-menu button, dialog {
             background-color: var(--surface) !important; color: var(--text); border-color: var(--line) !important;
         }
         .card-header, .table thead th, th, .events-table th { background: var(--table-head) !important; color: var(--muted); border-color: var(--line); }
         table, .table, td, .table td { background-color: var(--surface); color: var(--text); border-color: var(--line); }
-        tbody tr:hover, .dashboard-list-item:hover, .profile-action:hover, .dropdown-item:hover,
+        tbody tr:hover, .dashboard-list-item:hover, .dropdown-item:hover,
         .session-actions-menu a:hover, .session-actions-menu button:hover { background: var(--hover) !important; }
         input, textarea, select, .form-control, .form-select {
             background-color: var(--control) !important; color: var(--control-text) !important; border-color: var(--line) !important;
@@ -1667,16 +1589,11 @@
                 }
             @endforeach
         @endforeach
-        html[data-accent] .sidebar-link.active { box-shadow: inset 2px 0 var(--blue); }
-        html[data-accent] .profile-action.active { box-shadow: inset 2px 0 var(--blue); }
-        html[data-sidebar="wide"] .app-sidebar { width: 260px; }
-        html[data-sidebar="wide"] .app-main { width: calc(100% - 260px); margin-left: 260px; }
         html[data-density="compact"] .app-content { padding-block: 20px; }
         html[data-density="compact"] .content-panel { padding-top: 18px; padding-bottom: 18px; }
         html[data-density="compact"] .field { margin-bottom: 12px; }
         html[data-density="compact"] .app-content table th { padding-top: 9px; padding-bottom: 9px; }
         html[data-density="compact"] .app-content table td { padding-top: 9px; padding-bottom: 9px; }
-        html[data-density="compact"] .sidebar-link { padding-top: 8px; padding-bottom: 8px; }
         html[data-gradients="on"] .btn-primary,
         html[data-gradients="on"] .button,
         html[data-gradients="on"] .dashboard-action,
@@ -1716,6 +1633,7 @@
         .gradient-setting .settings-label { margin: 0; }
         .gradient-setting small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
         .settings-preference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 700px; }
+        .layout-settings .settings-preference-grid { grid-template-columns: minmax(0, 340px); }
         .settings-field .settings-label { margin-bottom: 5px; }
         .appearance-page .settings-field select { width: 100%; min-height: 40px; }
         .appearance-actions { display: flex; justify-content: flex-end; padding-top: 4px; }
@@ -1724,8 +1642,6 @@
         .appearance-dirty-bar > span { font-size: 13px; font-weight: 600; }
         .appearance-dirty-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         @media (max-width: 700px) {
-            html[data-sidebar="wide"] .app-sidebar { width: 100%; }
-            html[data-sidebar="wide"] .app-main { width: 100%; margin-left: 0; }
             .settings-preference-grid { grid-template-columns: 1fr; }
             .appearance-dirty-bar { align-items: flex-start; flex-direction: column; }
             .appearance-dirty-actions { width: 100%; }
@@ -1736,10 +1652,6 @@
             .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .accent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        @media (min-width: 701px) and (max-width: 900px) {
-            html[data-sidebar="wide"] .app-sidebar { width: 210px; }
-            html[data-sidebar="wide"] .app-main { width: calc(100% - 210px); margin-left: 0; }
-        }
     </style>
 </head>
 
@@ -1747,212 +1659,115 @@
 
 @auth
 
+    @php
+        $user = auth()->user();
+        $eventContext = match (true) {
+            request()->routeIs('events.event-sessions.*') => 'Sessions',
+            request()->routeIs('events.registrations.*') => 'Pre-registrations',
+            request()->routeIs('events.deleted*') => 'Deleted',
+            request()->routeIs('feedback.*') => 'Feedback',
+            request()->routeIs('attendance.*') => 'Record Attendance',
+            request()->routeIs('registrations.*') => 'Browse Events',
+            request()->routeIs('events.*') && !request()->routeIs('events.index') => 'Event',
+            default => null,
+        };
+        $adminContext = match (true) {
+            request()->routeIs('accounts.*') => 'Accounts',
+            request()->routeIs('roles.*') => 'Roles',
+            request()->routeIs('audit-logs.*') => 'Audit Log',
+            default => null,
+        };
+        $setupContext = match (true) {
+            request()->routeIs('event-types.*') => 'Event Types',
+            request()->routeIs('locations.*') => 'Locations',
+            default => null,
+        };
+    @endphp
+
     <div class="app-shell">
+        <header class="app-navigation" id="app-navigation">
+            <a class="app-brand" href="{{ route('home') }}">Attendance Management</a>
 
-        <aside class="app-sidebar">
+            <button
+                type="button"
+                class="mobile-navigation-toggle"
+                id="mobile-navigation-toggle"
+                aria-controls="primary-navigation"
+                aria-expanded="false"
+            >Menu</button>
 
-            <a class="app-brand" href="{{ route('home') }}">
-                Attendance Management
-            </a>
-
-            <div class="sidebar-content">
-
-                @if(auth()->user()->hasPermission('dashboard.view'))
-                    <div class="sidebar-section">
-                        <div class="sidebar-label">Overview</div>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('home') ? 'active' : '' }}"
-                            href="{{ route('home') }}"
-                        >
-                            Dashboard
-                        </a>
-                    </div>
+            <nav class="primary-navigation" id="primary-navigation" aria-label="Main navigation">
+                @if($user->hasPermission('dashboard.view'))
+                    <a class="nav-link" href="{{ route('home') }}" @if(request()->routeIs('home')) aria-current="page" @endif>Dashboard</a>
                 @endif
 
-                <div class="sidebar-section">
-                    <div class="sidebar-label">Attendance &amp; pre-registration</div>
-
-                    <a
-                        class="sidebar-link {{ request()->routeIs('attendance.*') ? 'active' : '' }}"
-                        href="{{ route('attendance.pin') }}"
-                    >
-                        Record Attendance
-                    </a>
-
-                    <a
-                        class="sidebar-link {{ request()->routeIs('registrations.public-index') ? 'active' : '' }}"
-                        href="{{ route('registrations.public-index') }}"
-                    >
-                        Browse Events
-                    </a>
-
-                    @if(auth()->user()->hasPermission('events.manage'))
-                        <a
-                            class="sidebar-link {{ request()->routeIs('events.*') ? 'active' : '' }}"
-                            href="{{ route('events.index') }}"
-                        >
-                            Events
-                        </a>
-                    @endif
-                </div>
-
-                @if(auth()->user()->role === 'admin')
-
-                    <div class="sidebar-section">
-                        <div class="sidebar-label">Administration</div>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('accounts.*') ? 'active' : '' }}"
-                            href="{{ route('accounts.index') }}"
-                        >
-                            User Accounts
-                        </a>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('roles.*') ? 'active' : '' }}"
-                            href="{{ route('roles.index') }}"
-                        >
-                            Roles &amp; Permissions
-                        </a>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('audit-logs.*') ? 'active' : '' }}"
-                            href="{{ route('audit-logs.index') }}"
-                        >
-                            Audit Log
-                        </a>
-                    </div>
-
-                    <div class="sidebar-section">
-                        <div class="sidebar-label">Configuration</div>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('event-types.*') ? 'active' : '' }}"
-                            href="{{ route('event-types.index') }}"
-                        >
-                            Event Types
-                        </a>
-
-                        <a
-                            class="sidebar-link {{ request()->routeIs('locations.*') ? 'active' : '' }}"
-                            href="{{ route('locations.index') }}"
-                        >
-                            Locations
-                        </a>
-                    </div>
-
-                @endif
-
-            </div>
-
-            <div class="sidebar-footer">
-
-                <details class="profile-menu">
-
-                    <summary>
-                        <span class="profile-summary-name">
-                            {{ auth()->user()->name }}
-                        </span>
-
-                        <span class="profile-summary-role">
-                            {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
-                        </span>
+                <details class="nav-group {{ $eventContext || request()->routeIs('events.index') ? 'is-active' : '' }}">
+                    <summary aria-expanded="{{ $eventContext || request()->routeIs('events.index') ? 'true' : 'false' }}">
+                        <span>Events</span>
+                        @if($eventContext && $eventContext !== 'Event')<small class="nav-current-context">{{ $eventContext }}</small>@endif
                     </summary>
-
-                    <div class="profile-dropdown">
-
-                        <div class="profile-details">
-                            <strong class="profile-name">
-                                {{ auth()->user()->name }}
-                            </strong>
-
-                            <span class="profile-email">
-                                {{ auth()->user()->email }}
-                            </span>
-
-                            <span class="profile-role">
-                                Role: {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
-                            </span>
-                        </div>
-
-                        <a
-                            class="profile-action"
-                            href="{{ route('profile') }}"
-                        >
-                            Profile
-                        </a>
-
-                        <a
-                            class="profile-action {{ request()->routeIs('settings.*') ? 'active' : '' }}"
-                            href="{{ route('settings.edit') }}"
-                        >
-                            Appearance
-                        </a>
-
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-
-                            <button
-                                class="profile-action"
-                                type="submit"
-                            >
-                                Logout
-                            </button>
-                        </form>
-
+                    <div class="nav-dropdown">
+                        @if($user->hasPermission('events.manage'))
+                            <a href="{{ route('events.index') }}" @if(request()->routeIs('events.index')) aria-current="page" @endif>Events</a>
+                        @endif
+                        <a href="{{ route('attendance.pin') }}" @if(request()->routeIs('attendance.*')) aria-current="page" @endif>Record Attendance</a>
+                        <a href="{{ route('registrations.public-index') }}" @if(request()->routeIs('registrations.*')) aria-current="page" @endif>Browse Events</a>
                     </div>
-
                 </details>
 
-            </div>
+                @if($user->role === 'admin')
+                    <details class="nav-group {{ $adminContext ? 'is-active' : '' }}">
+                        <summary aria-expanded="{{ $adminContext ? 'true' : 'false' }}">
+                            <span>Administration</span>
+                            @if($adminContext)<small class="nav-current-context">{{ $adminContext }}</small>@endif
+                        </summary>
+                        <div class="nav-dropdown">
+                            <a href="{{ route('accounts.index') }}" @if(request()->routeIs('accounts.*')) aria-current="page" @endif>Accounts</a>
+                            <a href="{{ route('roles.index') }}" @if(request()->routeIs('roles.*')) aria-current="page" @endif>Roles &amp; Permissions</a>
+                            <a href="{{ route('audit-logs.index') }}" @if(request()->routeIs('audit-logs.*')) aria-current="page" @endif>Audit Log</a>
+                        </div>
+                    </details>
 
-        </aside>
+                    <details class="nav-group {{ $setupContext ? 'is-active' : '' }}">
+                        <summary aria-expanded="{{ $setupContext ? 'true' : 'false' }}">
+                            <span>Setup</span>
+                            @if($setupContext)<small class="nav-current-context">{{ $setupContext }}</small>@endif
+                        </summary>
+                        <div class="nav-dropdown">
+                            <a href="{{ route('event-types.index') }}" @if(request()->routeIs('event-types.*')) aria-current="page" @endif>Event Types</a>
+                            <a href="{{ route('locations.index') }}" @if(request()->routeIs('locations.*')) aria-current="page" @endif>Locations</a>
+                        </div>
+                    </details>
+                @endif
+            </nav>
+
+            <div class="app-account-area">
+                <details class="account-menu {{ request()->routeIs('profile', 'settings.*') ? 'is-active' : '' }}">
+                    <summary aria-expanded="false">{{ $user->name }}</summary>
+                    <div class="account-dropdown">
+                        <div class="account-details">
+                            <strong>{{ $user->name }}</strong>
+                            <span>{{ $user->email }}</span>
+                            <span>{{ $user->roleDefinition?->name ?? 'Unassigned legacy role' }}</span>
+                        </div>
+                        <a href="{{ route('profile') }}" @if(request()->routeIs('profile')) aria-current="page" @endif>Profile</a>
+                        <a href="{{ route('settings.edit') }}" @if(request()->routeIs('settings.*')) aria-current="page" @endif>Appearance</a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit">Logout</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
+        </header>
 
         <main class="app-main">
-
-            <div class="app-topbar">
-                <span class="topbar-title">
-                    @yield('section', 'Attendance Management')
-                </span>
-
-                <details class="profile-menu topbar-profile-menu">
-                    <summary>
-                        {{ auth()->user()->name }}
-                    </summary>
-
-                    <div class="profile-dropdown">
-                        <div class="profile-details">
-                            <strong class="profile-name">{{ auth()->user()->name }}</strong>
-                            <span class="profile-email">{{ auth()->user()->email }}</span>
-                            <span class="profile-role">
-                Role: {{ auth()->user()->roleDefinition?->name ?? 'Unassigned legacy role' }}
-            </span>
-                        </div>
-
-                        <a class="profile-action" href="{{ route('profile') }}">Profile</a>
-
-                        <a class="profile-action {{ request()->routeIs('settings.*') ? 'active' : '' }}"
-                           href="{{ route('settings.edit') }}">Appearance</a>
-
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button class="profile-action" type="submit">Logout</button>
-                        </form>
-                    </div>
-                </details>
-            </div>
-
             <div class="app-content">
-
                 <div class="app-box @yield('container_class')">
                     @yield('content')
                 </div>
-
             </div>
-
         </main>
-
     </div>
 
 @else
@@ -1989,21 +1804,60 @@
 @endauth
 
 <script>
-    document.addEventListener('click', (event) => {
-        document.querySelectorAll('.profile-menu[open]').forEach((menu) => {
-            if (!menu.contains(event.target)) {
-                menu.removeAttribute('open');
+    (() => {
+        const navigation = document.getElementById('app-navigation');
+        if (!navigation) return;
+
+        const toggle = document.getElementById('mobile-navigation-toggle');
+        const primary = document.getElementById('primary-navigation');
+        const menus = [...navigation.querySelectorAll('.nav-group, .account-menu')];
+
+        const closeMenu = (menu, restoreFocus = false) => {
+            const summary = menu.querySelector(':scope > summary');
+            menu.removeAttribute('open');
+            summary?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus) summary?.focus();
+        };
+
+        menus.forEach(menu => {
+            menu.addEventListener('toggle', () => {
+                menu.querySelector(':scope > summary')?.setAttribute('aria-expanded', String(menu.open));
+            });
+        });
+
+        toggle?.addEventListener('click', () => {
+            const isOpen = navigation.classList.toggle('mobile-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        document.addEventListener('click', event => {
+            menus.forEach(menu => {
+                if (menu.open && !menu.contains(event.target)) closeMenu(menu);
+            });
+
+            if (navigation.classList.contains('mobile-open') && !navigation.contains(event.target)) {
+                navigation.classList.remove('mobile-open');
+                toggle?.setAttribute('aria-expanded', 'false');
+            }
+
+            if (event.target.closest('#primary-navigation a, .account-dropdown a, .account-dropdown button')) {
+                menus.forEach(menu => { if (menu.open) closeMenu(menu); });
+                navigation.classList.remove('mobile-open');
+                toggle?.setAttribute('aria-expanded', 'false');
             }
         });
 
-        if (event.target.closest('.profile-menu a, .profile-menu button')) {
-            event.target.closest('.profile-menu')?.removeAttribute('open');
-        }
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') document.querySelectorAll('.profile-menu[open]').forEach((menu) => menu.removeAttribute('open'));
-    });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            const openMenu = menus.find(menu => menu.open);
+            if (openMenu) closeMenu(openMenu, true);
+            if (navigation.classList.contains('mobile-open')) {
+                navigation.classList.remove('mobile-open');
+                toggle?.setAttribute('aria-expanded', 'false');
+                toggle?.focus();
+            }
+        });
+    })();
 </script>
 
 </body>

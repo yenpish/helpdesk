@@ -51,7 +51,7 @@ it('shows labelled settings sections and previews all five existing themes immed
         ->assertSee('Reset to Defaults')
         ->assertSee('Save Changes')
         ->assertSee('Discard Changes')
-        ->assertSee('dirtyBar.hidden = Object.keys(saved).every', false)
+        ->assertSee("const appearanceKeys = ['theme', 'accent', 'density', 'gradients']", false)
         ->assertSee('applyPreview(current)', false)
         ->assertSee('writeForm(saved)', false)
         ->assertSee('writeForm(defaults)', false);
@@ -69,7 +69,9 @@ it('shows labelled settings sections and previews all five existing themes immed
             ->assertSee('for="accent-'.$accentKey.'"', false);
     }
     $response->assertSee('theme-choice-input:focus-visible', false)
-        ->assertSee('aria-live="polite"', false);
+        ->assertSee('aria-live="polite"', false)
+        ->assertDontSee('Sidebar width')
+        ->assertSee('name="appearance_sidebar" value="standard"', false);
 });
 
 it('keeps curated accent text and primary actions readable across all themes', function () {
@@ -182,14 +184,33 @@ it('saves reset defaults when the user chooses to reset and save', function () {
         'appearance_gradients' => true,
     ]);
 
-    $this->actingAs($user)->put(route('settings.appearance.update'), appearanceSettingsPayload())
+    $this->actingAs($user)->put(route('settings.appearance.update'), appearanceSettingsPayload([
+        'appearance_sidebar' => 'wide',
+    ]))
         ->assertRedirect(route('settings.edit'));
 
     expect($user->fresh()->appearance_theme)->toBe('light')
         ->and($user->fresh()->appearance_accent)->toBe('blue')
         ->and($user->fresh()->appearance_density)->toBe('comfortable')
-        ->and($user->fresh()->appearance_sidebar)->toBe('standard')
+        ->and($user->fresh()->appearance_sidebar)->toBe('wide')
         ->and($user->fresh()->appearance_gradients)->toBeFalse();
+});
+
+it('hides the retired sidebar-width control and preserves the saved value on appearance saves', function () {
+    $user = User::factory()->create(['appearance_sidebar' => 'wide']);
+
+    $this->actingAs($user)->get(route('settings.edit'))
+        ->assertOk()
+        ->assertDontSee('Sidebar width')
+        ->assertSee('name="appearance_sidebar" value="wide"', false);
+
+    $this->put(route('settings.appearance.update'), appearanceSettingsPayload([
+        'appearance_sidebar' => 'wide',
+        'appearance_theme' => 'midnight',
+    ]))->assertRedirect(route('settings.edit'));
+
+    expect($user->fresh()->appearance_sidebar)->toBe('wide')
+        ->and($user->fresh()->appearance_theme)->toBe('midnight');
 });
 
 it('keeps existing profile and logout account actions available', function () {

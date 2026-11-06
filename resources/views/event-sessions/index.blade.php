@@ -40,8 +40,8 @@
             <div class="table-responsive">
             <table class="table manage-sessions-table">
                 <colgroup>
-                    <col style="width: 14%"><col style="width: 15%"><col style="width: 15%">
-                    <col style="width: 17%"><col style="width: 17%"><col style="width: 6%"><col style="width: 16%">
+                    <col style="width: 15%"><col style="width: 15%"><col style="width: 15%">
+                    <col style="width: 15%"><col style="width: 15%"><col style="width: 8%"><col style="width: 17%">
                 </colgroup>
                 <thead>
                 <tr>
@@ -50,7 +50,7 @@
                     <th>Ends</th>
                     <th>Attendance Opens</th>
                     <th>Attendance Closes</th>
-                    <th>Check-ins</th>
+                    <th class="table-numeric">Check-ins</th>
                     <th class="table-actions">Actions</th>
                 </tr>
                 </thead>
@@ -76,7 +76,7 @@
                             {{ $session->attendance_closes_at?->format('d M Y, h:i A') ?? '—' }}
                         </td>
 
-                        <td class="table-cell-nowrap">{{ $session->attendances_count }}</td>
+                        <td class="table-cell-nowrap table-numeric">{{ $session->attendances_count }}</td>
 
                         <td class="table-actions">
                             <a class="btn btn-secondary btn-sm" href="{{ route('events.event-sessions.show', [$event, $session]) }}">View</a>

@@ -12,6 +12,44 @@ function roleAdmin(): User
     return User::factory()->create(['role' => 'admin']);
 }
 
+it('uses dedicated role create and edit pages while keeping system admin protected', function () {
+    $admin = roleAdmin();
+    $organizerRole = Role::where('slug', 'organizer')->firstOrFail();
+    $adminRole = Role::where('slug', 'admin')->firstOrFail();
+    $customRole = Role::create([
+        'slug' => 'session-reviewer',
+        'name' => 'Session Reviewer',
+        'permissions' => ['events.manage'],
+        'is_system' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('roles.create'))
+        ->assertOk()
+        ->assertSee('Create role')
+        ->assertSee('name="permissions[]"', false);
+
+    $this->actingAs($admin)
+        ->get(route('roles.edit', $organizerRole))
+        ->assertOk()
+        ->assertSee('Edit permissions')
+        ->assertSee('Organizer');
+
+    $this->actingAs($admin)
+        ->get(route('roles.edit', $customRole))
+        ->assertOk()
+        ->assertSee('Edit role')
+        ->assertSee('value="Session Reviewer"', false);
+
+    $this->actingAs($admin)
+        ->get(route('roles.edit', $adminRole))
+        ->assertForbidden();
+
+    $this->actingAs(User::factory()->create(['role' => 'organizer']))
+        ->get(route('roles.create'))
+        ->assertForbidden();
+});
+
 it('allows admins to create and rename custom roles with configurable permissions', function () {
     $admin = roleAdmin();
 

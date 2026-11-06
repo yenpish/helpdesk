@@ -78,8 +78,8 @@
             <div class="table-responsive events-table-responsive">
                 <table class="table events-table">
                     <colgroup>
-                        <col style="width: 23%"><col style="width: 10%"><col style="width: 12%"><col style="width: 10%">
-                        <col style="width: 6%"><col style="width: 12%"><col style="width: 10%"><col style="width: 17%">
+                        <col style="width: 22%"><col style="width: 9%"><col style="width: 13%"><col style="width: 11%">
+                        <col style="width: 7%"><col style="width: 14%"><col style="width: 10%"><col style="width: 14%">
                     </colgroup>
                     <thead>
                     <tr>
@@ -87,8 +87,8 @@
                         <th>Date</th>
                         <th>Location</th>
                         <th>Organizer</th>
-                        <th>Check-ins</th>
-                        <th>Pre-<wbr>registrations</th>
+                        <th class="table-numeric">Check-ins</th>
+                        <th class="table-numeric">Pre-registrations</th>
                         <th>Status</th>
                         <th class="actions-cell">Actions</th>
                     </tr>
@@ -108,8 +108,8 @@
                             <td class="table-cell-nowrap">{{ $event->starts_at?->format('d M Y') ?? '—' }}</td>
                             <td>{{ $event->location?->name ?? '—' }}</td>
                             <td>{{ $event->organizer?->name ?? '—' }}</td>
-                            <td class="table-cell-nowrap">{{ $event->attendees_count }}</td>
-                            <td class="table-cell-nowrap">{{ $event->registrations_count }}</td>
+                            <td class="table-cell-nowrap table-numeric">{{ $event->attendees_count }}</td>
+                            <td class="table-cell-nowrap table-numeric">{{ $event->registrations_count }}</td>
                             <td class="table-cell-nowrap"><span class="event-status {{ $event->status }}">{{ ucfirst($event->status) }}</span></td>
                             <td class="actions-cell">
                                 <a href="{{ route('events.show', $event) }}" class="btn btn-secondary btn-sm">View</a>

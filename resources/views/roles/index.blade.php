@@ -10,6 +10,7 @@
                 <h1>Roles &amp; Permissions</h1>
                 <p>Create roles for account access and choose what each role can do.</p>
             </div>
+            <a href="{{ route('roles.create') }}" class="btn btn-primary">Create role</a>
         </header>
 
         @if(session('success'))
@@ -20,29 +21,6 @@
                 @foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach
             </div>
         @endif
-
-        <section class="content-panel role-create-panel mb-4" aria-labelledby="create-role-heading">
-            <h2 id="create-role-heading">Create role</h2>
-            <form method="POST" action="{{ route('roles.store') }}" class="account-form">
-                @csrf
-                <div class="field">
-                    <label for="new-role-name">Role name</label>
-                    <input id="new-role-name" name="name" value="{{ old('name') }}" maxlength="80" required>
-                </div>
-                <fieldset class="field role-permissions role-permissions-create">
-                    <legend>Permissions</legend>
-                    @foreach($permissions as $permission => $label)
-                        <label class="role-permission-option">
-                            <input type="checkbox" name="permissions[]" value="{{ $permission }}" @checked(in_array($permission, old('permissions', []), true))>
-                            {{ $label }}
-                        </label>
-                    @endforeach
-                </fieldset>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create role</button>
-                </div>
-            </form>
-        </section>
 
         <section aria-labelledby="existing-roles-heading">
             <h2 id="existing-roles-heading">Existing roles</h2>
@@ -59,43 +37,13 @@
                         @if($role->slug === 'admin')
                             <p class="role-system-note mb-0">System Admin permissions and identity are protected.</p>
                         @else
-                            <form id="role-update-{{ $role->id }}" method="POST" action="{{ route('roles.update', $role) }}" class="account-form role-edit-form">
-                                @csrf
-                                @method('PUT')
-                                <fieldset class="field role-permissions role-permissions-edit">
-                                    <legend>Permissions</legend>
-                                    @foreach($permissions as $permission => $label)
-                                        <label class="role-permission-option">
-                                            <input type="checkbox" name="permissions[]" value="{{ $permission }}" @checked(in_array($permission, $role->permissions ?? [], true))>
-                                            {{ $label }}
-                                        </label>
-                                    @endforeach
-                                </fieldset>
-                            </form>
                             <div class="role-card-actions">
-                                <button type="submit" form="role-update-{{ $role->id }}" class="btn btn-primary">Save permissions</button>
+                                <a href="{{ route('roles.edit', $role) }}" class="btn btn-secondary">Edit permissions</a>
                             </div>
                         @endif
                     @else
-                        <form id="role-update-{{ $role->id }}" method="POST" action="{{ route('roles.update', $role) }}" class="account-form role-edit-form">
-                            @csrf
-                            @method('PUT')
-                            <div class="field">
-                                <label for="role-name-{{ $role->id }}">Role name</label>
-                                <input id="role-name-{{ $role->id }}" name="name" value="{{ $role->name }}" maxlength="80" required>
-                            </div>
-                            <fieldset class="field role-permissions role-permissions-edit">
-                                <legend>Permissions</legend>
-                                @foreach($permissions as $permission => $label)
-                                    <label class="role-permission-option">
-                                        <input type="checkbox" name="permissions[]" value="{{ $permission }}" @checked(in_array($permission, $role->permissions ?? [], true))>
-                                        {{ $label }}
-                                    </label>
-                                @endforeach
-                            </fieldset>
-                        </form>
                         <div class="role-card-actions">
-                            <button type="submit" form="role-update-{{ $role->id }}" class="btn btn-primary">Save role</button>
+                            <a href="{{ route('roles.edit', $role) }}" class="btn btn-secondary">Edit</a>
                             <form method="POST" action="{{ route('roles.destroy', $role) }}" class="inline-form" onsubmit="return confirm('Delete this role?');">
                                 @csrf
                                 @method('DELETE')

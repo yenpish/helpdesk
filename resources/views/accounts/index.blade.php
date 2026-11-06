@@ -25,7 +25,7 @@
         @if($users->count())
             <div class="table-responsive">
                 <table class="table accounts-table">
-                    <colgroup><col style="width: 18%"><col style="width: 28%"><col style="width: 22%"><col style="width: 18%"><col style="width: 14%"></colgroup>
+                    <colgroup><col style="width: 22%"><col style="width: 29%"><col style="width: 20%"><col style="width: 13%"><col style="width: 16%"></colgroup>
                     <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Created</th><th class="actions-cell">Actions</th></tr></thead>
                     <tbody>
                     @foreach($users as $user)
@@ -35,7 +35,7 @@
                             <td>
                                 <span class="role-label">{{ $user->roleDefinition?->name ?? 'Unassigned legacy role' }}</span>
                             </td>
-                            <td>{{ $user->created_at?->format('d M Y') }}</td>
+                            <td class="table-cell-nowrap">{{ $user->created_at?->format('d M Y') }}</td>
                             <td class="actions-cell">
                                 <a href="{{ route('accounts.edit', $user) }}" class="btn btn-secondary btn-sm">Edit</a>
                                 @if($user->id !== auth()->id())

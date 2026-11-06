@@ -86,47 +86,12 @@
 
         .attendance-row-actions {
             display: flex;
+            width: max-content;
+            max-width: 100%;
             align-items: center;
             justify-content: center;
             gap: 6px;
-        }
-
-        .attendance-edit-dialog {
-            width: min(560px, calc(100vw - 32px));
-            max-width: 560px;
-            max-height: calc(100vh - 32px);
-            padding: 0;
-            overflow: auto;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            color: var(--text);
-        }
-
-        .attendance-edit-dialog::backdrop { background: rgb(15 23 42 / 55%); }
-        .attendance-edit-dialog-header,
-        .attendance-edit-dialog-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 14px 18px;
-        }
-        .attendance-edit-dialog-header {
-            border-bottom: 1px solid var(--line);
-            background: var(--surface-raised);
-        }
-        .attendance-edit-dialog-header h2 { margin: 0; line-height: 1.2; }
-        .attendance-edit-dialog-body { padding: 16px 18px; }
-        .attendance-edit-dialog-fields {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px 16px;
-        }
-        .attendance-edit-dialog-fields label { margin-bottom: 5px; }
-        .attendance-edit-dialog-fields .form-control { min-width: 0; }
-        .attendance-edit-dialog-footer {
-            justify-content: flex-end;
-            border-top: 1px solid var(--line);
+            margin-inline: auto;
         }
 
         .attendance-qr-utility {
@@ -193,7 +158,6 @@
                 flex-direction: column;
             }
 
-            .attendance-edit-dialog-fields { grid-template-columns: 1fr; }
         }
     </style>
     <div class="container">
@@ -378,58 +342,6 @@
                     <img id="attendance-signature-image" class="attendance-signature-image" alt="Saved attendee signature" hidden>
                 </dialog>
 
-                <dialog
-                    id="attendance-edit-dialog"
-                    class="attendance-edit-dialog"
-                    aria-labelledby="attendance-edit-title"
-                    @if($errors->any() && old('attendance_id')) open @endif
-                >
-                    <form
-                        id="attendance-edit-form"
-                        method="POST"
-                        action="{{ old('attendance_id') ? route('events.event-sessions.attendance.update', [$event, $eventSession, old('attendance_id')]) : '' }}"
-                    >
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="attendance_id" value="{{ old('attendance_id') }}">
-                        <div class="attendance-edit-dialog-header">
-                            <h2 id="attendance-edit-title" class="h5">Edit attendance details</h2>
-                            <button type="button" class="btn btn-secondary btn-sm" data-close-attendance-edit>Cancel</button>
-                        </div>
-                        <div class="attendance-edit-dialog-body">
-                            <div class="attendance-edit-dialog-fields">
-                                <div>
-                                    <label for="attendance-edit-name">Full name</label>
-                                    <input id="attendance-edit-name" name="full_name" class="form-control" required maxlength="255" value="{{ old('full_name') }}">
-                                    @error('full_name')<small class="text-danger">{{ $message }}</small>@enderror
-                                </div>
-                                <div>
-                                    <label for="attendance-edit-email">Email</label>
-                                    <input id="attendance-edit-email" type="email" name="email" class="form-control" required maxlength="255" value="{{ old('email') }}">
-                                    @error('email')<small class="text-danger">{{ $message }}</small>@enderror
-                                </div>
-                                <div>
-                                    <label for="attendance-edit-phone">Phone</label>
-                                    <input id="attendance-edit-phone" type="tel" name="phone" class="form-control" required maxlength="50" value="{{ old('phone') }}">
-                                    @error('phone')<small class="text-danger">{{ $message }}</small>@enderror
-                                </div>
-                                <div>
-                                    <label for="attendance-edit-position">Position</label>
-                                    <input id="attendance-edit-position" name="position" class="form-control" maxlength="255" value="{{ old('position') }}">
-                                    @error('position')<small class="text-danger">{{ $message }}</small>@enderror
-                                </div>
-                                <div>
-                                    <label for="attendance-edit-organisation">Organisation</label>
-                                    <input id="attendance-edit-organisation" name="unit" class="form-control" maxlength="255" value="{{ old('unit') }}">
-                                    @error('unit')<small class="text-danger">{{ $message }}</small>@enderror
-                                </div>
-                            </div>
-                        </div>
-                        <div class="attendance-edit-dialog-footer">
-                            <button type="submit" class="btn btn-primary">Save</button>
-                        </div>
-                    </form>
-                </dialog>
             </div>
         </section>
     </div>
@@ -493,27 +405,6 @@
             }
 
             const copyButtons = document.querySelectorAll('[data-copy-attendance-link]');
-
-            const editDialog = document.getElementById('attendance-edit-dialog');
-            const editForm = document.getElementById('attendance-edit-form');
-            document.addEventListener('click', event => {
-                const button = event.target.closest('[data-edit-attendance]');
-                if (!button || !editDialog || !editForm) return;
-
-                editForm.action = button.dataset.editAction;
-                editForm.elements.namedItem('attendance_id').value = button.dataset.attendanceId;
-                editForm.elements.namedItem('full_name').value = button.dataset.fullName || '';
-                editForm.elements.namedItem('email').value = button.dataset.email || '';
-                editForm.elements.namedItem('phone').value = button.dataset.phone || '';
-                editForm.elements.namedItem('position').value = button.dataset.position || '';
-                editForm.elements.namedItem('unit').value = button.dataset.unit || '';
-                editDialog.showModal();
-            });
-            document.querySelector('[data-close-attendance-edit]')?.addEventListener('click', () => editDialog?.close());
-            if (editDialog?.hasAttribute('open')) {
-                editDialog.removeAttribute('open');
-                editDialog.showModal();
-            }
 
             const copyWithFallback = async text => {
                 if (window.isSecureContext && navigator.clipboard?.writeText) {

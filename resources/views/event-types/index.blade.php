@@ -27,12 +27,11 @@
         @if($eventTypes->count())
             <div class="table-responsive">
             <table class="table event-types-table">
-                <colgroup><col style="width: 21%"><col style="width: 46%"><col style="width: 10%"><col style="width: 23%"></colgroup>
                 <thead>
                 <tr>
                     <th>Name</th>
                     <th>Description</th>
-                    <th>Events</th>
+                    <th class="table-numeric">Events</th>
                     <th class="table-actions">Actions</th>
                 </tr>
                 </thead>
@@ -46,7 +45,7 @@
                             {{ $eventType->description ?: '—' }}
                         </td>
 
-                        <td>
+                        <td class="table-numeric">
                             {{ $eventType->events()->count() }}
                         </td>
 

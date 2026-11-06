@@ -47,7 +47,7 @@ it('allows an admin to refresh the Session Details attendee table without a full
         ->assertSee('setInterval(() =>', false)
         ->assertSee('15000', false);
 
-    Attendance::create([
+    $attendance = Attendance::create([
         'full_name' => 'Just Checked In',
         'email' => 'checked-in@example.test',
         'phone' => '60125902441',
@@ -60,10 +60,10 @@ it('allows an admin to refresh the Session Details attendee table without a full
         ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
         ->assertSee('class="attendance-signature-action-cell">Actions', false)
-        ->assertSee('data-edit-attendance', false)
+        ->assertSee(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
         ->assertDontSee('attendance-name-edit', false);
     expect(preg_match(
-        '/<td class="attendance-signature-action-cell">\s*<div class="attendance-row-actions">\s*<button[^>]*data-edit-attendance/s',
+        '/<td class="attendance-signature-action-cell">\s*<div class="attendance-row-actions">\s*<a[^>]*aria-label="Edit attendance details for Just Checked In"/s',
         $initial->getContent()
     ))->toBe(1);
 
@@ -75,10 +75,10 @@ it('allows an admin to refresh the Session Details attendee table without a full
     expect($response->json('html'))
         ->toContain('Just Checked In')
         ->toContain('class="attendance-signature-action-cell">Actions')
-        ->toContain('data-edit-attendance')
+        ->toContain('aria-label="Edit attendance details for Just Checked In"')
         ->toContain('attendance-row-actions');
     expect($initial->getContent())
-        ->toContain('data-edit-attendance')
+        ->toContain('aria-label="Edit attendance details for Just Checked In"')
         ->toContain('attendance-row-actions');
 });
 

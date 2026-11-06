@@ -127,6 +127,8 @@ class PublicAttendanceController extends Controller
                 );
         });
 
+        $attendancePrefill = null;
+
         /*
          * Default to Session 1 if it is currently available.
          * Otherwise default to the first currently available session.
@@ -140,7 +142,8 @@ class PublicAttendanceController extends Controller
             'sessions',
             'defaultSession',
             'selectedSession',
-            'access'
+            'access',
+            'attendancePrefill'
         ));
 
         return $response;
@@ -398,59 +401,80 @@ class PublicAttendanceController extends Controller
         }
 
         $registration = Registration::query()
-            ->select(['id', 'event_id', 'guest_email', 'guest_phone'])
             ->where('event_id', $event->id)
             ->whereIn('status', ['approved', 'pending'])
             ->whereNotNull('guest_phone')
-            ->where(function ($query) use ($email) {
-                $query->whereRaw('LOWER(TRIM(guest_email)) = ?', [$email])
-                    ->orWhereHas('user', function ($userQuery) use ($email) {
-                        $userQuery->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
-                    });
-            })
+            ->whereRaw('LOWER(TRIM(guest_email)) = ?', [$email])
             ->get()
             ->first(fn (Registration $candidate) =>
                 MalaysianPhoneNumber::canonicalize($candidate->guest_phone ?? '') === $phoneDigits
             );
 
-        if ($registration) {
-            if ($request->expectsJson()) {
-                return response()->json(['status' => 'found']);
-            }
-
-            return redirect()
-                ->route('attendance.form', ['access' => $access])
-                ->withInput([
-                    'lookup_email' => $validated['lookup_email'],
-                    'lookup_phone' => $validated['lookup_phone'],
-                    // These are attendee-supplied values, not data returned from the registration.
-                    'email' => $email,
-                    'phone' => $phoneDigits,
-                ])
-                ->with('pre_registration_found', true);
-        }
-
         if ($request->expectsJson()) {
-            return response()->json(['status' => 'not_found']);
+            return response()->json(['status' => $registration ? 'found' : 'not_found']);
         }
 
-        $attendanceInput = $request->only([
-            'session_id',
-            'full_name',
-            'email',
-            'phone',
-            'position',
-            'unit',
-            'signature',
-        ]);
+        $input = [
+            'lookup_email' => $validated['lookup_email'],
+            'lookup_phone' => $validated['lookup_phone'],
+            'email' => $email,
+            'phone' => $phoneDigits,
+        ];
+        $detailsAuthorized = $registration !== null
+            && $registration->status === 'approved'
+            && $this->mayAutofillRegistration($request, $event, $registration);
 
-        return redirect()
+        if ($detailsAuthorized) {
+            $input = array_merge($input, [
+                'full_name' => $registration->guest_name ?? '',
+                'email' => $registration->guest_email ?? $email,
+                'phone' => $registration->guest_phone ?? $phoneDigits,
+                'position' => $registration->position ?? '',
+                'unit' => $registration->organisation ?? '',
+            ]);
+        }
+
+        $redirect = redirect()
             ->route('attendance.form', ['access' => $access])
-            ->withInput($attendanceInput + [
-                'lookup_email' => $email,
-                'lookup_phone' => $validated['lookup_phone'],
-            ])
-            ->with('pre_registration_not_found', true);
+            ->withInput($input);
+
+        if ($registration === null) {
+            return $redirect->with('pre_registration_not_found', true);
+        }
+
+        if ($registration->status !== 'approved') {
+            return $redirect->with('pre_registration_awaiting_approval', true);
+        }
+
+        return $redirect->with($detailsAuthorized
+            ? 'pre_registration_verified'
+            : 'pre_registration_not_verified', true);
+    }
+
+    private function mayAutofillRegistration(Request $request, Event $event, Registration $registration): bool
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        // Match the existing event-record access boundary: admins, or its organizer.
+        if (
+            $user->role === 'admin'
+            || ($user->role === 'organizer' && (int) $event->organizer_id === (int) $user->id)
+        ) {
+            return true;
+        }
+
+        // A registration explicitly linked to this account is an established association.
+        if ((int) ($registration->user_id ?? 0) === (int) $user->id) {
+            return true;
+        }
+
+        // Otherwise require an already verified account email matching the registration.
+        return $user->email_verified_at !== null
+            && strtolower(trim((string) $user->email)) === strtolower(trim((string) $registration->guest_email));
     }
 
     private function eventAllowsAttendance(Event $event): bool

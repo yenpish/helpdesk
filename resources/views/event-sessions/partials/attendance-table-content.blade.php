@@ -2,13 +2,13 @@
     <div class="table-responsive registration-attendance-table-wrap">
         <table class="table table-hover mb-0 registration-attendance-table">
             <colgroup>
-                <col style="width: 12%">
-                <col style="width: 17%">
-                <col style="width: 10%">
                 <col style="width: 14%">
-                <col style="width: 21%">
-                <col style="width: 15%">
+                <col style="width: 19%">
                 <col style="width: 10%">
+                <col style="width: 16%">
+                <col style="width: 15%">
+                <col style="width: 14%">
+                <col style="width: 12%">
             </colgroup>
             <thead>
                 <tr>
@@ -26,25 +26,17 @@
                     <tr>
                         <td>{{ $row['name'] ?: '—' }}</td>
                         <td>{{ $row['email'] ?: '—' }}</td>
-                    <td class="table-cell-nowrap">{{ $row['phone'] ?: '—' }}</td>
+                        <td>{{ $row['phone'] ?: '—' }}</td>
                         <td>{{ $row['organisation'] ?: '—' }}</td>
                         <td>{{ $row['registration_status'] }}</td>
-                    <td class="table-cell-nowrap">{{ $row['attended_at']?->format('d M Y, h:i A') ?? '—' }}</td>
+                        <td class="table-cell-nowrap">{{ $row['attended_at']?->format('d M Y, h:i A') ?? '—' }}</td>
                         <td class="attendance-signature-action-cell">
                             <div class="attendance-row-actions">
-                                <button
-                                    type="button"
+                                <a
                                     class="btn btn-secondary btn-sm"
-                                    data-edit-attendance
-                                    data-edit-action="{{ route('events.event-sessions.attendance.update', [$event, $eventSession, $row['id']]) }}"
-                                    data-attendance-id="{{ $row['id'] }}"
-                                    data-full-name="{{ $row['name'] }}"
-                                    data-email="{{ $row['email'] }}"
-                                    data-phone="{{ $row['phone'] }}"
-                                    data-position="{{ $row['position'] ?? '' }}"
-                                    data-unit="{{ $row['organisation'] }}"
+                                    href="{{ route('events.event-sessions.attendance.edit', [$event, $eventSession, $row['id'], 'search' => $search, 'status' => $statusFilter, 'page' => request()->query('page')]) }}"
                                     aria-label="Edit attendance details for {{ $row['name'] }}"
-                                >Edit</button>
+                                >Edit</a>
                             @if (!empty($row['signature']))
                                 <button
                                     type="button"

@@ -27,14 +27,13 @@
         @if($locations->count())
             <div class="table-responsive">
             <table class="table locations-table">
-                <colgroup><col style="width: 23%"><col style="width: 13%"><col style="width: 13%"><col style="width: 15%"><col style="width: 12%"><col style="width: 24%"></colgroup>
                 <thead>
                 <tr>
                     <th>Name</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>Radius</th>
-                    <th>Events</th>
+                    <th class="table-numeric">Latitude</th>
+                    <th class="table-numeric">Longitude</th>
+                    <th class="table-numeric">Radius</th>
+                    <th class="table-numeric">Events</th>
                     <th class="table-actions">Actions</th>
                 </tr>
                 </thead>
@@ -43,10 +42,10 @@
                 @foreach($locations as $location)
                     <tr>
                         <td>{{ $location->name }}</td>
-                        <td>{{ $location->latitude }}</td>
-                        <td>{{ $location->longitude }}</td>
-                        <td>{{ $location->allowed_radius }} m</td>
-                        <td>{{ $location->events()->count() }}</td>
+                        <td class="table-numeric table-cell-nowrap">{{ $location->latitude }}</td>
+                        <td class="table-numeric table-cell-nowrap">{{ $location->longitude }}</td>
+                        <td class="table-numeric table-cell-nowrap">{{ $location->allowed_radius }} m</td>
+                        <td class="table-numeric">{{ $location->events()->count() }}</td>
 
                         <td class="table-actions">
                             <a class="btn btn-secondary btn-sm" href="{{ route('locations.show', $location) }}">View</a>

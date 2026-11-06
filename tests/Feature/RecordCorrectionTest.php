@@ -7,6 +7,7 @@ use App\Models\EventSession;
 use App\Models\Registration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
@@ -82,8 +83,17 @@ it('corrects attendance details while preserving check-in history and auditing o
     $this->actingAs($organizer)
         ->get(route('events.event-sessions.show', [$event, $session]))
         ->assertOk()
-        ->assertSee('data-edit-attendance', false)
-        ->assertSee('Edit attendance details');
+        ->assertSee(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
+        ->assertDontSee('data-edit-attendance', false);
+
+    $this->actingAs($organizer)
+        ->get(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
+        ->assertOk()
+        ->assertSee('Edit Attendance')
+        ->assertSee('value="Original Attendee"', false)
+        ->assertSee('Cancel');
+
+    $returnUrl = route('events.event-sessions.show', [$event, $session, 'search' => 'Original', 'status' => 'approved', 'page' => 2]);
 
     $this->actingAs($organizer)
         ->patch(route('events.event-sessions.attendance.update', [$event, $session, $attendance]), [
@@ -95,8 +105,11 @@ it('corrects attendance details while preserving check-in history and auditing o
             'signature' => 'tampered-signature',
             'clock_in_at' => now()->toDateTimeString(),
             'session_id' => 999,
+            '_return_search' => 'Original',
+            '_return_status' => 'approved',
+            '_return_page' => '2',
         ])
-        ->assertRedirect()
+        ->assertRedirect($returnUrl)
         ->assertSessionHas('success', 'Attendance details updated.');
 
     $attendance->refresh();
@@ -179,6 +192,10 @@ it('denies attendance correction to another organizer', function () {
     $attendance = recordCorrectionAttendance($session);
 
     $this->actingAs($other)
+        ->get(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
+        ->assertForbidden();
+
+    $this->actingAs($other)
         ->patch(route('events.event-sessions.attendance.update', [$event, $session, $attendance]), [
             'full_name' => 'Unauthorized edit',
             'email' => 'unauthorized@example.test',
@@ -200,8 +217,19 @@ it('corrects pre-registration contact details without changing approval or email
     $this->actingAs($organizer)
         ->get(route('events.registrations.index', $event))
         ->assertOk()
-        ->assertSee('data-edit-registration', false)
-        ->assertSee('Edit pre-registration');
+        ->assertSee(route('events.registrations.edit', [$event, $registration]))
+        ->assertDontSee('data-edit-registration', false);
+
+    $this->actingAs($organizer)
+        ->get(route('events.registrations.edit', [$event, $registration]))
+        ->assertOk()
+        ->assertSee('Edit pre-registration')
+        ->assertSee('value="Original Registrant"', false)
+        ->assertSee('Approved')
+        ->assertSee('Cancel');
+
+    Mail::fake();
+    $returnUrl = route('events.registrations.index', [$event, 'search' => 'Original', 'status' => 'approved', 'page' => 2]);
 
     $this->actingAs($organizer)
         ->patch(route('events.registrations.details', [$event, $registration]), [
@@ -214,8 +242,11 @@ it('corrects pre-registration contact details without changing approval or email
             'event_id' => 999,
             'registered_at' => now()->toDateTimeString(),
             'decision_email_status' => 'failed',
+            '_return_search' => 'Original',
+            '_return_status' => 'approved',
+            '_return_page' => '2',
         ])
-        ->assertRedirect()
+        ->assertRedirect($returnUrl)
         ->assertSessionHas('success', 'Pre-registration details updated.');
 
     $registration->refresh();
@@ -231,6 +262,7 @@ it('corrects pre-registration contact details without changing approval or email
         ->and($registration->decision_email_status)->toBe('accepted')
         ->and($registration->decision_email_for)->toBe('approved')
         ->and($registration->decision_email_attempted_at->toDateTimeString())->toBe($emailAttemptedAt);
+    Mail::assertNothingOutgoing();
 
     $log = AuditLog::where('auditable_type', Registration::class)
         ->where('auditable_id', $registration->id)->sole();
@@ -260,11 +292,83 @@ it('rejects duplicate pre-registration email and phone details', function () {
         ->assertSessionHasErrors(['guest_email', 'guest_phone']);
 });
 
+it('returns a pre-registration validation failure to its edit page with entered values retained', function () {
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    [$event] = recordCorrectionEvent($organizer);
+    $registration = recordCorrectionRegistration($event);
+    Mail::fake();
+    $editUrl = route('events.registrations.edit', [$event, $registration, 'search' => 'Original', 'status' => 'approved', 'page' => 2]);
+
+    $this->actingAs($organizer)
+        ->get($editUrl)
+        ->assertOk()
+        ->assertSee(route('events.registrations.index', [$event, 'search' => 'Original', 'status' => 'approved', 'page' => 2]))
+        ->assertSee('Cancel');
+
+    $this->from($editUrl)
+        ->followingRedirects()
+        ->patch(route('events.registrations.details', [$event, $registration]), [
+            'guest_name' => 'Retained Name',
+            'guest_email' => 'not-an-email',
+            'guest_phone' => '60123456789',
+            '_return_search' => 'Original',
+            '_return_status' => 'approved',
+            '_return_page' => '2',
+        ])
+        ->assertOk()
+        ->assertSee('Edit pre-registration')
+        ->assertSee('value="Retained Name"', false)
+        ->assertSee('value="not-an-email"', false)
+        ->assertSee('role="alert"', false)
+        ->assertSee('class="field-error"', false);
+
+    expect($registration->fresh()->guest_name)->toBe('Original Registrant')
+        ->and($registration->fresh()->guest_email)->toBe('original-registration@example.test');
+    Mail::assertNothingOutgoing();
+});
+
+it('returns an attendance validation failure to its edit page with entered values retained', function () {
+    $organizer = User::factory()->create(['role' => 'organizer']);
+    [$event, $session] = recordCorrectionEvent($organizer);
+    $attendance = recordCorrectionAttendance($session);
+    $editUrl = route('events.event-sessions.attendance.edit', [$event, $session, $attendance, 'search' => 'Original', 'status' => 'approved', 'page' => 2]);
+
+    $this->actingAs($organizer)
+        ->get($editUrl)
+        ->assertOk()
+        ->assertSee(route('events.event-sessions.show', [$event, $session, 'search' => 'Original', 'status' => 'approved', 'page' => 2]))
+        ->assertSee('Cancel');
+
+    $this->from($editUrl)
+        ->followingRedirects()
+        ->patch(route('events.event-sessions.attendance.update', [$event, $session, $attendance]), [
+            'full_name' => 'Retained Attendance Name',
+            'email' => 'not-an-email',
+            'phone' => '60123456789',
+            '_return_search' => 'Original',
+            '_return_status' => 'approved',
+            '_return_page' => '2',
+        ])
+        ->assertOk()
+        ->assertSee('Edit Attendance')
+        ->assertSee('value="Retained Attendance Name"', false)
+        ->assertSee('value="not-an-email"', false)
+        ->assertSee('role="alert"', false)
+        ->assertSee('class="field-error"', false);
+
+    expect($attendance->fresh()->full_name)->toBe('Original Attendee')
+        ->and($attendance->fresh()->email)->toBe('original@example.test');
+});
+
 it('denies pre-registration correction to another organizer', function () {
     $owner = User::factory()->create(['role' => 'organizer']);
     $other = User::factory()->create(['role' => 'organizer']);
     [$event] = recordCorrectionEvent($owner);
     $registration = recordCorrectionRegistration($event);
+
+    $this->actingAs($other)
+        ->get(route('events.registrations.edit', [$event, $registration]))
+        ->assertForbidden();
 
     $this->actingAs($other)
         ->patch(route('events.registrations.details', [$event, $registration]), [
@@ -285,12 +389,22 @@ it('allows an admin to correct both attendance and pre-registration details', fu
     $registration = recordCorrectionRegistration($event);
 
     $this->actingAs($admin)
+        ->get(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
+        ->assertOk()
+        ->assertSee('Edit Attendance');
+
+    $this->actingAs($admin)
         ->patch(route('events.event-sessions.attendance.update', [$event, $session, $attendance]), [
             'full_name' => 'Admin Corrected Attendance',
             'email' => 'admin-attendance@example.test',
             'phone' => '60123456789',
         ])
         ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->get(route('events.registrations.edit', [$event, $registration]))
+        ->assertOk()
+        ->assertSee('Edit pre-registration');
 
     $this->actingAs($admin)
         ->patch(route('events.registrations.details', [$event, $registration]), [
@@ -310,6 +424,14 @@ it('rejects attendance and pre-registration IDs from a different parent record',
     [$otherEvent, $otherSession] = recordCorrectionEvent($organizer, 'other');
     $attendance = recordCorrectionAttendance($otherSession);
     $registration = recordCorrectionRegistration($otherEvent);
+
+    $this->actingAs($organizer)
+        ->get(route('events.event-sessions.attendance.edit', [$event, $session, $attendance]))
+        ->assertNotFound();
+
+    $this->actingAs($organizer)
+        ->get(route('events.registrations.edit', [$event, $registration]))
+        ->assertNotFound();
 
     $this->actingAs($organizer)
         ->patch(route('events.event-sessions.attendance.update', [$event, $session, $attendance]), [

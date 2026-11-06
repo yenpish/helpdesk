@@ -25,13 +25,12 @@
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle deleted-events-table">
-                        <colgroup><col style="width: 25%"><col style="width: 16%"><col style="width: 34%"><col style="width: 25%"></colgroup>
                         <thead><tr><th>Event</th><th>Deleted</th><th>Saved records</th><th class="table-actions">Actions</th></tr></thead>
                         <tbody>
                             @foreach ($events as $event)
                                 <tr>
                                     <td><strong>{{ $event->name }}</strong><div class="small text-muted">{{ $event->organizer?->name ?? 'No organizer' }}</div></td>
-                                    <td>{{ $event->deleted_at?->format('d M Y, h:i A') }}</td>
+                                    <td class="table-cell-nowrap">{{ $event->deleted_at?->format('d M Y, h:i A') }}</td>
                                     <td class="small">{{ $event->attendance_count }} check-ins · {{ $event->registrations_count }} pre-registrations · {{ $event->feedback_count }} feedback</td>
                                     <td class="table-actions">
                                         <form method="POST" action="{{ route('events.deleted.restore', $event->id) }}" class="inline-form">
@@ -63,15 +62,14 @@
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle deleted-sessions-table">
-                        <colgroup><col style="width: 22%"><col style="width: 22%"><col style="width: 18%"><col style="width: 10%"><col style="width: 28%"></colgroup>
-                        <thead><tr><th>Session</th><th>Event</th><th>Deleted</th><th>Check-ins</th><th class="table-actions">Actions</th></tr></thead>
+                        <thead><tr><th>Session</th><th>Event</th><th>Deleted</th><th class="table-numeric">Check-ins</th><th class="table-actions">Actions</th></tr></thead>
                         <tbody>
                             @foreach ($sessions as $session)
                                 <tr>
                                     <td>{{ $session->name }}</td>
                                     <td>{{ $session->event?->name ?? 'Deleted event' }}@if ($session->event?->trashed())<div class="small text-muted">Restore the event first</div>@endif</td>
-                                    <td>{{ $session->deleted_at?->format('d M Y, h:i A') }}</td>
-                                    <td>{{ $session->attendances_count }}</td>
+                                    <td class="table-cell-nowrap">{{ $session->deleted_at?->format('d M Y, h:i A') }}</td>
+                                    <td class="table-numeric">{{ $session->attendances_count }}</td>
                                     <td class="table-actions">
                                         @if (!$session->event?->trashed())
                                             <form method="POST" action="{{ route('events.deleted.sessions.restore', $session->id) }}" class="inline-form">

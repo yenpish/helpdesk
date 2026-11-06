@@ -178,6 +178,10 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         '/events/{event}/event-sessions/{event_session}/attendance/{attendance}',
         [EventSessionController::class, 'updateAttendanceDetails']
     )->middleware('permission:events.manage')->name('events.event-sessions.attendance.update');
+Route::get(
+    '/events/{event}/event-sessions/{event_session}/attendance/{attendance}/edit',
+    [EventSessionController::class, 'editAttendanceDetails']
+)->middleware('permission:events.manage')->name('events.event-sessions.attendance.edit');
 
     /*
     |--------------------------------------------------------------------------
@@ -199,6 +203,10 @@ Route::middleware(['auth', 'organizer'])->group(function () {
         '/events/{event}/registrations/{registration}/details',
         [RegistrationController::class, 'updateDetails']
     )->middleware('permission:events.manage')->name('events.registrations.details');
+Route::get('/events/{event}/registrations/{registration}/edit', [
+    RegistrationController::class,
+    'editDetails',
+])->middleware('permission:events.manage')->name('events.registrations.edit');
 });
 
 /*
@@ -223,6 +231,8 @@ Route::post('/events/{event}/publish', [
 Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
+    Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
     Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
     Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');

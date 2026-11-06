@@ -75,11 +75,14 @@
                 </p>
             @else
                 <div class="table-responsive">
-                    <table class="table table-striped align-middle">
+                    <table class="table table-striped align-middle feedback-results-table">
+                        <colgroup>
+                            <col style="width: 27%"><col style="width: 10%"><col style="width: 43%"><col style="width: 20%">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>Participant</th>
-                                <th>Rating</th>
+                                <th class="table-numeric">Rating</th>
                                 <th>Comments</th>
                                 <th>Submitted At</th>
                             </tr>
@@ -98,7 +101,7 @@
                                         </small>
                                     </td>
 
-                                    <td>
+                                    <td class="table-numeric table-cell-nowrap">
                                         {{ $item->rating }} / 5
                                     </td>
 
@@ -106,7 +109,7 @@
                                         {{ $item->comments ?: 'No comments' }}
                                     </td>
 
-                                    <td>
+                                    <td class="table-cell-nowrap">
                                         {{ $item->created_at?->format('d M Y, h:i A') }}
                                     </td>
                                 </tr>

@@ -135,41 +135,10 @@
             margin: 0 0 12px;
         }
 
-        .attendance-lookup-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-            display: grid;
-            place-items: center;
-            padding: 20px;
-            background: rgb(15 23 42 / 45%);
-        }
-
-        .attendance-lookup-modal[hidden] {
-            display: none;
-        }
-
-        .attendance-lookup-modal-content {
-            width: min(100%, 440px);
-            padding: 24px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: #fff;
-            box-shadow: 0 12px 32px rgb(15 23 42 / 18%);
-        }
-
-        .attendance-lookup-modal-content h2 {
-            margin: 0 0 10px;
-        }
-
-        .attendance-lookup-modal-content p {
-            margin: 0 0 20px;
+        .attendance-lookup-result {
+            margin: 8px 0 0;
             color: var(--muted);
-        }
-
-        .attendance-lookup-modal-actions {
-            display: flex;
-            justify-content: flex-end;
+            font-size: 13px;
         }
 
         @media (max-width: 760px) {
@@ -192,9 +161,6 @@
                 padding-bottom: 0;
             }
 
-            .attendance-lookup-modal-content {
-                padding: 20px;
-            }
         }
     </style>
     <div class="content-panel attendance-panel">
@@ -290,7 +256,7 @@
                         type="text"
                         id="full_name"
                         name="full_name"
-                        value="{{ old('full_name') }}"
+                        value="{{ old('full_name', $attendancePrefill['full_name'] ?? '') }}"
                         required
                     >
                 </div>
@@ -304,7 +270,7 @@
                         type="email"
                         id="email"
                         name="email"
-                        value="{{ old('email') }}"
+                        value="{{ old('email', $attendancePrefill['email'] ?? '') }}"
                         required
                     >
 
@@ -322,7 +288,7 @@
                         type="tel"
                         id="phone"
                         name="phone"
-                        value="{{ old('phone') }}"
+                        value="{{ old('phone', $attendancePrefill['phone'] ?? '') }}"
                         autocomplete="tel"
                         inputmode="tel"
                         required
@@ -342,7 +308,7 @@
                         type="text"
                         id="position"
                         name="position"
-                        value="{{ old('position') }}"
+                        value="{{ old('position', $attendancePrefill['position'] ?? '') }}"
                     >
                 </div>
 
@@ -355,7 +321,7 @@
                         type="text"
                         id="unit"
                         name="unit"
-                        value="{{ old('unit') }}"
+                        value="{{ old('unit', $attendancePrefill['unit'] ?? '') }}"
                     >
                 </div>
 
@@ -400,7 +366,7 @@
 
     @endif
 
-    <details class="attendance-lookup-shortcut" @if (session('pre_registration_found') || session('pre_registration_not_found') || $errors->has('lookup_email') || $errors->has('lookup_phone')) open @endif>
+    <details class="attendance-lookup-shortcut" @if (session('pre_registration_verified') || session('pre_registration_not_verified') || session('pre_registration_awaiting_approval') || session('pre_registration_not_found') || $errors->has('lookup_email') || $errors->has('lookup_phone')) open @endif>
         <summary>
             Already pre-registered?<span class="lookup-action">Check pre-registration</span>
         </summary>
@@ -435,29 +401,18 @@
                     <button type="submit" class="btn btn-secondary btn-sm">Continue</button>
                 </div>
             </form>
+
         </div>
     </details>
 
-    @if (session('pre_registration_found') || session('pre_registration_not_found'))
-        <div class="attendance-lookup-modal" id="pre-registration-result" role="presentation">
-            <section class="attendance-lookup-modal-content" role="dialog" aria-modal="true" aria-labelledby="pre-registration-result-title" aria-describedby="pre-registration-result-message" tabindex="-1">
-                @if (session('pre_registration_found'))
-                    <h2 id="pre-registration-result-title">Pre-registration found</h2>
-                    <p id="pre-registration-result-message">
-                        The matching email and phone are copied into the attendance form. Other details are not loaded.
-                    </p>
-                    <div class="attendance-lookup-modal-actions">
-                        <button type="button" class="btn btn-primary btn-sm" data-close-lookup-modal>Continue</button>
-                    </div>
-                @else
-                    <h2 id="pre-registration-result-title">Pre-registration not found</h2>
-                    <p id="pre-registration-result-message">No pre-registration matched both details for this event. You can still enter your attendance information below.</p>
-                    <div class="attendance-lookup-modal-actions">
-                        <button type="button" class="btn btn-secondary btn-sm" data-close-lookup-modal>Close</button>
-                    </div>
-                @endif
-            </section>
-        </div>
+    @if (session('pre_registration_verified'))
+        <p class="attendance-lookup-result" role="status">Your approved registration details are ready. Review them before submitting.</p>
+    @elseif (session('pre_registration_awaiting_approval'))
+        <p class="attendance-lookup-result" role="status">This registration is awaiting approval. You can still enter your attendance details manually.</p>
+    @elseif (session('pre_registration_not_verified'))
+        <p class="attendance-lookup-result" role="status">A matching registration was found. Saved details are available to the attendee or event organizer.</p>
+    @elseif (session('pre_registration_not_found'))
+        <p class="attendance-lookup-result" role="status">No matching pre-registration was found. You can still enter your details manually.</p>
     @endif
 
     <a class="back-link btn btn-secondary btn-sm" href="{{ route('attendance.pin') }}">
@@ -465,25 +420,6 @@
     </a>
 
     <script>
-        const lookupResultModal = document.getElementById('pre-registration-result');
-
-        if (lookupResultModal) {
-            const closeLookupModal = () => {
-                lookupResultModal.hidden = true;
-                document.querySelector('[data-close-lookup-modal]')?.blur();
-            };
-
-            lookupResultModal.querySelector('[data-close-lookup-modal]')
-                ?.addEventListener('click', closeLookupModal);
-
-            lookupResultModal.querySelector('.attendance-lookup-modal-content')?.focus();
-            document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape' && !lookupResultModal.hidden) {
-                    closeLookupModal();
-                }
-            });
-        }
-
         const sessionSelect = document.getElementById('session_id');
         const sessionName = document.getElementById('selected-session-name');
         const sessionTime = document.getElementById('selected-session-time');

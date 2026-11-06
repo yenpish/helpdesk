@@ -243,8 +243,8 @@
 
                         <table class="table table-hover mb-0 event-detail-sessions-table">
                             <colgroup>
-                                <col style="width: 22%"><col style="width: 18%"><col style="width: 18%">
-                                <col style="width: 20%"><col style="width: 10%"><col style="width: 12%">
+                                <col style="width: 23%"><col style="width: 16%"><col style="width: 16%">
+                                <col style="width: 19%"><col style="width: 8%"><col style="width: 18%">
                             </colgroup>
 
                             <thead>
@@ -253,7 +253,7 @@
                                 <th>Starts</th>
                                 <th>Ends</th>
                                 <th>Attendance Window</th>
-                                <th>Check-ins</th>
+                                <th class="table-numeric">Check-ins</th>
                                 <th class="table-actions">Actions</th>
                             </tr>
                             </thead>
@@ -279,7 +279,7 @@
                                         -
                                         {{ $session->attendance_closes_at?->format('h:i A') ?? '—' }}
                                     </td>
-                                    <td>{{ $session->attendances_count }}</td>
+                                    <td class="table-numeric">{{ $session->attendances_count }}</td>
 
                                     <td class="table-actions">
                                         <a

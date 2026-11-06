@@ -16,7 +16,6 @@
         $selectedTheme = old('appearance_theme', $saved['theme']);
         $selectedAccent = old('appearance_accent', $saved['accent']);
         $selectedDensity = old('appearance_density', $saved['density']);
-        $selectedSidebar = old('appearance_sidebar', $saved['sidebar']);
         $selectedGradientsValue = (string) old('appearance_gradients', $saved['gradients'] ? '1' : '0');
         $selectedGradients = in_array($selectedGradientsValue, ['0', '1'], true)
             ? $selectedGradientsValue === '1'
@@ -24,7 +23,6 @@
         $selectedTheme = is_string($selectedTheme) && array_key_exists($selectedTheme, $appearanceOptions['themes']) ? $selectedTheme : $saved['theme'];
         $selectedAccent = is_string($selectedAccent) && array_key_exists($selectedAccent, $appearanceOptions['accents']) ? $selectedAccent : $saved['accent'];
         $selectedDensity = is_string($selectedDensity) && array_key_exists($selectedDensity, $appearanceOptions['density']) ? $selectedDensity : $saved['density'];
-        $selectedSidebar = is_string($selectedSidebar) && array_key_exists($selectedSidebar, $appearanceOptions['sidebar']) ? $selectedSidebar : $saved['sidebar'];
     @endphp
 
     <div class="content-panel appearance-page">
@@ -42,6 +40,7 @@
         <form method="POST" action="{{ route('settings.appearance.update') }}" id="appearance-settings-form">
             @csrf
             @method('PUT')
+            <input type="hidden" name="appearance_sidebar" value="{{ $saved['sidebar'] }}">
 
             <section class="settings-section" aria-labelledby="appearance-heading">
                 <div class="settings-section-heading">
@@ -103,15 +102,6 @@
                         </select>
                         @error('appearance_density')<div class="field-error">{{ $message }}</div>@enderror
                     </div>
-                    <div class="settings-field">
-                        <label for="appearance-sidebar" class="settings-label">Sidebar width</label>
-                        <select id="appearance-sidebar" name="appearance_sidebar" required>
-                            @foreach($appearanceOptions['sidebar'] as $value => $label)
-                                <option value="{{ $value }}" @selected($selectedSidebar === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('appearance_sidebar')<div class="field-error">{{ $message }}</div>@enderror
-                    </div>
                 </div>
             </section>
 
@@ -136,13 +126,13 @@
             const dirtyBar = document.getElementById('appearance-dirty-bar');
             const saved = @json($saved);
             const defaults = @json($defaults);
+            const appearanceKeys = ['theme', 'accent', 'density', 'gradients'];
 
             function readForm() {
                 return {
                     theme: form.querySelector('[name="appearance_theme"]:checked').value,
                     accent: form.querySelector('[name="appearance_accent"]:checked').value,
                     density: document.getElementById('appearance-density').value,
-                    sidebar: document.getElementById('appearance-sidebar').value,
                     gradients: document.getElementById('appearance-gradients').checked,
                 };
             }
@@ -151,7 +141,6 @@
                 root.dataset.theme = values.theme;
                 root.dataset.accent = values.accent;
                 root.dataset.density = values.density;
-                root.dataset.sidebar = values.sidebar;
                 root.dataset.gradients = values.gradients ? 'on' : 'off';
             }
 
@@ -159,14 +148,13 @@
                 form.querySelector(`[name="appearance_theme"][value="${values.theme}"]`).checked = true;
                 form.querySelector(`[name="appearance_accent"][value="${values.accent}"]`).checked = true;
                 document.getElementById('appearance-density').value = values.density;
-                document.getElementById('appearance-sidebar').value = values.sidebar;
                 document.getElementById('appearance-gradients').checked = values.gradients;
             }
 
             function refresh() {
                 const current = readForm();
                 applyPreview(current);
-                dirtyBar.hidden = Object.keys(saved).every((key) => saved[key] === current[key]);
+                dirtyBar.hidden = appearanceKeys.every((key) => saved[key] === current[key]);
             }
 
             form.addEventListener('input', refresh);

@@ -297,7 +297,35 @@ class RegistrationController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Pre-registration details updated.');
+        return redirect()
+            ->route('events.registrations.index', [$event] + $this->registrationReturnParameters($request))
+            ->with('success', 'Pre-registration details updated.');
+    }
+
+    public function editDetails(Request $request, Event $event, Registration $registration): View
+    {
+        $this->authorizeRegistrationEvent($event);
+        abort_unless((int) $registration->event_id === (int) $event->id, 404);
+
+        $returnParameters = $this->registrationReturnParameters($request);
+
+        return view('registrations.edit', compact('event', 'registration', 'returnParameters'));
+    }
+
+    private function registrationReturnParameters(Request $request): array
+    {
+        $search = $request->input('_return_search', $request->query('search', ''));
+        $search = is_string($search) ? trim(substr($search, 0, 100)) : '';
+        $status = $request->input('_return_status', $request->query('status', ''));
+        $allowedStatuses = ['pending', 'approved', 'rejected', 'cancelled'];
+        $status = is_string($status) && in_array($status, $allowedStatuses, true) ? $status : '';
+        $page = filter_var($request->input('_return_page', $request->query('page')), FILTER_VALIDATE_INT);
+
+        return array_filter([
+            'search' => $search !== '' ? $search : null,
+            'status' => $status !== '' ? $status : null,
+            'page' => $page !== false && $page > 1 ? $page : null,
+        ], fn ($value) => $value !== null);
     }
 
     private function authorizeRegistrationEvent(Event $event): void
