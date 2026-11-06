@@ -11,6 +11,7 @@ use App\Models\Feedback;
 use App\Models\FeedbackInvitation;
 use App\Models\Registration;
 use App\Support\SessionScheduleConflictChecker;
+use App\Support\EncryptedRouteIdentifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -69,9 +70,11 @@ class DeletedItemsController extends Controller
         return view('events.deleted', compact('events', 'sessions'));
     }
 
-    public function restoreEvent(int $eventId): RedirectResponse
+    public function restoreEvent(string $eventId): RedirectResponse
     {
-        $event = Event::withTrashed()->findOrFail($eventId);
+        $id = EncryptedRouteIdentifier::decode($eventId, Event::class);
+        abort_if($id === null, 404);
+        $event = Event::withTrashed()->findOrFail($id);
         $this->authorizeEvent($event);
         abort_unless($event->trashed(), 404);
 
@@ -133,9 +136,11 @@ class DeletedItemsController extends Controller
         return back()->with('success', 'Event restored. Its active sessions are available again.');
     }
 
-    public function permanentlyDeleteEvent(int $eventId): RedirectResponse
+    public function permanentlyDeleteEvent(string $eventId): RedirectResponse
     {
-        $event = Event::withTrashed()->findOrFail($eventId);
+        $id = EncryptedRouteIdentifier::decode($eventId, Event::class);
+        abort_if($id === null, 404);
+        $event = Event::withTrashed()->findOrFail($id);
         $this->authorizeEvent($event);
         abort_unless($event->trashed(), 404);
 
@@ -175,9 +180,11 @@ class DeletedItemsController extends Controller
         return back()->with('success', 'Event permanently deleted. Its audit history remains available.');
     }
 
-    public function restoreSession(int $sessionId): RedirectResponse
+    public function restoreSession(string $sessionId): RedirectResponse
     {
-        $session = EventSession::withTrashed()->with(['event' => fn ($query) => $query->withTrashed()])->findOrFail($sessionId);
+        $id = EncryptedRouteIdentifier::decode($sessionId, EventSession::class);
+        abort_if($id === null, 404);
+        $session = EventSession::withTrashed()->with(['event' => fn ($query) => $query->withTrashed()])->findOrFail($id);
         $event = $session->event;
         abort_if($event === null, 404);
         $this->authorizeEvent($event);
@@ -265,9 +272,11 @@ class DeletedItemsController extends Controller
         return null;
     }
 
-    public function permanentlyDeleteSession(int $sessionId): RedirectResponse
+    public function permanentlyDeleteSession(string $sessionId): RedirectResponse
     {
-        $session = EventSession::withTrashed()->with(['event' => fn ($query) => $query->withTrashed()])->findOrFail($sessionId);
+        $id = EncryptedRouteIdentifier::decode($sessionId, EventSession::class);
+        abort_if($id === null, 404);
+        $session = EventSession::withTrashed()->with(['event' => fn ($query) => $query->withTrashed()])->findOrFail($id);
         $event = $session->event;
         abort_if($event === null, 404);
         $this->authorizeEvent($event);

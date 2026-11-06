@@ -10,13 +10,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Concerns\HasEncryptedRouteKey;
 
 #[Fillable(['name', 'email', 'password', 'role', 'appearance_theme', 'appearance_accent', 'appearance_density', 'appearance_sidebar', 'appearance_gradients'])]
 #[Hidden(['password', 'remember_token', 'internal_remark'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasEncryptedRouteKey, HasFactory, Notifiable;
 
     protected function casts(): array
     {

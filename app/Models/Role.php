@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\HasEncryptedRouteKey;
 
 class Role extends Model
 {
+    use HasEncryptedRouteKey;
+
     protected $fillable = ['slug', 'name', 'permissions', 'is_system'];
 
     protected function casts(): array

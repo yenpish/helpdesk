@@ -13,7 +13,16 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PublicAttendanceController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RoleController;
+use App\Support\EncryptedRouteIdentifier;
+use Laravel\Passkeys\Passkey;
 use Illuminate\Support\Facades\Route;
+
+Route::bind('passkey', function (string $value): Passkey {
+    $id = EncryptedRouteIdentifier::decode($value, Passkey::class);
+    abort_if($id === null, 404);
+
+    return Passkey::query()->findOrFail($id);
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -158,13 +167,13 @@ Route::middleware(['auth', 'organizer'])->group(function () {
     Route::get('/events/deleted', [DeletedItemsController::class, 'index'])
         ->name('events.deleted');
     Route::post('/events/deleted/{eventId}/restore', [DeletedItemsController::class, 'restoreEvent'])
-        ->whereNumber('eventId')->name('events.deleted.restore');
+        ->name('events.deleted.restore');
     Route::delete('/events/deleted/{eventId}/permanent', [DeletedItemsController::class, 'permanentlyDeleteEvent'])
-        ->whereNumber('eventId')->name('events.deleted.permanent');
+        ->name('events.deleted.permanent');
     Route::post('/events/deleted/sessions/{sessionId}/restore', [DeletedItemsController::class, 'restoreSession'])
-        ->whereNumber('sessionId')->name('events.deleted.sessions.restore');
+        ->name('events.deleted.sessions.restore');
     Route::delete('/events/deleted/sessions/{sessionId}/permanent', [DeletedItemsController::class, 'permanentlyDeleteSession'])
-        ->whereNumber('sessionId')->name('events.deleted.sessions.permanent');
+        ->name('events.deleted.sessions.permanent');
 
     Route::resource('events', EventController::class)
         ->middleware('permission:events.manage');

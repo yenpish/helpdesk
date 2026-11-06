@@ -33,12 +33,12 @@
                                     <td class="table-cell-nowrap">{{ $event->deleted_at?->format('d M Y, h:i A') }}</td>
                                     <td class="small">{{ $event->attendance_count }} check-ins · {{ $event->registrations_count }} pre-registrations · {{ $event->feedback_count }} feedback</td>
                                     <td class="table-actions">
-                                        <form method="POST" action="{{ route('events.deleted.restore', $event->id) }}" class="inline-form">
+                                        <form method="POST" action="{{ route('events.deleted.restore', $event) }}" class="inline-form">
                                             @csrf
                                             <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
                                         </form>
                                         @if ($event->can_permanently_delete)
-                                            <form method="POST" action="{{ route('events.deleted.permanent', $event->id) }}" class="inline-form" onsubmit="return confirm('Permanently delete event ' + @js($event->name) + '? This cannot be undone.');">
+                                            <form method="POST" action="{{ route('events.deleted.permanent', $event) }}" class="inline-form" onsubmit="return confirm('Permanently delete event ' + @js($event->name) + '? This cannot be undone.');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger btn-sm" type="submit">Delete permanently</button>
@@ -72,12 +72,12 @@
                                     <td class="table-numeric">{{ $session->attendances_count }}</td>
                                     <td class="table-actions">
                                         @if (!$session->event?->trashed())
-                                            <form method="POST" action="{{ route('events.deleted.sessions.restore', $session->id) }}" class="inline-form">
+                                            <form method="POST" action="{{ route('events.deleted.sessions.restore', $session) }}" class="inline-form">
                                                 @csrf
                                                 <button class="btn btn-secondary btn-sm" type="submit">Restore</button>
                                             </form>
                                             @if ($session->can_permanently_delete)
-                                                <form method="POST" action="{{ route('events.deleted.sessions.permanent', $session->id) }}" class="inline-form" onsubmit="return confirm('Permanently delete session ' + @js($session->name) + '? This cannot be undone.');">
+                                                <form method="POST" action="{{ route('events.deleted.sessions.permanent', $session) }}" class="inline-form" onsubmit="return confirm('Permanently delete session ' + @js($session->name) + '? This cannot be undone.');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button class="btn btn-danger btn-sm" type="submit">Delete permanently</button>

@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use App\Models\Concerns\HasEncryptedRouteKey;
 
 class Event extends Model
 {
-    use SoftDeletes;
+    use HasEncryptedRouteKey, SoftDeletes;
 
     protected $fillable = [
         'name',

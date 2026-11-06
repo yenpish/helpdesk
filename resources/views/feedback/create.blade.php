@@ -32,7 +32,7 @@
 
             <form method="POST"
                   action="{{ route('feedback.invitation.store', [
-                  'event' => $event->id,
+                  'event' => $event,
                   'token' => $token,
               ]) }}">
                 @csrf

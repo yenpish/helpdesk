@@ -64,7 +64,7 @@ it('keeps an archived session and its check-ins when a replacement occupies its 
     $replacement = $event->sessions()->firstOrFail();
 
     $this->from(route('events.deleted'))
-        ->post(route('events.deleted.sessions.restore', $archived->id))
+        ->post(route('events.deleted.sessions.restore', $archived))
         ->assertRedirect(route('events.deleted'))
         ->assertSessionHasErrors('restore_session');
 
@@ -91,7 +91,7 @@ it('blocks restoring a session that conflicts with another event at the same loc
 
     $this->actingAs($owner)
         ->from(route('events.deleted'))
-        ->post(route('events.deleted.sessions.restore', $archived->id))
+        ->post(route('events.deleted.sessions.restore', $archived))
         ->assertRedirect(route('events.deleted'))
         ->assertSessionHasErrors('restore_session');
 
@@ -106,7 +106,7 @@ it('keeps a session archived when its schedule no longer fits the parent event',
 
     $this->actingAs($owner)
         ->from(route('events.deleted'))
-        ->post(route('events.deleted.sessions.restore', $archived->id))
+        ->post(route('events.deleted.sessions.restore', $archived))
         ->assertRedirect(route('events.deleted'))
         ->assertSessionHasErrors('restore_session');
 
@@ -130,7 +130,7 @@ it('blocks restoring an archived event when its sessions now conflict at the sam
 
     $this->actingAs($owner)
         ->from(route('events.deleted'))
-        ->post(route('events.deleted.restore', $archivedEvent->id))
+        ->post(route('events.deleted.restore', $archivedEvent))
         ->assertRedirect(route('events.deleted'))
         ->assertSessionHasErrors('restore_event');
 
@@ -144,7 +144,7 @@ it('denies a different organizer direct access to restore an archived session', 
     $this->actingAs($owner)->delete(route('events.event-sessions.destroy', [$event, $session]));
 
     $this->actingAs($other)
-        ->post(route('events.deleted.sessions.restore', $session->id))
+        ->post(route('events.deleted.sessions.restore', $session))
         ->assertForbidden();
 
     expect($session->fresh()->trashed())->toBeTrue();

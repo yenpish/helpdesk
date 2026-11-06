@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Concerns\HasEncryptedRouteKey;
 
 class Attendance extends Model
 {
+    use HasEncryptedRouteKey;
+
     protected $fillable = [
         'user_id',
         'full_name',

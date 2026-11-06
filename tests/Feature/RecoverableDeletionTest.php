@@ -107,12 +107,12 @@ it('archives populated events and restores their data and normal visibility', fu
         ->assertSee('1 check-ins')
         ->assertSee('1 pre-registrations');
     $this->actingAs($admin)
-        ->delete(route('events.deleted.permanent', $event->id))
+        ->delete(route('events.deleted.permanent', $event))
         ->assertRedirect()
         ->assertSessionHasErrors('permanent_delete');
 
     $this->actingAs($admin)
-        ->post(route('events.deleted.restore', $event->id))
+        ->post(route('events.deleted.restore', $event))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -135,7 +135,7 @@ it('limits deleted items to their event owner and denies direct cross-owner rest
         ->assertOk()
         ->assertDontSee($event->name);
     $this->actingAs($otherOrganizer)
-        ->post(route('events.deleted.restore', $event->id))
+        ->post(route('events.deleted.restore', $event))
         ->assertForbidden();
     expect(Event::withTrashed()->find($event->id)->trashed())->toBeTrue();
 });
@@ -174,7 +174,7 @@ it('archives sessions with check-ins, removes them from active exports and resto
         ->assertSee('Check-in history kept');
 
     $this->actingAs($admin)
-        ->post(route('events.deleted.sessions.restore', $session->id))
+        ->post(route('events.deleted.sessions.restore', $session))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -245,7 +245,7 @@ it('allows permanent deletion only when business history is absent and retains a
 
     $this->actingAs($admin)->delete(route('events.destroy', $event))->assertRedirect();
     $this->actingAs($admin)
-        ->delete(route('events.deleted.permanent', $event->id))
+        ->delete(route('events.deleted.permanent', $event))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -260,7 +260,7 @@ it('allows permanent deletion only when business history is absent and retains a
     ]);
     $this->actingAs($admin)->delete(route('events.destroy', $populatedEvent))->assertRedirect();
     $this->actingAs($admin)
-        ->delete(route('events.deleted.permanent', $populatedEvent->id))
+        ->delete(route('events.deleted.permanent', $populatedEvent))
         ->assertRedirect()
         ->assertSessionHasErrors('permanent_delete');
     expect(Event::withTrashed()->find($populatedEvent->id))->not->toBeNull();
@@ -279,7 +279,7 @@ it('protects the last session while registrations exist but allows safe session 
     $this->actingAs($admin)->delete(route('events.event-sessions.destroy', [$event, $session]));
 
     $this->actingAs($admin)
-        ->delete(route('events.deleted.sessions.permanent', $session->id))
+        ->delete(route('events.deleted.sessions.permanent', $session))
         ->assertRedirect()
         ->assertSessionHasErrors('permanent_delete');
     expect(EventSession::withTrashed()->find($session->id))->not->toBeNull();
@@ -287,7 +287,7 @@ it('protects the last session while registrations exist but allows safe session 
     [$emptyEvent, $emptySession] = makeRecoverableEvent($admin, 'Empty session event');
     $this->actingAs($admin)->delete(route('events.event-sessions.destroy', [$emptyEvent, $emptySession]));
     $this->actingAs($admin)
-        ->delete(route('events.deleted.sessions.permanent', $emptySession->id))
+        ->delete(route('events.deleted.sessions.permanent', $emptySession))
         ->assertRedirect()
         ->assertSessionHas('success');
     expect(EventSession::withTrashed()->find($emptySession->id))->toBeNull()

@@ -146,6 +146,7 @@ class EventSessionController extends Controller
 
                 return [
                     'id' => $attendance->id,
+                    'route_key' => $attendance->getRouteKey(),
                     'name' => $attendance->full_name,
                     'email' => $attendance->email,
                     'phone' => $attendance->phone,

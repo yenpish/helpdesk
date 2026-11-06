@@ -34,7 +34,7 @@
                             <div class="attendance-row-actions">
                                 <a
                                     class="btn btn-secondary btn-sm"
-                                    href="{{ route('events.event-sessions.attendance.edit', [$event, $eventSession, $row['id'], 'search' => $search, 'status' => $statusFilter, 'page' => request()->query('page')]) }}"
+                                    href="{{ route('events.event-sessions.attendance.edit', [$event, $eventSession, $row['route_key'], 'search' => $search, 'status' => $statusFilter, 'page' => request()->query('page')]) }}"
                                     aria-label="Edit attendance details for {{ $row['name'] }}"
                                 >Edit</a>
                             @if (!empty($row['signature']))

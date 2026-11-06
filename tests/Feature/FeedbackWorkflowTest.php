@@ -255,12 +255,16 @@ it('displays a valid invitation form without editable identity fields', function
     makeFeedbackTestInvitation($event, $attendance, $token);
 
     $this->get(route('feedback.invitation.show', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]))
         ->assertOk()
         ->assertViewIs('feedback.create')
         ->assertSee('Recorded Participant')
+        ->assertSee('action="'.route('feedback.invitation.store', [
+            'event' => $event,
+            'token' => $token,
+        ]).'"', false)
         ->assertDontSee('name="participant_name"', false)
         ->assertDontSee('name="participant_email"', false);
 });
@@ -286,12 +290,12 @@ it('rejects invalid and expired invitation links', function () {
     ]);
 
     $this->get(route('feedback.invitation.show', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]))->assertNotFound();
 
     $this->get(route('feedback.invitation.show', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => 'invalid-token',
     ]))->assertNotFound();
 });
@@ -314,7 +318,7 @@ it('submits feedback using the invitation identity and consumes the token', func
     );
 
     $this->post(route('feedback.invitation.store', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]), [
         'rating' => 5,
@@ -334,12 +338,12 @@ it('submits feedback using the invitation identity and consumes the token', func
         ->and($invitation->fresh()->used_at)->not->toBeNull();
 
     $this->get(route('feedback.invitation.show', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]))->assertNotFound();
 
     $this->post(route('feedback.invitation.store', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]), [
         'rating' => 4,
@@ -365,11 +369,11 @@ it('rejects invalid feedback without consuming the invitation', function () {
     );
 
     $this->from(route('feedback.invitation.show', [
-        'event' => $event->id,
+        'event' => $event,
         'token' => $token,
     ]))
         ->post(route('feedback.invitation.store', [
-            'event' => $event->id,
+            'event' => $event,
             'token' => $token,
         ]), [
             'rating' => 6,
